@@ -13,3 +13,10 @@ git submodule update --init --recursive
 
 
 - Credits
+
+- BOM
+
+vibration motor https://jlcpcb.com/partdetail/KOTL-Z3OC1T8219731/C2894731
+processor https://jlcpcb.com/partdetail/RaspberryPi-RP2350B/C42415655
+
+
