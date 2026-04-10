@@ -1,3 +1,19 @@
+//charliplexes leds using PIO (alternates between driving high/low and floating pins)
+//PIO can drive a max of 8*7 leds using 8 IO pins with 16-pin depth
+//PIO has 16-bit control.  At maximum capability, this would be 40 FPS
+//To reach 60 FPS, this application is tuned to 24 red-green LEDs (48 elements)
+//and the brightness is scaled down 20% (only using 14 bits)
+//for simplicity, the API allows setting an 8-bit brightness per LED.
+//this brightness is squared (to align with the log-scale sensitivty of the human eye)
+//and scaled to 80% of the result value
+//a silent final 24-bit delay state is used at the pio dma to allow the apparent brightness
+//of the display to remain cosntant independnet of the brightness of individual LED elements
+//uses 2 DMAs.  One to load the PIO state machine with pin high/low, pin input(float)/output, and delay
+//the other DMA is used to reload (loop) the first.  Alternatives considered were a single DMA
+//which requires a multiple-of-2 memory size and must immediately change DMA addresses on an upate
+//(which results in a glitch everytime the memory is changed).  An IRQ can be used for looping, but trying
+//to avoid using interrupts unless absolutely necessary because it's a more limited resource and slightly less deterministic
+
 #include <hardware/pio.h>
 #include <hardware/dma.h>
 #include "charlie.pio.h"
@@ -60,7 +76,7 @@ void setup() {
 void loop() {
     if(true)
     {
-        uint32_t total_darkness = 255 * 255 * (sequence_C_len-1);
+        uint32_t total_darkness = 255 * 255 * (sequence_C_len-1)*4/5; //80% to target 60 FPS with 24*2 LEDs
         uint8_t index = 0;
         
         // Use a different index than the one currently being displayed by DMA
@@ -73,10 +89,11 @@ void loop() {
                 uint8_t dir = (1<<row) | (1<<col);
                 uint8_t value = (1<<row);
 
-                uint16_t brightness = (millis()/4)+row*16+col*16; 
+                uint16_t brightness = (millis()/8)+row*32+col*32; 
                 if(brightness & 0x0100) brightness=255-(uint8_t)brightness;
                 brightness=0x00FF & brightness;
                 brightness=brightness*brightness;
+                brightness=((uint32_t)brightness)*4/5;
 
                 sequence_C[write_index][index] = (brightness << 16) | (dir << 8) | value; 
                 index++;
@@ -93,7 +110,7 @@ void loop() {
         current_list_ptr = sequence_C[write_index];
 
         sequence_C_index = write_index;
-        //delay(16); 
+        delay(16); 
         digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
     }
 }

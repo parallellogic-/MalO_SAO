@@ -1,0 +1,26 @@
+.program logic_analyzer
+    ; X = previous pin state
+    ; Y = counter (decrements)
+    
+    mov x, pins             ; Initial read of 16 pins
+.wrap_target
+    mov y, ~null            ; Reset Y counter to 0xFFFF (max)
+loop:
+    mov osr, pins           ; Read current pins to OSR
+    mov isr, osr            ; Copy to ISR for comparison
+    jmp x!=y comparison     ; If current (Y-counter placeholder) != previous (X)
+    
+    jmp y-- loop            ; No change: decrement counter and keep looking
+    push noblock            ; Counter overflowed (rare), push state and 0
+    mov isr, x
+    push noblock
+    jmp .wrap_target
+
+comparison:
+    mov x, osr              ; Update previous state (X) with new state
+    mov isr, x              ; Prepare to push new pin state
+    push noblock            ; Push 16-bit pin state
+    mov isr, ~y             ; Push inverted counter (counts up from 0)
+    push noblock
+.wrap                       ; Immediately jump to wrap_target to reset Y and resume
+
