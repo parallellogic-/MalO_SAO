@@ -1,0 +1,37 @@
+.program charlie_dma
+.wrap_target
+    pull block          ; Pull one 32-bit word from DMA/FIFO
+    
+    ; Shift out 8 bits for directions (0-7)
+    out pindirs, 8      
+    
+    ; Shift out 8 bits for pin values (8-15)
+    out pins, 8         
+    
+    ; Shift the remaining 16 bits into the X register for duration (16-31)
+    out x, 16           
+
+lp:
+    jmp x-- lp          ; Loop until duration in X hits 0
+.wrap
+
+% c-sdk {
+static inline void charlie_dma_program_init(PIO pio, uint sm, uint offset, uint first_pin, uint pin_count) {
+    pio_sm_config c = charlie_dma_program_get_default_config(offset);
+
+    // Set 'out' pins to start at first_pin for pin_count number of pins
+    sm_config_set_out_pins(&c, first_pin, pin_count);
+    
+    // Set 'pindirs' to affect the same pins
+    // Note: pio_sm_set_pindirs is usually handled via the out instruction
+    
+    // Connect GPIOs to the PIO block
+    for(int i=0; i<pin_count; i++) {
+        pio_gpio_init(pio, first_pin + i);
+    }
+
+    // Load configuration and start
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_set_enabled(pio, sm, true);
+}
+%}

@@ -1,0 +1,47 @@
+.pio_version 1          ; Tell the assembler to use the RP2350 features
+.program charlie_dma
+.wrap_target
+    pull block          ; Get 32-bit word from DMA
+    
+    out y, 8            ; 1. Shift first 8 bits into Scratch Y
+    mov pins, y         ; 2. Use Y to set the actual pin states
+    
+    jmp !y long_wait    ; 3. If Y is 0, jump to the 24-bit wait logic
+    
+    ; --- Normal Path (Pins != 0) ---
+    out pindirs, 8      ; Use next 8 bits for directions
+    out x, 16           ; Use remaining 16 bits for duration
+    jmp run_delay
+
+long_wait:
+    ; --- Long Wait Path (Pins == 0) ---
+    mov pindirs, null   ; Ensure all pins are inputs (High-Z)
+    mov x, osr          ; Load the remaining 24 bits from OSR into X
+    ; (Note: 'out y, 8' already consumed 8 bits, leaving 24 in the OSR)
+
+run_delay:
+lp:
+    jmp x-- lp          ; Loop until duration in X hits 0
+    set pindirs, 0      ; Final safety: set all pins to inputs before next pull
+.wrap
+
+% c-sdk {
+static inline void charlie_dma_program_init(PIO pio, uint sm, uint offset, uint first_pin, uint pin_count) {
+    pio_sm_config c = charlie_dma_program_get_default_config(offset);
+
+    sm_config_set_out_pins(&c, first_pin, pin_count);
+    sm_config_set_set_pins(&c, first_pin, pin_count);
+    
+    // Ensure we are shifting RIGHT and autopull is OFF (we use 'pull block')
+    sm_config_set_out_shift(&c, true, false, 32);
+
+    for(int i=0; i<pin_count; i++) {
+        uint pin = first_pin + i;
+        pio_gpio_init(pio, pin);
+        gpio_set_drive_strength(pin, GPIO_DRIVE_STRENGTH_2MA);
+    }
+..
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_set_enabled(pio, sm, true);
+}
+%}
