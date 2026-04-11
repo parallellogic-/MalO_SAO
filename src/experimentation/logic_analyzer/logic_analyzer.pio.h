@@ -13,7 +13,7 @@
 // -------------- //
 
 #define logic_analyzer_wrap_target 1
-#define logic_analyzer_wrap 14
+#define logic_analyzer_wrap 15
 #define logic_analyzer_pio_version 0
 
 static const uint16_t logic_analyzer_program_instructions[] = {
@@ -21,25 +21,26 @@ static const uint16_t logic_analyzer_program_instructions[] = {
             //     .wrap_target
     0xa0eb, //  1: mov    osr, ~null
     0x60d5, //  2: out    isr, 21
-    0x606b, //  3: out    null, 11
-    0xa040, //  4: mov    y, pins
-    0x00ac, //  5: jmp    x != y, 12
-    0xa046, //  6: mov    y, isr
-    0x008a, //  7: jmp    y--, 10
-    0xa041, //  8: mov    y, x
-    0x000c, //  9: jmp    12
-    0xa0c2, // 10: mov    isr, y
-    0x0004, // 11: jmp    4
+    0xa040, //  3: mov    y, pins
+    0x00ab, //  4: jmp    x != y, 11
+    0xa046, //  5: mov    y, isr
+    0x0089, //  6: jmp    y--, 9
+    0xa041, //  7: mov    y, x
+    0x000b, //  8: jmp    11
+    0xa0c2, //  9: mov    isr, y
+    0x0003, // 10: jmp    3
+    0xa0e6, // 11: mov    osr, isr
     0x404b, // 12: in     y, 11
-    0x8000, // 13: push   noblock
-    0xa022, // 14: mov    x, y
+    0x40f5, // 13: in     osr, 21
+    0x8000, // 14: push   noblock
+    0xa022, // 15: mov    x, y
             //     .wrap
 };
 
 #if !PICO_NO_HARDWARE
 static const struct pio_program logic_analyzer_program = {
     .instructions = logic_analyzer_program_instructions,
-    .length = 15,
+    .length = 16,
     .origin = -1,
     .pio_version = logic_analyzer_pio_version,
 #if PICO_PIO_VERSION > 0

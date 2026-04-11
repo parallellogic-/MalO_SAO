@@ -6,7 +6,7 @@
 entry:
     mov osr, !null    ; OSR = 0xFFFFFFFF
     out isr, 21       ; Shift 21 ones into ISR (ISR = 0x001FFFFF)
-    out null, 11      ; Clean up the remaining 11 bits in OSR
+    ;out null, 11      ; Clean up the remaining 11 bits in OSR
 
 check_loop:
     mov y, pins             ; 1. Read pins into Y
@@ -25,9 +25,9 @@ update_isr:
 
 trigger:
     ; Pack: Y = State, ISR = Counter
-    ;mov osr, isr            ; Park counter in OSR
+    mov osr, isr            ; Park counter in OSR
     in y, 11                ; Stitch State
-    ;in osr, 21              ; Stitch Counter
+    in osr, 21              ; Stitch Counter
     push noblock            
     mov x, y                ; New state becomes the old state
 .wrap
