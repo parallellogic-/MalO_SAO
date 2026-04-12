@@ -13,18 +13,25 @@
 //ws2812 is 800khz (high and low state).  at 60 fps, that's 26k states per frame.  however, only have 48 red-green LEDs - assume rgb packing at 8-bit depth is 1153 states plus 50 us idle at end
 //cap touch, placeholder of 4 kHz to get 99.99% settled after 0.23ms with 1Ohm and touching.  66 measurements (4khz/60fps) on 11 pins ~=700 states per frame
 //--> use 4k state buffer to accomodate the various applications
+//WARNING: the cap touch relies on 1 MOhm to be the predominant source to VCC or GND for a pin.  However in hardware revision A2 and earlier, erratta note E9 applies https://pip-assets.raspberrypi.com/categories/1214-rp2350/documents/RP-008373-DS-2-rp2350-datasheet.pdf?disposition=inline#page=1368
+//which leaks 100s of uA when the input pin is around 2V, swamping out the cap touch signal (counter-acting the 1 MOhm pull) and making the pin unresponsive to pull resistors below ~8kOhm
+//for this reason, this logic is only applicable to processor revisions A3 and later (refer to last number in part number or in CHIP_ID register)
 
 #include "hardware/pio.h"
 #include "hardware/dma.h"
 #include "hardware/pwm.h"
 #include "hardware/clocks.h"
 #include "logic_analyzer.pio.h"
+#include "hardware/regs/sysinfo.h"
+#include "hardware/regs/addressmap.h"
+#include <stdio.h>
+#include "pico/stdlib.h"
 
 uint8_t FIRST_PIN=2;
 uint8_t PIN_COUNT=11;//max as implemented in PIO is 11 (1 PWM, 10 cap touch) to allow maximal number of bits for time counter
 
 // RP2350 DMA Ring alignment must match buffer size in bytes (1024 * 4 = 4096)
-//0x3ff is max last_read_idx value
+//0x0fff is max last_read_idx value
 #define RING_BUFFER_SIZE 4096//1024
 uint32_t capture_buffer[RING_BUFFER_SIZE] __attribute__((aligned(16384)));//4096)));
 
@@ -52,6 +59,24 @@ void setup() {
     uint32_t start_ms = millis();
     while(!Serial && millis() - start_ms < 5000); 
 
+    if(true)
+    {
+      // Correct way to read the chip ID on Pico 2 (RP2350)
+      uint32_t chip_id = *((io_ro_32*)(SYSINFO_BASE + SYSINFO_CHIP_ID_OFFSET));
+
+      
+      Serial.printf("Chip ID: 0x%08x\n", chip_id);//MSNibble is hardware revision ID, needs to be >=3 for cap touch to function
+      
+      // To specifically check for RP2350 (usually 0x2350xxxx)
+      if ((chip_id & 0xFFFF0000) == 0x23500000) {
+          Serial.printf("Detected RP2350!\n");
+      }
+
+      while (true) {
+          sleep_ms(1000);
+      }
+    }
+
     // 1. PWM Heartbeat on LED (10Hz)
     //setup_pwm(LED_BUILTIN, 10.0f); 
     pinMode(LED_BUILTIN,OUTPUT); digitalWrite(LED_BUILTIN,1);
@@ -72,12 +97,19 @@ void setup() {
     uint offset = pio_add_program(pio0, &logic_analyzer_program);
     uint sm = 0;
 
+
     // Enable input buffers so PIO can "see" the PWM signals
     for (int i = FIRST_PIN; i < FIRST_PIN+PIN_COUNT; i++) {
-        pinMode(i,OUTPUT);
-        digitalWrite(i,0);
+        //pinMode(i,OUTPUT);
+        //digitalWrite(i,0);
+        gpio_disable_pulls(i);
+        pio_gpio_init(pio0, i);
         gpio_set_input_enabled(i, true);
+        gpio_disable_pulls(i);
     }
+
+    pinMode(FIRST_PIN,OUTPUT);
+    digitalWrite(FIRST_PIN,0);//only first pin is drive PWM
 
     pio_sm_config c = logic_analyzer_program_get_default_config(offset);
     sm_config_set_in_pins(&c, FIRST_PIN); //start at gpio 10
@@ -107,37 +139,37 @@ void setup() {
       analogWriteFreq(1000); 
       // Optional: Set resolution to 10-bit (0-1023) for finer control
       analogWriteRange(1000);//23); 
-      pinMode(10, OUTPUT);
+      pinMode(FIRST_PIN, OUTPUT);
       // 512 is 50% duty cycle when range is 1023
-      analogWrite(10, 500);//512); 
+      analogWrite(FIRST_PIN, 500);//512); 
     }
     if(true){//4khz
         // 1. Initialize the GPIO for PWM function
-        gpio_set_function(10, GPIO_FUNC_PWM);
+        gpio_set_function(FIRST_PIN, GPIO_FUNC_PWM);
 
         // 2. Identify which PWM slice is connected to this pin
-        uint slice_num = pwm_gpio_to_slice_num(10);
+        uint slice_num = pwm_gpio_to_slice_num(FIRST_PIN);
 
         // 3. Set the clock divider to 1.0 (No division)
         // This ensures the PWM counter increments exactly once per sys_clk cycle.
 
-        if(true)
+        if(false)
         {
-          pwm_set_clkdiv(slice_num, 100.0f);
+          pwm_set_clkdiv(slice_num, 200.0f);
           // 4. Set the Wrap Value (TOP)
           // The frequency will be sys_clk / (WRAP + 1).
           // For a divisor of 24,000, set wrap to 23,999.
-          pwm_set_wrap(slice_num, 37499);//150mhz / 37.5k = 4khz
+          pwm_set_wrap(slice_num, 37499);//150mhz / 37.5k = 4khz, if clock div=1.0
 
           // 5. Set the Duty Cycle to exactly 50%
           // Level should be half of (WRAP + 1)
-          pwm_set_gpio_level(10, 37500/2);
+          pwm_set_gpio_level(FIRST_PIN, 37500/2);
         }
         if(false)
         {
           pwm_set_clkdiv(slice_num, 1.0f);
           pwm_set_wrap(slice_num, 999);//150mhz / 1k = 150khz
-          pwm_set_gpio_level(10, 1000/2);
+          pwm_set_gpio_level(FIRST_PIN, 1000/2);
         }
 
         // 6. Start the PWM slice
@@ -149,9 +181,9 @@ void loop() {
     // 1. CONSTANTLY toggle pins so the PIO has something to see
     // This must be OUTSIDE the while(last_read_idx != current_idx) loop
     bool fast_toggle = (millis() / 80) % 2;
-    bool slow_toggle = (millis() / 500) % 2;
+    bool slow_toggle = (millis() / 2000) % 2;
     
-    //digitalWrite(10, fast_toggle); // 1Hz Pilot
+    digitalWrite(FIRST_PIN, slow_toggle); // 1Hz Pilot
     //digitalWrite(11, slow_toggle); // 50Hz Test
     //digitalWrite(12, slow_toggle);
     digitalWrite(LED_BUILTIN, slow_toggle);
