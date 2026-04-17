@@ -27,8 +27,9 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 
-uint8_t FIRST_PIN=2;
-uint8_t PIN_COUNT=11;//max as implemented in PIO is 11 (1 PWM, 10 cap touch) to allow maximal number of bits for time counter
+uint8_t FIRST_PIN_CAPTOUCH=26;
+uint8_t PIN_COUNT_CAPTOUCH=2;//11;//max as implemented in PIO is 11 (1 PWM, 10 cap touch) to allow maximal number of bits for time counter
+int INDICATOR_LED=37;
 
 // RP2350 DMA Ring alignment must match buffer size in bytes (1024 * 4 = 4096)
 //0x0fff is max last_read_idx value
@@ -39,7 +40,7 @@ int dma_chan;
 uint32_t last_read_idx = 0;
 bool last_gpio10_state = false;
 
-void setup_pwm(uint gpio, float freq_hz) {
+/*void setup_pwm(uint gpio, float freq_hz) {
     gpio_set_function(gpio, GPIO_FUNC_PWM);
     uint slice = pwm_gpio_to_slice_num(gpio);
     uint32_t sys_clk = clock_get_hz(clk_sys);
@@ -51,7 +52,7 @@ void setup_pwm(uint gpio, float freq_hz) {
     pwm_set_wrap(slice, (uint16_t)wrap);
     pwm_set_chan_level(slice, pwm_gpio_to_channel(gpio), wrap / 2);
     pwm_set_enabled(slice, true);
-}
+}*/
 
 void setup() {
     Serial.begin(115200);
@@ -59,7 +60,7 @@ void setup() {
     uint32_t start_ms = millis();
     while(!Serial && millis() - start_ms < 5000); 
 
-    if(true)
+    if(false)
     {
       // Correct way to read the chip ID on Pico 2 (RP2350)
       uint32_t chip_id = *((io_ro_32*)(SYSINFO_BASE + SYSINFO_CHIP_ID_OFFSET));
@@ -79,7 +80,7 @@ void setup() {
 
     // 1. PWM Heartbeat on LED (10Hz)
     //setup_pwm(LED_BUILTIN, 10.0f); 
-    pinMode(LED_BUILTIN,OUTPUT); digitalWrite(LED_BUILTIN,1);
+    pinMode(INDICATOR_LED,OUTPUT); digitalWrite(INDICATOR_LED,0);
 
     // 2. Generate Pilot Signals
     //setup_pwm(10, 10.0f);           
@@ -94,32 +95,32 @@ void setup() {
     pinMode(15,OUTPUT); digitalWrite(15,0);*/
 
     // 3. PIO Setup
-    uint offset = pio_add_program(pio0, &logic_analyzer_program);
+    uint offset2 = pio_add_program(pio1, &logic_analyzer_program);
     uint sm = 0;
 
 
     // Enable input buffers so PIO can "see" the PWM signals
-    for (int i = FIRST_PIN; i < FIRST_PIN+PIN_COUNT; i++) {
+    for (int i = FIRST_PIN_CAPTOUCH; i < FIRST_PIN_CAPTOUCH+PIN_COUNT_CAPTOUCH; i++) {
         //pinMode(i,OUTPUT);
         //digitalWrite(i,0);
         gpio_disable_pulls(i);
-        pio_gpio_init(pio0, i);
+        pio_gpio_init(pio1, i);
         gpio_set_input_enabled(i, true);
         gpio_disable_pulls(i);
     }
 
-    pinMode(FIRST_PIN,OUTPUT);
-    digitalWrite(FIRST_PIN,0);//only first pin is drive PWM
+    pinMode(FIRST_PIN_CAPTOUCH,OUTPUT);
+    digitalWrite(FIRST_PIN_CAPTOUCH,0);//only first pin is drive PWM
 
-    pio_sm_config c = logic_analyzer_program_get_default_config(offset);
-    sm_config_set_in_pins(&c, FIRST_PIN); //start at gpio 10
-    sm_config_set_in_pin_count(&c, PIN_COUNT); //use 11 pins
+    pio_sm_config c = logic_analyzer_program_get_default_config(offset2);
+    sm_config_set_in_pins(&c, FIRST_PIN_CAPTOUCH); //start at gpio 10
+    sm_config_set_in_pin_count(&c, PIN_COUNT_CAPTOUCH); //use 11 pins
     
     // RP2350 requires the FIFO to be joined to handle high-speed bursts
     sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
 
-    pio_sm_init(pio0, sm, offset, &c);
-    pio_sm_set_enabled(pio0, sm, true);
+    pio_sm_init(pio1, sm, offset2, &c);
+    pio_sm_set_enabled(pio1, sm, true);
 
     // 4. DMA Setup
     dma_chan = dma_claim_unused_channel(true);
@@ -128,9 +129,9 @@ void setup() {
     channel_config_set_read_increment(&dma_c, false);
     channel_config_set_write_increment(&dma_c, true);
     channel_config_set_ring(&dma_c, true, 10+2+2); // 10+2 bits = 1024*4 words --> +2 fudge factor needed (for uint8 to uint32 adaption?))
-    channel_config_set_dreq(&dma_c, pio_get_dreq(pio0, sm, false));
+    channel_config_set_dreq(&dma_c, pio_get_dreq(pio1, sm, false));
 
-    dma_channel_configure(dma_chan, &dma_c, capture_buffer, &pio0->rxf[sm], 0xFFFFFFFF, true);
+    dma_channel_configure(dma_chan, &dma_c, capture_buffer, &pio1->rxf[sm], 0xFFFFFFFF, true);
 
     Serial.println("--- RP2350 Analyzer Online ---");
 
@@ -139,21 +140,21 @@ void setup() {
       analogWriteFreq(1000); 
       // Optional: Set resolution to 10-bit (0-1023) for finer control
       analogWriteRange(1000);//23); 
-      pinMode(FIRST_PIN, OUTPUT);
+      pinMode(FIRST_PIN_CAPTOUCH, OUTPUT);
       // 512 is 50% duty cycle when range is 1023
-      analogWrite(FIRST_PIN, 500);//512); 
+      analogWrite(FIRST_PIN_CAPTOUCH, 500);//512); 
     }
     if(true){//4khz
         // 1. Initialize the GPIO for PWM function
-        gpio_set_function(FIRST_PIN, GPIO_FUNC_PWM);
+        gpio_set_function(FIRST_PIN_CAPTOUCH, GPIO_FUNC_PWM);
 
         // 2. Identify which PWM slice is connected to this pin
-        uint slice_num = pwm_gpio_to_slice_num(FIRST_PIN);
+        uint slice_num = pwm_gpio_to_slice_num(FIRST_PIN_CAPTOUCH);
 
         // 3. Set the clock divider to 1.0 (No division)
         // This ensures the PWM counter increments exactly once per sys_clk cycle.
 
-        if(false)
+        if(true)
         {
           pwm_set_clkdiv(slice_num, 200.0f);
           // 4. Set the Wrap Value (TOP)
@@ -163,13 +164,13 @@ void setup() {
 
           // 5. Set the Duty Cycle to exactly 50%
           // Level should be half of (WRAP + 1)
-          pwm_set_gpio_level(FIRST_PIN, 37500/2);
+          pwm_set_gpio_level(FIRST_PIN_CAPTOUCH, 37500/2);
         }
         if(false)
         {
           pwm_set_clkdiv(slice_num, 1.0f);
           pwm_set_wrap(slice_num, 999);//150mhz / 1k = 150khz
-          pwm_set_gpio_level(FIRST_PIN, 1000/2);
+          pwm_set_gpio_level(FIRST_PIN_CAPTOUCH, 1000/2);
         }
 
         // 6. Start the PWM slice
@@ -177,16 +178,18 @@ void setup() {
     }
 }
 
+uint32_t last_press=0;
+uint16_t last_touch_state=0;
 void loop() {
     // 1. CONSTANTLY toggle pins so the PIO has something to see
     // This must be OUTSIDE the while(last_read_idx != current_idx) loop
-    bool fast_toggle = (millis() / 80) % 2;
-    bool slow_toggle = (millis() / 2000) % 2;
+    bool fast_toggle = (millis() / 1) % 2;
+    bool slow_toggle = (millis() / 500) % 2;
     
-    digitalWrite(FIRST_PIN, slow_toggle); // 1Hz Pilot
+    digitalWrite(FIRST_PIN_CAPTOUCH, fast_toggle); // 1Hz Pilot
     //digitalWrite(11, slow_toggle); // 50Hz Test
     //digitalWrite(12, slow_toggle);
-    digitalWrite(LED_BUILTIN, slow_toggle);
+    //digitalWrite(LED_BUILTIN, slow_toggle);
 
     // 2. Process whatever the PIO captured
     uint32_t write_addr = dma_hw->ch[dma_chan].write_addr;
@@ -209,10 +212,28 @@ void loop() {
             // 150MHz / 5 cycles = 30,000 ticks per ms
             //Serial.printf("Edge! ms: %03.3f | Pins: %s\n", 
             //              (float)elapsed_ticks / 30000.0f, binString.c_str());
-            Serial.printf("Edge! current_idx 0x%08x | last_read_idx 0x%08x | count: 0x%06x | Pins: %s\n", 
-                          current_idx,last_read_idx, elapsed_ticks, binString.c_str());
+            Serial.printf("Edge! current_idx 0x%08x | last_read_idx 0x%08x | count: 0x%06x | Pins: %s\n",current_idx,last_read_idx, elapsed_ticks, binString.c_str());
+
+            if((pins==0x0000) && (last_touch_state==0x0002))
+            {//falling edge of captouch
+                if(elapsed_ticks>0x000200)
+                {
+                    digitalWrite(INDICATOR_LED,HIGH);
+                    last_press=millis();
+                }
+            }
+            if((pins==0x0003) && (last_touch_state==0x0001))
+            {//falling edge of captouch
+                if(elapsed_ticks>0x000200)
+                {
+                    digitalWrite(INDICATOR_LED,HIGH);
+                    last_press=millis();
+                }
+            }
+            if((millis()-last_press)>50) digitalWrite(INDICATOR_LED,LOW);
 
             last_read_idx = (last_read_idx + 1) % RING_BUFFER_SIZE;
+            last_touch_state=pins;
         }
     //}
 }

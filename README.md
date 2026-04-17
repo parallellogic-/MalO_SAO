@@ -12,6 +12,7 @@ Work in progress render (not final artwork)
 - User Guide
 
 git clone git@github.com:parallellogic-/MalO_SAO.git
+
 git submodule update --init --recursive
 
 - Resources

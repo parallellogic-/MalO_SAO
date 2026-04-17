@@ -1,0 +1,34 @@
+.program logic_analyzer
+
+    mov x, pins             ; Initial state setup
+    
+.wrap_target
+entry:
+    mov osr, !null    ; OSR = 0xFFFFFFFF
+    out isr, 21       ; Shift 21 ones into ISR (ISR = 0x001FFFFF)
+    ;out null, 11      ; Clean up the remaining 11 bits in OSR
+
+check_loop:
+    mov y, pins             ; 1. Read pins into Y
+    jmp x!=y trigger        ; 2. Compare Old(X) to New(Y)
+    
+    mov y, isr              ; 3. Move counter to Y to test it
+    jmp y-- update_isr      ; 4. If Y > 0: decrement and jump
+    
+    ; --- OVERFLOW HANDLER ---
+    mov y, x                ; Counter hit 0, force heartbeat with last state
+    jmp trigger             
+
+update_isr:
+    mov isr, y              ; Move (decremented) counter back to ISR
+    jmp check_loop          ; Loop again
+
+trigger:
+    ; Pack: Y = State, ISR = Counter
+    mov osr, isr            ; Park counter in OSR
+    in y, 11                ; Stitch State
+    in osr, 21              ; Stitch Counter
+    push noblock            
+    mov x, y                ; New state becomes the old state
+.wrap
+

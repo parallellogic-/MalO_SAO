@@ -20,15 +20,15 @@ static const uint16_t charlie_dma_program_instructions[] = {
             //     .wrap_target
     0x80a0, //  0: pull   block
     0x6048, //  1: out    y, 8
-    0xa002, //  2: mov    pins, y
+    0xa062, //  2: mov    pindirs, y
     0x0067, //  3: jmp    !y, 7
-    0x6088, //  4: out    pindirs, 8
+    0x6008, //  4: out    pins, 8
     0x6030, //  5: out    x, 16
     0x0009, //  6: jmp    9
-    0xa063, //  7: mov    pindirs, null
+    0xa003, //  7: mov    pins, null
     0xa027, //  8: mov    x, osr
     0x0049, //  9: jmp    x--, 9
-    0xe080, // 10: set    pindirs, 0
+    0xe000, // 10: set    pins, 0
             //     .wrap
 };
 
@@ -57,8 +57,8 @@ static inline void charlie_dma_program_init(PIO pio, uint sm, uint offset, uint 
     sm_config_set_out_shift(&c, true, false, 32);
     for(int i=0; i<pin_count; i++) {
         uint pin = first_pin + i;
-        pio_gpio_init(pio, pin);
-        gpio_set_drive_strength(pin, GPIO_DRIVE_STRENGTH_2MA);
+        pio_gpio_init(pio, pin%32);
+        gpio_set_drive_strength(pin%32, GPIO_DRIVE_STRENGTH_12MA);
     }
     pio_sm_init(pio, sm, offset, &c);
     pio_sm_set_enabled(pio, sm, true);

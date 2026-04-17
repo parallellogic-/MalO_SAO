@@ -1,0 +1,6 @@
+.program drive_pins
+
+    pull block    ; Wait for the bitmask from the Arduino sketch
+    out pins, 32  ; Apply all 32 bits to the GPIOs at once
+loop:
+    jmp loop      ; Stay here forever
