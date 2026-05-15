@@ -1,0 +1,34 @@
+.pio_version 1          ; Tell the assembler to use the RP2350 features
+.program button_scanner
+
+.define PUBLIC DELAY_BIT_COUNT 9
+
+.wrap_target
+start:
+    ; 1. Drive pins HIGH
+    mov pins, ~null         
+    mov pindirs, ~null      
+    
+    ; 2. Set pins to FLOAT (Input)
+    mov pindirs, null       
+    
+    ; 3. Generate Delay using ISR 
+    mov x, ~null             
+    mov isr, null            
+    in x, DELAY_BIT_COUNT    
+    mov x, isr               
+    
+delay_loop:
+    jmp x-- delay_loop      
+
+    ; 4. Read pins (16 bits) and push to DMA
+    in pins, 16             
+    push noblock            
+    
+    ; 5. Wait for all pins to go to 0
+wait_release:
+    mov x, pins             
+    jmp !x start             ; Jump to top if 0; otherwise, fall through
+    jmp wait_release         ; Loop back to wait_release if pins still HIGH
+.wrap
+

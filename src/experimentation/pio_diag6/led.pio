@@ -1,0 +1,24 @@
+.pio_version 1          ; Tell the assembler to use the RP2350 features
+.program led
+
+.wrap_target
+    pull block          ; Pull 32-bit word from DMA FIFO into OSR
+
+    out x, 8            ; Extract lowest 8 bits into scratch X (Direction Mask)
+    jmp !x long_wait    ; If Direction Mask is 0, jump to long_wait
+
+    ; Normal Path: Process remaining fields from current OSR contents
+    mov pindirs, x      ; Apply the lowest 8 bits to pin directions
+    out pins, 8         ; Extract next 8 bits and apply directly to pin states
+    out y, 16           ; Extract remaining 16 bits into scratch Y (Delay Amount)
+    jmp run_delay       ; Proceed directly to the delay loop
+
+long_wait:
+    mov pindirs, null   ; Ground pins (set all pin directions to INPUT/floating)
+    mov pins, null      ; Drive pin outputs low for safety
+    out y, 24           ; Pull the remaining 24 bits into Y for an extended delay
+
+run_delay:
+    jmp y-- run_delay   ; Loop decrementing Y until it reaches 0 (creates delay)
+.wrap
+

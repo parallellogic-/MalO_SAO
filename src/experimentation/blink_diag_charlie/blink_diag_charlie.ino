@@ -31,28 +31,32 @@ void setup() {
 
 // the loop function runs over and over again forever
 void loop() {
-  int pin[8+3+1][2]={
-    /*{1,6},
-    {0,3},
+  int led_count=1;
+  int pin[led_count][2]={
+    //{1,6},
+    /*{0,3},
     {0,5},//5 works low
     {0,6},
     {0,4},
-    {0,1},*/
-    {0,7},/*
-    {5,6},
-    {4,3},
+    {0,1},
+    {0,7},*/
+    //{5,6},
+    {1,3},
+    /*{4,3},
     {7,3},//7 works high
     {7,5},//broken LED?
     {5,7}*/
   };
-  for(int iter=0;iter<8+3+1;iter++)
+  for(int iter=0;iter<8;iter++) pinMode(iter,INPUT);
+  for(int iter=0;iter<led_count;iter++)
   {
     pinMode(pin[iter][0],OUTPUT);
     pinMode(pin[iter][1],OUTPUT);
     digitalWrite(pin[iter][0],HIGH);
     digitalWrite(pin[iter][1],LOW);
-    delay(1);
-    pinMode(pin[iter][0],INPUT);
-    pinMode(pin[iter][1],INPUT);
+    delay(1000);
+    //pinMode(pin[iter][0],INPUT);
+    //pinMode(pin[iter][1],INPUT);
+    return;
   }
 }

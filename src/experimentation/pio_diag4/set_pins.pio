@@ -1,0 +1,23 @@
+.program set_pins
+set pindirs, 0b1001 
+
+set pins, 0b1000 [31]
+; Set the direction of pins 0 and 3 as output (binary 1001 = decimal 9)
+; 0001 (pin 0) | 1000 (pin 3) = 1001
+;set pindirs, 0b1001 
+
+; Pin 0 High, Pin 3 Low
+; Set both pins 0 and 3 based on 5-bit SET mask
+; To set only Pin 0 high and Pin 3 low, we need to consider how
+; set_base is configured in C/MicroPython.
+; Assuming set_base=0 and set_count=4 (covers pins 0-3):
+set pins, 0b0001 [31]  ; Pin 0=1 (High), Pin 1=0, Pin 2=0, Pin 3=0 (Low)
+
+
+set pins, 0b0000
+set pindirs, 0b0000
+
+.wrap
+;loop:
+;    jmp loop  ; Keep pins in this state
+

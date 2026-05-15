@@ -1,57 +1,111 @@
-#include "hardware/i2c.h"
-#include "pico/stdlib.h"
+/*
+ * RP2350B I2C Sensor Capture Sketch
+ * ---------------------------------
+ * - GPIO 15: Output, set HIGH (Power/Enable pin)
+ * - GPIO 12: I2C0 SDA
+ * - GPIO 13: I2C0 SCL
+ * - I2C Frequency: 400kHz
+ * - Slaves: 
+ *    - LSM6DS3TR (Accel/Gyro) @ 0x6B
+ *    - LTR-308ALS-01 (Light) @ 0x53
+ * - Function: Prints Accel (XYZ) and Brightness data every 1 second.
+ */
 
-//#define I2C_PORT i2c1
-//#define SDA_PIN 46
-//#define SCL_PIN 47
-#define I2C_PORT i2c0
-#define SDA_PIN 12
-#define SCL_PIN 13
-#define ADDR 0x53 //A6 / A7
-#define REG 0x06
+#include <Wire.h>
+
+// Pin Definitions
+#define POWER_PIN 15
+#define I2C0_SDA 12
+#define I2C0_SCL 13
+
+// I2C Addresses
+#define LSM6DS3_ADDR 0x6B
+#define LTR308_ADDR  0x53
 
 void setup() {
   Serial.begin(115200);
-  while (!Serial); // Wait for Serial to be ready
-
-  pinMode(15, OUTPUT);
-  digitalWrite(15, HIGH);  // give power to IMU - needed for r1 because of swap with IMU_INT2 and VDD
-
-  // 1. Initialise I2C at 400kHz
-  i2c_init(I2C_PORT, 400 * 1000);
+  while (!Serial); // Wait for USB Serial
   
-  // 2. Set GPIO functions to I2C
-  gpio_set_function(SDA_PIN, GPIO_FUNC_I2C);
-  gpio_set_function(SCL_PIN, GPIO_FUNC_I2C);
-  
-  // 3. Enable pull-ups (mandatory if hardware ones are missing)
-  //gpio_pull_up(SDA_PIN);
-  //gpio_pull_up(SCL_PIN);
+  // 1. Set GPIO 15 HIGH
+  pinMode(POWER_PIN, OUTPUT);
+  digitalWrite(POWER_PIN, HIGH);
+  delay(100); // Give sensors time to power up
 
-  Serial.println("--- Boot: I2C Init Complete ---");
+  // 2. Configure I2C0 (Wire) on GPIO 12/13 at 400kHz
+  Wire.setSDA(I2C0_SDA);
+  Wire.setSCL(I2C0_SCL);
+  Wire.begin();
+  Wire.setClock(400000);
+
+  Serial.println("Initializing Sensors...");
+
+  // 3. Initialize LSM6DS3 (Basic Power-Up)
+  // Register 0x10 is CTRL1_XL (Accel). Set to 0x40 (104Hz, 2g range)
+  Wire.beginTransmission(LSM6DS3_ADDR);
+  Wire.write(0x10); 
+  Wire.write(0x40);
+  Wire.endTransmission();
+
+  // 4. Initialize LTR-308ALS (Basic Power-Up)
+  // Register 0x00 is MAIN_CTRL. Set bit 1 to 1 for Active Mode.
+  Wire.beginTransmission(LTR308_ADDR);
+  Wire.write(0x00);
+  Wire.write(0x02);
+  Wire.endTransmission();
 }
 
 void loop() {
-  uint8_t reg_addr = REG;
-  uint8_t rx_data = 0;
+  static unsigned long lastUpdate = 0;
+  if (millis() - lastUpdate >= 1000) {
+    lastUpdate = millis();
 
-  // Step 1: Write the register address
-  // 'true' keeps the master in control of the bus (Repeated Start)
-  int write_res = i2c_write_timeout_per_char_us(I2C_PORT, ADDR, &reg_addr, 1, true, 10000);
+    readLSM6DS3();
+    readLTR308();
+    Serial.println("-------------------------");
+  }
+}
 
-  if (write_res < 0) {
-    Serial.println("Write Failed: Device not responding (Timeout/NACK)");
-  } else {
-    // Step 2: Read the value
-    int read_res = i2c_read_timeout_per_char_us(I2C_PORT, ADDR, &rx_data, 1, false, 10000);
-    
-    if (read_res < 0) {
-      Serial.println("Read Failed: Timeout");
-    } else {
-      Serial.print("Success! Value at 0x06: 0x");
-      Serial.println(rx_data, HEX);
-    }
+void readLSM6DS3() {
+  // Accel data starts at 0x28 (XL, XH, YL, YH, ZL, ZH)
+  Wire.beginTransmission(LSM6DS3_ADDR);
+  Wire.write(0x28);
+  if (Wire.endTransmission() != 0) {
+    Serial.println("LSM6DS3 not found!");
+    return;
   }
 
-  delay(200);
+  Wire.requestFrom(LSM6DS3_ADDR, 6);
+  if (Wire.available() == 6) {
+    int16_t x = Wire.read() | (Wire.read() << 8);
+    int16_t y = Wire.read() | (Wire.read() << 8);
+    int16_t z = Wire.read() | (Wire.read() << 8);
+
+    // Convert raw to Gs (assuming +/- 2g range, 16-bit)
+    float scaling = 0.061 / 1000.0; 
+    Serial.print("Accel Gs: X="); Serial.print(x * scaling);
+    Serial.print(" Y="); Serial.print(y * scaling);
+    Serial.print(" Z="); Serial.println(z * scaling);
+  }
+}
+
+void readLTR308() {
+  // LTR-308 Data is in DATA_0, DATA_1, DATA_2 (0x0D, 0x0E, 0x0F)
+  Wire.beginTransmission(LTR308_ADDR);
+  Wire.write(0x0D);
+  if (Wire.endTransmission() != 0) {
+    Serial.println("LTR-308 not found!");
+    return;
+  }
+
+  Wire.requestFrom(LTR308_ADDR, 3);
+  if (Wire.available() == 3) {
+    uint32_t d0 = Wire.read();
+    uint32_t d1 = Wire.read();
+    uint32_t d2 = Wire.read();
+    
+    // Combine 20-bit data
+    uint32_t lux_raw = d0 | (d1 << 8) | ((d2 & 0x0F) << 16);
+    Serial.print("Brightness (Raw 20-bit): ");
+    Serial.println(lux_raw);
+  }
 }

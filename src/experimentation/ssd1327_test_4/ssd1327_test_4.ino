@@ -1,3 +1,5 @@
+//successfully display screen saver on ssd1327 on r1 hardware
+
 //#include <SPI.h>
 #include "hardware/spi.h"
 #include "hardware/dma.h"

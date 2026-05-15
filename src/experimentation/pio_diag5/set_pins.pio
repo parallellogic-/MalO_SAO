@@ -1,0 +1,25 @@
+.pio_version 1          ; Tell the assembler to use the RP2350 features
+.program set_pins
+
+    debug_loop:
+set x, 0b1001
+mov pindirs, x
+
+set x, 0b1000
+mov pins, x [31]
+
+set x, 0b0000
+mov pins, x [31]
+
+set x, 0b0001
+mov pins, x [31]
+
+set x, 0b0000
+mov pins, x [31]
+mov pindirs, x
+jmp debug_loop
+
+.wrap
+;loop:
+;    jmp loop  ; Keep pins in this state
+
