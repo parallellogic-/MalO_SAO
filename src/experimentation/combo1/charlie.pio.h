@@ -13,28 +13,29 @@
 // ----------- //
 
 #define charlie_dma_wrap_target 0
-#define charlie_dma_wrap 9
+#define charlie_dma_wrap 10
 #define charlie_dma_pio_version 1
 
 static const uint16_t charlie_dma_program_instructions[] = {
             //     .wrap_target
-    0x80a0, //  0: pull   block
-    0x6048, //  1: out    y, 8
-    0xa062, //  2: mov    pindirs, y
-    0x0067, //  3: jmp    !y, 7
+    0xa063, //  0: mov    pindirs, null
+    0x80a0, //  1: pull   block
+    0x6028, //  2: out    x, 8
+    0x0029, //  3: jmp    !x, 9
     0x6008, //  4: out    pins, 8
-    0x6030, //  5: out    x, 16
-    0x0009, //  6: jmp    9
-    0xa003, //  7: mov    pins, null
-    0xa027, //  8: mov    x, osr
-    0x0049, //  9: jmp    x--, 9
+    0x6050, //  5: out    y, 16
+    0x0060, //  6: jmp    !y, 0
+    0xa061, //  7: mov    pindirs, x
+    0x000a, //  8: jmp    10
+    0x6058, //  9: out    y, 24
+    0x008a, // 10: jmp    y--, 10
             //     .wrap
 };
 
 #if !PICO_NO_HARDWARE
 static const struct pio_program charlie_dma_program = {
     .instructions = charlie_dma_program_instructions,
-    .length = 10,
+    .length = 11,
     .origin = -1,
     .pio_version = charlie_dma_pio_version,
 #if PICO_PIO_VERSION > 0
@@ -56,7 +57,6 @@ static inline void charlie_dma_program_init(PIO pio, uint sm, uint offset, uint 
     sm_config_set_out_shift(&c, true, false, 32);
     for(int i=0; i<pin_count; i++) {
         uint pin = (first_pin + i) % 32;
-        gpio_init(pin);
         pio_gpio_init(pio, pin);
         gpio_set_drive_strength(pin, GPIO_DRIVE_STRENGTH_12MA);
     }
