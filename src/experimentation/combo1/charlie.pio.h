@@ -18,14 +18,14 @@
 
 static const uint16_t charlie_dma_program_instructions[] = {
             //     .wrap_target
-    0xa063, //  0: mov    pindirs, null
+    0xa003, //  0: mov    pins, null
     0x80a0, //  1: pull   block
     0x6028, //  2: out    x, 8
     0x0029, //  3: jmp    !x, 9
-    0x6008, //  4: out    pins, 8
+    0x6088, //  4: out    pindirs, 8
     0x6050, //  5: out    y, 16
     0x0060, //  6: jmp    !y, 0
-    0xa061, //  7: mov    pindirs, x
+    0xa001, //  7: mov    pins, x
     0x000a, //  8: jmp    10
     0x6058, //  9: out    y, 24
     0x008a, // 10: jmp    y--, 10

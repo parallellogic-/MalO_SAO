@@ -14,6 +14,8 @@ bool is_tone=false;
 int debug_led_index=0;
 bool is_down=false;
 
+const uint8_t delete_me_list[]={};//temp show image
+
 void setup() {
   //padsbank0_hw->io[0] = PADS_BANK0_GPIO0_IE_BITS; 
   //Serial.begin(1'000'000);
@@ -44,7 +46,8 @@ void setup() {
   {//fill 2 buffers with default values
     uint8_t* tx_buffer=ssd1327.get_buffer(0);
     for (int i = 0; i < SSD1327_BUFFER_SIZE; i++) {
-        tx_buffer[i] = (i + (demo?0x0101:0)) % 256; 
+        if(sizeof(delete_me_list)>0) tx_buffer[i] = delete_me_list[i];
+        else tx_buffer[i] = (i + (demo?0x0101:0)) % 256; 
     }
     ssd1327.flush();
   }
@@ -91,7 +94,7 @@ void loop() {
   // -- ssd1327 oled --
   uint8_t* tx_buffer=ssd1327.get_buffer(0);
   for (int i = 0; i < SSD1327_BUFFER_SIZE; i++) {
-      tx_buffer[i]+=0x0202; //animation
+      if(sizeof(delete_me_list)<=0) tx_buffer[i]+=0x0202; //animation
   }
 
   // -- cap touch --
@@ -144,7 +147,7 @@ void loop() {
       {
         //if(run_sum>40)tx_buffer[i]=0xFF;
         //else tx_buffer[i]=0x00;
-        tx_buffer[i]=run_sum|(run_sum<<4);
+        if(sizeof(delete_me_list)<=0) tx_buffer[i]=run_sum|(run_sum<<4);
         is_press=run_sum>0;
       }
     }

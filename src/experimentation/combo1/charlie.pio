@@ -3,17 +3,17 @@
 
 .wrap_target
 start:
-    mov pindirs, null   ; clear state at start
+    mov pins, null   ; clear state at start
     pull block          ; Pull 32-bit word from DMA FIFO into OSR
 
     out x, 8            ; Extract lowest 8 bits into scratch X (Direction Mask)
     jmp !x long_wait    ; If Direction Mask is 0, jump to long_wait
 
     ; Normal Path: Process remaining fields from current OSR contents
-    out pins, 8         ; Extract next 8 bits and apply directly to pin states
+    out pindirs, 8      ; Extract next 8 bits and apply directly to pin states
     out y, 16           ; Extract remaining 16 bits into scratch Y (Delay Amount)
     jmp !y, start       ; if exactly 0, skip driving pins
-    mov pindirs, x      ; Apply the lowest 8 bits to pin directions
+    mov pins, x         ; Apply the lowest 8 bits to pin directions
     jmp run_delay       ; Proceed directly to the delay loop
 
 long_wait:
@@ -46,3 +46,8 @@ static inline void charlie_dma_program_init(PIO pio, uint sm, uint offset, uint 
     pio_sm_set_enabled(pio, sm, true);
 }
 %}
+
+8 loops for 1"
+https://www.mikroe.com/circular-nfc-r25-antenna
+
+
