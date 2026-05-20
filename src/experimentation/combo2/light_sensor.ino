@@ -2,16 +2,24 @@
 #include "light_sensor.h"
 #include "hardware/i2c.h"
 
+static uint32_t scratch=0;
+
 LightSensor::LightSensor(i2c_inst_t* i2c_hardware) : _i2c(i2c_hardware), _raw_lux(0) {
     // Construct the initialization command: Write 0x01 to MAIN_CTRL register
     _boot_cmd[0] = LTR308_MAIN_CTRL;
-    _boot_cmd[1] = 0x01; // Active mode, Gain = 1
+    _boot_cmd[1] = 0x02 ;//| 0x0200; // Active mode, Gain = 1 //0202
+
+    // Add these configuration variables inside your LightSensor constructor:
+    //_boot_cmd2[0] = 0x05;         // Targets the ALS_GAIN / Integration Time Register
+    //_boot_cmd2[1] = 0x04 | 0x0200; // 0x04 = 10ms integration time + 0x0200 (I2C STOP bit!)
+    _boot_cmd2[0] = 0x04;         // Targets the ALS_GAIN / Integration Time Register
+    _boot_cmd2[1] = 0x40 | 0x0200; // 0x04 = 10ms integration time + 0x0200 (I2C STOP bit!)
 
     // Construct the read sequence commands
     _read_request[0] = LTR308_ALS_DATA_0; // Point I2C to start reading at Data 0
     _read_request[1] = 0x0100;            // Command a Read byte (Bit 8 is CMD_READ)
     _read_request[2] = 0x0100;            // Command a Read byte
-    _read_request[3] = 0x0100;            // Command a Read byte
+    _read_request[3] = 0x0300;            // Command a Read byte //0300
     
     memset((void*)_rx_buffer, 0, sizeof(_rx_buffer));
 }
@@ -32,8 +40,8 @@ int LightSensor::getRequiredDescriptorCount(uint32_t frame_id, uint8_t subframe_
     if (subframe_id > 0) return 0;
     
     // We add 3 additional descriptor operations ahead of the data blocks to modify the I2C block target configuration 
-    if (frame_id == 0) {
-        return 3 + 1; // 3 Address configs + 1 Boot execution payload block
+    if (frame_id <12) {
+        return 3 + 1+1; // 3 Address configs + 1 Boot execution payload block
     } else {
         return 3 + 2; // 3 Address configs + 1 TX request block + 1 RX fetch block
     }
@@ -74,18 +82,31 @@ void LightSensor::populateDescriptors(uint32_t frame_id, uint8_t subframe_id, ui
     pool_start[2].config         = cfg_reg.ctrl;
 
     // --- DATA PAYLOAD TRANSMISSION CONFIGURATIONS ---
-    if (frame_id == 0) {
-        dma_channel_config cfg = dma_channel_get_default_config(data_channel);
-        channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
-        channel_config_set_read_increment(&cfg, true);
-        channel_config_set_write_increment(&cfg, false);
-        channel_config_set_dreq(&cfg, i2c_get_dreq(_i2c, true)); // TX DREQ
+    if (frame_id <12) {
+        //if(frame_id%2)
+        //{
+          dma_channel_config cfg = dma_channel_get_default_config(data_channel);
+          channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
+          channel_config_set_read_increment(&cfg, true);
+          channel_config_set_write_increment(&cfg, false);
+          channel_config_set_dreq(&cfg, i2c_get_dreq(_i2c, true)); // TX DREQ
 
-        pool_start[3].read_addr      = &_boot_cmd;
-        pool_start[3].write_addr     = (void*)i2c_data_cmd_reg;
-        pool_start[3].transfer_count = sizeof(_boot_cmd)/sizeof(_boot_cmd[0]);
-        pool_start[3].config         = cfg.ctrl;
+          pool_start[3].read_addr      = &_boot_cmd;
+          pool_start[3].write_addr     = (void*)i2c_data_cmd_reg;
+          pool_start[3].transfer_count = sizeof(_boot_cmd)/sizeof(_boot_cmd[0]);
+          pool_start[3].config         = cfg.ctrl;
+        //}else{
+           cfg = dma_channel_get_default_config(data_channel);
+          channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
+          channel_config_set_read_increment(&cfg, true);
+          channel_config_set_write_increment(&cfg, false);
+          channel_config_set_dreq(&cfg, i2c_get_dreq(_i2c, true)); // TX DREQ
 
+          pool_start[4].read_addr      = &_boot_cmd2;
+          pool_start[4].write_addr     = (void*)i2c_data_cmd_reg;
+          pool_start[4].transfer_count = sizeof(_boot_cmd2)/sizeof(_boot_cmd2[0]);
+          pool_start[4].config         = cfg.ctrl;
+        //}
     } else {
         // Unpack calculations from preceding framework frames
         uint32_t b0 = _rx_buffer[0] & 0xFF;
@@ -104,6 +125,7 @@ void LightSensor::populateDescriptors(uint32_t frame_id, uint8_t subframe_id, ui
         pool_start[3].write_addr     = (void*)i2c_data_cmd_reg;
         pool_start[3].transfer_count = sizeof(_read_request)/sizeof(_read_request[0]);
         pool_start[3].config         = cfg_tx.ctrl;
+
 
         // Stage 5 (Index 4): Strip values out of the RX FIFO stream
         dma_channel_config cfg_rx = dma_channel_get_default_config(data_channel);

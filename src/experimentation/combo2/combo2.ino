@@ -9,44 +9,6 @@ LightSensor light_sensor(i2c0);
 
 uint32_t frame_id=0;
 
-void restart_all_rp2350_resources() {
-    // === STAGE 1: FORCE ABORT ALL ACTIVE DMA OPERATIONS ===
-    // If a DMA channel is stuck waiting for a DREQ, forcing a hardware reset 
-    // without aborting first can cause a permanent bus stall.
-    for (int i = 0; i < NUM_DMA_CHANNELS; i++) {
-        dma_channel_abort(i);
-        // Clear any lingering interrupt requests
-        dma_hw->ints0 = (1u << i);
-        dma_hw->ints1 = (1u << i);
-    }
-
-    // === STAGE 2: PULL PERIPHERALS INTO HARDWARE RESET ===
-    // This instantly clears all internal registers, state machines, and FIFOs.
-    // We target DMAs, both PIO blocks, PWMs, I2C engines, and the HSTX block.
-    reset_block(
-        RESETS_RESET_DMA_BITS  | 
-        RESETS_RESET_PIO0_BITS | 
-        RESETS_RESET_PIO1_BITS | 
-        RESETS_RESET_PWM_BITS  | 
-        RESETS_RESET_I2C0_BITS | 
-        RESETS_RESET_I2C1_BITS |
-        RESETS_RESET_HSTX_BITS   // Exclusive to the RP2350 architecture
-    );
-
-    // === STAGE 3: RELEASE PERIPHERALS FROM RESET ===
-    // Peripherals cannot be accessed until they are pulled out of reset 
-    // and their internal clock distribution stabilizes.
-    unreset_block_wait(
-        RESETS_RESET_DMA_BITS  | 
-        RESETS_RESET_PIO0_BITS | 
-        RESETS_RESET_PIO1_BITS | 
-        RESETS_RESET_PWM_BITS  | 
-        RESETS_RESET_I2C0_BITS | 
-        RESETS_RESET_I2C1_BITS |
-        RESETS_RESET_HSTX_BITS
-    );
-}
-
 void setup() {
 
   Serial.begin();
@@ -74,5 +36,5 @@ void loop() {
 
   // put your main code here, to run repeatedly:
   scatterer_gatherer_engine.compileAndRun(frame_id++,0,0);
-  delay(500);
+  delay(16);
 }

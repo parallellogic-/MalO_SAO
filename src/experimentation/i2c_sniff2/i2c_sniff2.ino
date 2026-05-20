@@ -31,7 +31,7 @@ void setup() {
   Wire.setSCL(I2C0_SCL);
   Wire.begin();
   Wire.setClock(400000);
-
+/*
   // Initialize LSM6DS3
   // CTRL1_XL (0x10): Accel = 104Hz, 2g range -> 0x40
   Wire.beginTransmission(LSM6DS3_ADDR);
@@ -43,7 +43,7 @@ void setup() {
   Wire.beginTransmission(LSM6DS3_ADDR);
   Wire.write(0x11); 
   Wire.write(0x40);
-  Wire.endTransmission();
+  Wire.endTransmission();*/
 
   // Initialize LTR-308ALS
   Wire.beginTransmission(LTR308_ADDR);
@@ -56,7 +56,7 @@ void loop() {
   static unsigned long lastUpdate = 0;
   if (millis() - lastUpdate >= 300) {
     lastUpdate = millis();
-    readLSM6DS3();
+    //readLSM6DS3();
     readLTR308();
     Serial.println("-------------------------");
   }
@@ -106,6 +106,7 @@ void readLTR308() {
       uint32_t d0 = Wire.read();
       uint32_t d1 = Wire.read();
       uint32_t d2 = Wire.read();
+      Serial.print(d0,HEX); Serial.print(" "); Serial.print(d1,HEX); Serial.print(" "); Serial.println(d2,HEX);
       uint32_t lux_raw = d0 | (d1 << 8) | ((d2 & 0x0F) << 16);
       Serial.print("Brightness (Raw): "); Serial.println(lux_raw);
     }

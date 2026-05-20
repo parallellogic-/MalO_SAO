@@ -50,4 +50,4 @@ static inline void charlie_dma_program_init(PIO pio, uint sm, uint offset, uint 
 8 loops for 1"
 https://www.mikroe.com/circular-nfc-r25-antenna
 
-
+***"it's dark in here, spooky" - light sensor 
