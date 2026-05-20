@@ -50,4 +50,13 @@ static inline void charlie_dma_program_init(PIO pio, uint sm, uint offset, uint 
 8 loops for 1"
 https://www.mikroe.com/circular-nfc-r25-antenna
 
-***"it's dark in here, spooky" - light sensor 
+***"it's dark in here, spooky" - light sensor
+
+read fifo count
+store in x
+increase x by 255, wrap-around (set 0x0100 to all output values in the process)
+store address in y
+set out buff at y = 0x0300
+stream out buff (read or read+stop) and write values back on top of current location
+
+**"In-Place Morphing Buffer"
