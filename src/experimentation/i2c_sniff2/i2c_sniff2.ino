@@ -64,7 +64,7 @@ void loop() {
 
 void readLSM6DS3() {
   // Read Gyro (0x22-0x27) and Accel (0x28-0x2D) in one 12-byte burst
-  /*Wire.beginTransmission(LSM6DS3_ADDR);
+  Wire.beginTransmission(LSM6DS3_ADDR);
   Wire.write(0x22); 
   if (Wire.endTransmission() != 0) {
     Serial.println("LSM6DS3 not found!");
@@ -94,15 +94,15 @@ void readLSM6DS3() {
     Serial.print("Gyro [dps]: X="); Serial.print(gx * g_scale);
     Serial.print(" Y="); Serial.print(gy * g_scale);
     Serial.print(" Z="); Serial.println(gz * g_scale);
-  }*/
+  }
 
-  Wire.beginTransmission(LSM6DS3_ADDR);
+  /*Wire.beginTransmission(LSM6DS3_ADDR);
   Wire.write(0x0F);
   Wire.endTransmission(false); 
   Wire.requestFrom(LSM6DS3_ADDR, 1);
   if (Wire.available() == 1) {
     Serial.println(Wire.read(),HEX);
-  }
+  }*/
 }
 
 void readLTR308() {

@@ -72,15 +72,15 @@ void loop3() {
 
 void setup() {
 
+  //I2C patch for mis-routed pin to imu on prototype
+  pinMode(15, OUTPUT);
+  digitalWrite(15, HIGH);
+
   Serial.begin();
   delay(2000);
   Serial.println("START");
 
   //restart_all_rp2350_resources();//still starts on frame 8
-
-  //I2C patch for mis-routed pin to imu on prototype
-  pinMode(15, OUTPUT);
-  digitalWrite(15, HIGH);
 
   //init shared i2c bus
   i2c_init(i2c0, 400'000);
@@ -94,7 +94,7 @@ void setup() {
   light_sensor.begin();
   imu.begin();
   scatterer_gatherer_engine.registerSource(&imu);
-  scatterer_gatherer_engine.registerSource(&light_sensor);
+  //scatterer_gatherer_engine.registerSource(&light_sensor);
 
   frame_id=0;
   Serial.println("DONE setup");
@@ -106,10 +106,59 @@ void loop() {
   Serial.print(" light, ");
 
   uint8_t fifo_count=imu.get_fifo_sample_count();
-  Serial.println(fifo_count);
+  Serial.println(fifo_count,HEX);
 
   // setup and run next batch
   scatterer_gatherer_engine.compileAndRun(frame_id++,0,0);
   delay(16);
   //delay(1000);
 }
+
+/*#include "hardware/timer.h"
+#include "pico/stdlib.h"
+
+// Define the precise 120 Hz period in microseconds (1,000,000 / 120)
+const uint32_t TIMER_INTERVAL_US = 8333; 
+
+// Track the Repeating Timer structure
+struct repeating_timer timer;
+
+// CRITICAL: Any variables modified inside an IRQ must be marked volatile
+volatile bool trigger_dma_flag = false;
+
+// 1. The 120 Hz Hardware IRQ Callback Function
+bool timer_callback_120hz(struct repeating_timer *t) {
+    // Keep this function incredibly fast. No Serial.print() or delay() allowed here.
+    
+    // Example: Signal your main loop or DMA controller to perform an action
+    trigger_dma_flag = true;
+    
+    return true; // Return true to keep the repeating timer running continuously
+}
+
+void setup() {
+    Serial.begin(115200);
+    
+    // Initialize the built-in LED for visual verification
+    pinMode(LED_BUILTIN, OUTPUT);
+
+    // 2. Hardware Timer Initialization
+    // Arguments: (interval_in_us, callback_name, user_data_pointer, timer_struct_pointer)
+    // A negative interval ensures accurate spacing from the START of each callback execution.
+    bool success = add_repeating_timer_us(-TIMER_INTERVAL_US, timer_callback_120hz, NULL, &timer);
+    
+    if (!success) {
+        Serial.println("Failed to initialize 120 Hz Hardware Timer!");
+        while (1); // Halt if timer creation fails
+    }
+}
+
+void loop() {
+    // 3. Process the high-priority IRQ event safely in the main loop thread
+    if (trigger_dma_flag) {
+        trigger_dma_flag = false; // Reset the flag immediately
+        
+        // Toggle the LED every 1/120th of a second
+        digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+    }
+}*/
