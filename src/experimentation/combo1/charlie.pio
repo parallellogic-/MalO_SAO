@@ -60,3 +60,18 @@ set out buff at y = 0x0300
 stream out buff (read or read+stop) and write values back on top of current location
 
 **"In-Place Morphing Buffer"
+
+***Give SAO header 30 degree tilt
+
+adapting/pivoting to the con spec will involved moving the SAO header - pan to have looseness around this part to allow reconfigurability
+
+***add SAO silkscreen labels for 3v3, gnd, gpio1/2, sda, scl
+
+drag traces with part
+https://www.youtube.com/watch?v=CNL8MDQb8kg&t=7s
+
+**fart effect with green leds over butt
+
+**puzzle where the controls are impure: changing one thing has 2+ effects nearby
+
+

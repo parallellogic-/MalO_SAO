@@ -62,6 +62,8 @@ void printDmaChannelStatus(int channel_id, const char* channel_name) {
 // ==========================================
 void ScatterGatherEngine::begin() {
         _data_chan = dma_claim_unused_channel(true);
+        _aux0_chan = dma_claim_unused_channel(true);
+        _aux1_chan = dma_claim_unused_channel(true);
         _ctrl_chan = dma_claim_unused_channel(true);
     }
 
@@ -91,7 +93,10 @@ void ScatterGatherEngine::compileAndRun(uint32_t frame_id,uint8_t subframe_id,ui
             // Let the object build its internal block chain directly inside the global pool
             _registrants[i]->populateDescriptors(frame_id,subframe_id,subframe_max,
                 &_global_pool[current_pool_index], 
-                _data_chan
+                _data_chan, 
+                _aux0_chan, 
+                _aux1_chan, 
+                _ctrl_chan
             );
 
             current_pool_index += needed;
@@ -99,7 +104,7 @@ void ScatterGatherEngine::compileAndRun(uint32_t frame_id,uint8_t subframe_id,ui
         }
         
         // Update all generated data block operations to link back to control dma
-        for (int iter = 0; iter < current_pool_index; iter++) //current_pool_index-1 to keep stale read/write/count/config values in dma registers
+        /*for (int iter = 0; iter < current_pool_index; iter++) //current_pool_index-1 to keep stale read/write/count/config values in dma registers
         {
             // 1. Instantiate a blank SDK config tracker
             dma_channel_config data_config;
@@ -113,7 +118,7 @@ void ScatterGatherEngine::compileAndRun(uint32_t frame_id,uint8_t subframe_id,ui
             
             // 4. Repack the updated bits back into the global descriptor pool
             _global_pool[iter].config = data_config.ctrl;
-        }
+        }*/
 
         //Serial.print("current_pool_index");  Serial.print(": "); Serial.println(current_pool_index);
 
@@ -144,11 +149,16 @@ void ScatterGatherEngine::compileAndRun(uint32_t frame_id,uint8_t subframe_id,ui
         // Fire the pipeline burst
         dma_channel_abort(_data_chan);
         dma_channel_abort(_ctrl_chan);
+        dma_channel_abort(_aux0_chan);
+        dma_channel_abort(_aux1_chan);
         dma_channel_set_read_addr(_ctrl_chan, _global_pool, true);
         //Serial.print("dma_control_block_started");  Serial.print(": "); Serial.println("dma_control_block_started");
+        
         /*delay(1);
         printDmaChannelStatus(_ctrl_chan,"_ctrl_chan");
         printDmaChannelStatus(_data_chan,"_data_chan");
+        printDmaChannelStatus(_aux0_chan,"_aux0_chan");
+        printDmaChannelStatus(_aux1_chan,"_aux1_chan");
         for (int iter = 0; iter < current_pool_index; iter++)
         {
           Serial.print("_global_pool["); Serial.print(iter); Serial.print("].read_addr: "); Serial.println((uint32_t)_global_pool[iter].read_addr,HEX);

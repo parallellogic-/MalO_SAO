@@ -4,7 +4,7 @@
 #define MAX_DMA_CONTROL_REGISTRANTS 8
 #define MAX_DMA_CONTROL_ACTIONS 64
 
-// Standard RP2040/RP2350 DMA Descriptors layout
+// Standard RP2040/RP2350 DMA Descriptors layout (this argument order is required bythe hardware for alternate_register_mapping_0)
 struct DmaDescriptor {
     const void* read_addr;
     void* write_addr;
@@ -31,13 +31,15 @@ public:
      * @param data_channel The runtime hardware DMA data channel ID.
      * @param ctrl_channel The runtime hardware DMA control channel ID.
      */
-    virtual void populateDescriptors(uint32_t frame_id, uint8_t subframe_id, uint8_t subframe_max, DmaDescriptor* pool_start, int data_channel) = 0;
+    virtual void populateDescriptors(uint32_t frame_id, uint8_t subframe_id, uint8_t subframe_max, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) = 0;
 };
 
 
 class ScatterGatherEngine {
 private:
     int _data_chan;
+    int _aux0_chan;
+    int _aux1_chan;
     int _ctrl_chan;
     
     IMultiDmaTransactionSource* _registrants[MAX_DMA_CONTROL_REGISTRANTS];

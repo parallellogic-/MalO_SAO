@@ -31,7 +31,7 @@ void setup() {
   Wire.setSCL(I2C0_SCL);
   Wire.begin();
   Wire.setClock(400000);
-/*
+
   // Initialize LSM6DS3
   // CTRL1_XL (0x10): Accel = 104Hz, 2g range -> 0x40
   Wire.beginTransmission(LSM6DS3_ADDR);
@@ -43,28 +43,28 @@ void setup() {
   Wire.beginTransmission(LSM6DS3_ADDR);
   Wire.write(0x11); 
   Wire.write(0x40);
-  Wire.endTransmission();*/
+  Wire.endTransmission();
 
   // Initialize LTR-308ALS
-  Wire.beginTransmission(LTR308_ADDR);
+  /*Wire.beginTransmission(LTR308_ADDR);
   Wire.write(0x00);
   Wire.write(0x02);
-  Wire.endTransmission();
+  Wire.endTransmission();*/
 }
 
 void loop() {
   static unsigned long lastUpdate = 0;
   if (millis() - lastUpdate >= 300) {
     lastUpdate = millis();
-    //readLSM6DS3();
-    readLTR308();
+    readLSM6DS3();
+    //readLTR308();
     Serial.println("-------------------------");
   }
 }
 
 void readLSM6DS3() {
   // Read Gyro (0x22-0x27) and Accel (0x28-0x2D) in one 12-byte burst
-  Wire.beginTransmission(LSM6DS3_ADDR);
+  /*Wire.beginTransmission(LSM6DS3_ADDR);
   Wire.write(0x22); 
   if (Wire.endTransmission() != 0) {
     Serial.println("LSM6DS3 not found!");
@@ -94,6 +94,14 @@ void readLSM6DS3() {
     Serial.print("Gyro [dps]: X="); Serial.print(gx * g_scale);
     Serial.print(" Y="); Serial.print(gy * g_scale);
     Serial.print(" Z="); Serial.println(gz * g_scale);
+  }*/
+
+  Wire.beginTransmission(LSM6DS3_ADDR);
+  Wire.write(0x0F);
+  Wire.endTransmission(false); 
+  Wire.requestFrom(LSM6DS3_ADDR, 1);
+  if (Wire.available() == 1) {
+    Serial.println(Wire.read(),HEX);
   }
 }
 
