@@ -71,7 +71,35 @@ void loop() {
 
   // setup and run next batch
   scatterer_gatherer_engine.compileAndRun(frame_id++,0,0);
-  delay(16);
+
+  uint32_t start_tms=millis();
+  bool is_first=true;
+  bool last_status=false;
+  while(millis()<(start_tms+16))
+  {
+    
+
+    // Read the full IC_STATUS register
+    uint32_t statusReg = i2c0->hw->status;
+
+    // The is_busy flag is bit 12 of the IC_STATUS register
+    bool isBusy = (statusReg & I2C_IC_STATUS_ACTIVITY_BITS) != 0; 
+
+    if(is_first or isBusy!=last_status)
+    {
+      // Print in hexadecimal format
+      Serial.print("Full IC_STATUS Register: 0x");
+      Serial.println(statusReg, HEX);
+
+      
+      Serial.print("I2C is_busy status: ");
+      Serial.println(isBusy ? "BUSY" : "IDLE");
+      is_first=false;
+      last_status=isBusy;
+    }
+  }
+
+  //delay(16);
   //delay(1000);
 }
 

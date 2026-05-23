@@ -159,6 +159,8 @@ void LightSensor::populateDescriptors(uint32_t frame_id, uint8_t subframe_id, ui
         pool_start[dma_index].config         = cfg_rx.ctrl;
         dma_index++;
     }              
+
+    // -- dead reckoning delay to allow this i2c fifo transaction to clear before moving to the next transaction --
     dma_channel_config cfg = dma_channel_get_default_config(data_channel);
     channel_config_set_transfer_data_size(&cfg, DMA_SIZE_8);
     channel_config_set_read_increment(&cfg, false);
@@ -171,7 +173,7 @@ void LightSensor::populateDescriptors(uint32_t frame_id, uint8_t subframe_id, ui
 
     pool_start[dma_index].read_addr      = (const void*)&dummy_reg_read;
     pool_start[dma_index].write_addr     = (void*)&dummy_reg_write;
-    pool_start[dma_index].transfer_count = 100000; //factor of ~2 margin on reboot time
+    pool_start[dma_index].transfer_count = 25000; 
     pool_start[dma_index].config         = cfg.ctrl;
     dma_index++;
 }

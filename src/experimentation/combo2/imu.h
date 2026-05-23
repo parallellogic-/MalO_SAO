@@ -76,8 +76,8 @@ private:
     volatile uint8_t _rx_fifo_count_decrement;//because I2C needs to end with 
     volatile uint16_t _rx_buffer[IMU_BUFFER_SIZE] __attribute__((aligned(IMU_BUFFER_SIZE_BYTES))); 
 
-    volatile DmaDescriptor _aux0_fifo_size_write;
-    volatile DmaDescriptor _aux1_fifo_size_read;
+    volatile DmaDescriptor _aux0_byte_count;
+    volatile DmaDescriptor _aux1_byte_count;
     uint32_t _aux0_aux1_trigger_mask;
 
 public:
