@@ -8,7 +8,8 @@
 #define REG_CTRL1_XL 0x10
 #define REG_CTRL2_G 0x11
 #define REG_CTRL3_C 0x12
-#define REG_FIFO_CTRL3 0x09
+#define REG_FIFO_CTRL3 0x08
+//#define REG_FIFO_CTRL4 0x09
 #define REG_FIFO_CTRL5 0x0A
 #define REG_FIFO_STATUS1 0x3A
 #define REG_FIFO_STATUS2 0x3B
@@ -31,20 +32,26 @@ private:
     uint32_t _i2c_enable        __attribute__((aligned(4))) = 1;
     volatile bool _is_dma_done=false;
 
+    //I2C: IC_DATA_CMD Register
+    //The RESTART is only required when changing direction from a write to a read.
+
     // list of register-value pairs to write to i2c periphreal on boot
-    const uint16_t _boot_cmd[4][2] __attribute__((aligned(4))) ={
+    const uint16_t _boot_cmd[5][2] __attribute__((aligned(4))) ={
         // 1. Reset device
-//      {REG_CTRL3_C,0x01}, //needs 50 us after reboot
+      //{REG_CTRL3_C,0x01}, //needs 50 us after reboot
+      //{REG_CTRL3_C,0x01}, //rigger reboot
+      {REG_CTRL3_C,(0x01 << 6) | (0x01 << 2)}, //block data update, read_increment_enabled
         // 2. Set Accel ODR to 104 Hz (>60 Hz) and Anti-Aliasing filter to 50 Hz
         // CTRL1_XL: ODR[7:4] = 0101 (104 Hz), FS[3:2] = 01 (±16g), LPF2[1] = 0 (Filter BW = ODR/9)
-      {REG_CTRL1_XL,(0x05 << 4) | (0x01 << 2) | 0x01}, //XL Hz, range, LPF
-      {REG_CTRL2_G,(0x05 << 4) | (0x03 << 2)}, //gyro Hz, range
+      {REG_FIFO_CTRL3  | 0x0400,0x09 /*(0x01 << 3) | 0x01 */ },
+      {REG_CTRL1_XL   | 0x0400,0x55 /*(0x05 << 4) | (0x01 << 2) | 0x01*/   }, //XL Hz, range, LPF
+      {REG_CTRL2_G  | 0x0400,0x5C  /*(0x05 << 4) | (0x03 << 2) */  }, //gyro Hz, range
         // 3. Configure FIFO Decimation
         // FIFO_CTRL3: Accel decimation = 1 (1 sample), Gyro decimation = 0 (Disabled)
-      {REG_FIFO_CTRL3,(0x01 << 3) | 0x01},
+      
         // 4. Set FIFO Mode to "Continuous Mode" (overwrites old data if full)
         // FIFO_CTRL5: FIFO_Mode[2:0] = 110 (Continuous Mode)
-      {REG_FIFO_CTRL5,(0x05 << 3) | 0x01 | 0x0200},// 0x0200 (I2C STOP bit)
+      {REG_FIFO_CTRL5  | 0x0400,/*0x2E*/(0x05 << 3) | 0x01 | 0x0200 },// 0x0200 (I2C STOP bit)
     };
 
     // list of register-value pairs to write to i2c periphreal on boot
@@ -55,8 +62,10 @@ private:
 
     const uint16_t _get_fifo_size_cmd[2] __attribute__((aligned(4))) ={
       //REG_WHO_AM_I, 0x0300 // test
-      //0x22,0x0300, //test
-      REG_FIFO_STATUS1, 0x0300// 0x0200 (I2C STOP bit)
+      //0x0A,0x0300, //test
+      //0x0A,0x0300, //test
+      0x3A/*REG_FIFO_STATUS1*/,0x0300
+      //REG_FIFO_STATUS1, 0x0300// 0x0200 (I2C STOP bit)
     };
     
     const uint32_t _read_operation = 0x0100; //read one uin8_t from FIFO

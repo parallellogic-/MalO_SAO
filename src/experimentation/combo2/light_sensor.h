@@ -27,8 +27,9 @@ private:
 
     // Command buffers aligned for DMA safety
     // LTR-308 Active Mode Config: Write 0x01 to MAIN_CTRL (0x00)
-    uint16_t _boot_cmd[2] __attribute__((aligned(4))); 
-    uint16_t _boot_cmd2[2] __attribute__((aligned(4))); 
+    //uint16_t _boot_cmd[2] __attribute__((aligned(4))); 
+    //uint16_t _boot_cmd2[2] __attribute__((aligned(4))); 
+    const uint16_t _boot_cmd[2][2] __attribute__((aligned(4)));
     
     // I2C requires writing read requests to IC_DATA_CMD (bit 8 set) to trigger read clocks
     uint16_t _read_request[4] __attribute__((aligned(4))); 

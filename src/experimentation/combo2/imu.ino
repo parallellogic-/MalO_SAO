@@ -18,7 +18,7 @@ int IMU::getRequiredDescriptorCount(uint32_t frame_id, uint8_t subframe_id, uint
     
     // We add 3 additional descriptor operations ahead of the data blocks to modify the I2C block target configuration 
     if (!_is_booted) {
-        return 3 + sizeof(_boot_cmd)/sizeof(_boot_cmd[0]); // 3 Address configs + Boot execution payload blocks
+        return 3 + sizeof(_boot_cmd)/sizeof(_boot_cmd[0]);//+4; // 3 Address configs + Boot execution payload blocks
     } else {
         return 3 + 2; // 3 Address configs + 1 fill mutable buffer with 0x0100, 1 fill mutable with 0x0300, 1 fill start address
     }
@@ -26,6 +26,8 @@ int IMU::getRequiredDescriptorCount(uint32_t frame_id, uint8_t subframe_id, uint
 
 void IMU::populateDescriptors(uint32_t frame_id, uint8_t subframe_id, uint8_t subframe_max, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) {
     if (subframe_id > 0) return;
+
+    uint8_t dma_index=0;
 
     // Hardware Base Registers mapping pointers
     i2c_hw_t* hw = i2c_get_hw(_i2c);
@@ -43,22 +45,25 @@ void IMU::populateDescriptors(uint32_t frame_id, uint8_t subframe_id, uint8_t su
     channel_config_set_enable(&cfg_reg, true);
 
     // Stage 1: Disable I2C Engine (Required to update TAR)
-    pool_start[0].read_addr      = &_i2c_disable;
-    pool_start[0].write_addr     = (void*)i2c_enable_reg;
-    pool_start[0].transfer_count = 1;
-    pool_start[0].config         = cfg_reg.ctrl;
+    pool_start[dma_index].read_addr      = &_i2c_disable;
+    pool_start[dma_index].write_addr     = (void*)i2c_enable_reg;
+    pool_start[dma_index].transfer_count = 1;
+    pool_start[dma_index].config         = cfg_reg.ctrl;
+    dma_index++;
 
     // Stage 2: Inject Target Slave Device Address into I2C Core
-    pool_start[1].read_addr      = &_i2c_target_addr;
-    pool_start[1].write_addr     = (void*)i2c_tar_reg;
-    pool_start[1].transfer_count = 1;
-    pool_start[1].config         = cfg_reg.ctrl;
+    pool_start[dma_index].read_addr      = &_i2c_target_addr;
+    pool_start[dma_index].write_addr     = (void*)i2c_tar_reg;
+    pool_start[dma_index].transfer_count = 1;
+    pool_start[dma_index].config         = cfg_reg.ctrl;
+    dma_index++;
 
     // Stage 3: Re-Enable I2C Engine 
-    pool_start[2].read_addr      = &_i2c_enable;
-    pool_start[2].write_addr     = (void*)i2c_enable_reg;
-    pool_start[2].transfer_count = 1;
-    pool_start[2].config         = cfg_reg.ctrl;
+    pool_start[dma_index].read_addr      = &_i2c_enable;
+    pool_start[dma_index].write_addr     = (void*)i2c_enable_reg;
+    pool_start[dma_index].transfer_count = 1;
+    pool_start[dma_index].config         = cfg_reg.ctrl;
+    dma_index++;
 
     // --- DATA PAYLOAD TRANSMISSION CONFIGURATIONS ---
     if (!_is_booted) {
@@ -72,11 +77,60 @@ void IMU::populateDescriptors(uint32_t frame_id, uint8_t subframe_id, uint8_t su
             channel_config_set_chain_to(&cfg, ctrl_channel);
             channel_config_set_enable(&cfg, true);
 
-            uint8_t out_index=iter+3;
-            pool_start[out_index].read_addr      = &_boot_cmd[iter];
-            pool_start[out_index].write_addr     = (void*)i2c_data_cmd_reg;
-            pool_start[out_index].transfer_count = sizeof(_boot_cmd[iter])/sizeof(_boot_cmd[iter][0]);
-            pool_start[out_index].config         = cfg.ctrl;
+            pool_start[dma_index].read_addr      = &_boot_cmd[iter];
+            pool_start[dma_index].write_addr     = (void*)i2c_data_cmd_reg;
+            pool_start[dma_index].transfer_count = sizeof(_boot_cmd[iter])/sizeof(_boot_cmd[iter][0]);
+            pool_start[dma_index].config         = cfg.ctrl;
+            dma_index++;
+
+            /*if(iter==0)
+            {//after reboot command, allow >50us to stabalize
+              cfg = dma_channel_get_default_config(data_channel);
+              channel_config_set_transfer_data_size(&cfg, DMA_SIZE_8);
+              channel_config_set_read_increment(&cfg, false);
+              channel_config_set_write_increment(&cfg, false);
+              channel_config_set_chain_to(&cfg, ctrl_channel);
+              channel_config_set_enable(&cfg, true);
+
+              static uint8_t dummy_reg_read=0x00;
+              static uint8_t dummy_reg_write=0x00;
+
+              pool_start[dma_index].read_addr      = (const void*)&dummy_reg_read;
+              pool_start[dma_index].write_addr     = (void*)&dummy_reg_write;
+              pool_start[dma_index].transfer_count = 25000; //factor of ~2 margin on reboot time
+              pool_start[dma_index].config         = cfg.ctrl;
+              dma_index++;
+
+              // -- issue with light_sensor and imu exclusivity is needing to restate address? -- No, assuming it's the immediate write behavior of the i2c periphreal.  hard-code wait statement as fix?
+              cfg_reg = dma_channel_get_default_config(data_channel);
+              channel_config_set_transfer_data_size(&cfg_reg, DMA_SIZE_32);
+              channel_config_set_read_increment(&cfg_reg, false);
+              channel_config_set_write_increment(&cfg_reg, false);
+              channel_config_set_chain_to(&cfg_reg, ctrl_channel);
+              channel_config_set_enable(&cfg_reg, true);
+
+              // Stage 1: Disable I2C Engine (Required to update TAR)
+              pool_start[dma_index].read_addr      = &_i2c_disable;
+              pool_start[dma_index].write_addr     = (void*)i2c_enable_reg;
+              pool_start[dma_index].transfer_count = 1;
+              pool_start[dma_index].config         = cfg_reg.ctrl;
+              dma_index++;
+
+              // Stage 2: Inject Target Slave Device Address into I2C Core
+              pool_start[dma_index].read_addr      = &_i2c_target_addr;
+              pool_start[dma_index].write_addr     = (void*)i2c_tar_reg;
+              pool_start[dma_index].transfer_count = 1;
+              pool_start[dma_index].config         = cfg_reg.ctrl;
+              dma_index++;
+
+              // Stage 3: Re-Enable I2C Engine 
+              pool_start[dma_index].read_addr      = &_i2c_enable;
+              pool_start[dma_index].write_addr     = (void*)i2c_enable_reg;
+              pool_start[dma_index].transfer_count = 1;
+              pool_start[dma_index].config         = cfg_reg.ctrl;
+              dma_index++;
+            }*/
+
           }
           _is_booted=true;
     } else {
@@ -92,7 +146,6 @@ void IMU::populateDescriptors(uint32_t frame_id, uint8_t subframe_id, uint8_t su
         //Data dma setup aux1 op to kickoff i2c read x99 (peripreal to ram). No start. Chain_to control dma
         //Data dma kickoff aux0 and aux1. Do not chain to command dma
 
-        uint8_t dma_index=3;
         //want to know how many samples are in imu buffer, so ask imu...
 
         // Issue TX commands for I2C data extraction clocks
