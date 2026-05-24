@@ -85,13 +85,13 @@ private:
     //const uint16_t _rx_fifo_count_mask=0xFFFFF000;//which bits to zero-out (the fifo status) when using the fifo count register
     volatile uint16_t _rx_fifo_count; //number of unread words (16-bit axes) stored in FIFO (qty 6 is one accel+gyro reading).  must be 32-bit to pass through watchdog scratch register in order to do CLEAR operation on upp 4 bits of uint16_t
     volatile uint16_t _rx_buffer[IMU_BUFFER_SIZE] __attribute__((aligned(IMU_BUFFER_SIZE_BYTES))); 
-    volatile uint32_t _rx_buffer_ptr=(uint32_t)&_rx_buffer[0];
+    //volatile uint32_t _rx_buffer_ptr=(uint32_t)&_rx_buffer[0];
 
     bool _temperature_ping_pong;
     volatile uint16_t _temperature[2] __attribute__((aligned(4)));
 
-    volatile DmaDescriptor _aux0_write_fifo_cmd; //command the i2c periphreal to read X bytes from imu
-    volatile DmaDescriptor _aux1_read_fifo_cmd; //the data the i2c periphreal spits out is read into buffer
+    volatile DmaDescriptor _aux0_fifo_ram_to_i2c_cmd; //command the i2c periphreal to read X bytes from imu
+    volatile DmaDescriptor _aux1_fifo_i2c_to_ram_cmd; //the data the i2c periphreal spits out is read into buffer in local RAM
 
 public:
     IMU(i2c_inst_t* i2c_hardware = i2c0);

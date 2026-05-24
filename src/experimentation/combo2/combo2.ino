@@ -81,7 +81,7 @@ void loop() {
 
   bool is_first=true;
   bool last_status=false;
-  while(millis()<(start_tms+16))
+  while(millis()<(start_tms+500))
   {
     
 
