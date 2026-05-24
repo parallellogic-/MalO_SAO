@@ -16,8 +16,8 @@
 #define REG_FIFO_DATA_OUT_L 0x3E
 #define REG_FIFO_DATA_OUT_H 0x3F
 
-#define IMU_BUFFER_SIZE_LOG2 12 //ring buffer size
-#define IMU_BUFFER_SIZE (1<<IMU_BUFFER_SIZE_LOG2) // 2048 elements (uint16_t) //gyro and accel data: 2 bytes gyro_x, _y, _z, accel_x, _y, _z
+//#define IMU_BUFFER_SIZE_LOG2 12 //ring buffer size
+#define IMU_BUFFER_SIZE (1<<12) // 2048 elements (uint16_t) //gyro and accel data: 2 bytes gyro_x, _y, _z, accel_x, _y, _z
 #define IMU_BUFFER_SIZE_BYTES (IMU_BUFFER_SIZE * sizeof(uint16_t))
 
 #define IMU_DMA_SCRATCH_REG pwm_hw->slice[11].div //need somewhere to write the 12-bit fifo size to where it can be operated on (set/clear/xor).  pwm/div has the bonus of have only 12 bits viable anyway - automatically filtering out the upper 4 bits without a separate operation
@@ -54,7 +54,7 @@ private:
       
         // 4. Set FIFO Mode to "Continuous Mode" (overwrites old data if full)
         // FIFO_CTRL5: FIFO_Mode[2:0] = 110 (Continuous Mode), 0x01 for FIFO mode. Stops collecting data when FIFO is full
-      {REG_FIFO_CTRL5  | 0x0400,/*0x2E*/(0x01 << 3) | 0x06 | 0x0200 },// 0x0200 (I2C STOP bit)
+      {REG_FIFO_CTRL5  | 0x0400,/*0x2E*/(0x05 << 3) | 0x06 | 0x0200 },// 0x0200 (I2C STOP bit)
     };
 
     // list of register-value pairs to write to i2c periphreal on boot
@@ -84,12 +84,15 @@ private:
     // Target buffer for incoming RX FIFO data (doubles as the read request - in-place morphing buffer) --> skip this functionality, just send 0x0100 X times, then 0x0300
     //const uint16_t _rx_fifo_count_mask=0xFFFFF000;//which bits to zero-out (the fifo status) when using the fifo count register
     volatile uint16_t _rx_fifo_count; //number of unread words (16-bit axes) stored in FIFO (qty 6 is one accel+gyro reading).  must be 32-bit to pass through watchdog scratch register in order to do CLEAR operation on upp 4 bits of uint16_t
+    volatile uint16_t _rx_fifo_count_x2;
+    volatile uint16_t _rx_fifo_count_x4;
     volatile uint16_t _rx_buffer[IMU_BUFFER_SIZE] __attribute__((aligned(IMU_BUFFER_SIZE_BYTES))); 
     //volatile uint32_t _rx_buffer_ptr=(uint32_t)&_rx_buffer[0];
 
     bool _temperature_ping_pong;
     volatile uint16_t _temperature[2] __attribute__((aligned(4)));
 
+    volatile DmaDescriptor _aux0_sum_cmd;
     volatile DmaDescriptor _aux0_fifo_ram_to_i2c_cmd; //command the i2c periphreal to read X bytes from imu
     volatile DmaDescriptor _aux1_fifo_i2c_to_ram_cmd; //the data the i2c periphreal spits out is read into buffer in local RAM
 

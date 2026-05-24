@@ -4,18 +4,7 @@
 
 static uint32_t scratch=0;
 
-LightSensor::LightSensor(i2c_inst_t* i2c_hardware) : _i2c(i2c_hardware), _raw_lux{0,0}, _is_booted(0), _raw_lux_ping_pong(0),
-    // Construct the initialization command: Write 0x01 to MAIN_CTRL register
-    _boot_cmd{
-        {LTR308_MAIN_CTRL,0x02}, // Active mode, Gain = 1 //0202
-        {0x04 | 0x0400, 0x40 | 0x0200},// Targets the ALS_GAIN / Integration Time Register // 0x04 = 10ms integration time + 0x0200 (I2C STOP bit!)
-    },
-    _read_request{
-    LTR308_ALS_DATA_0, // Point I2C to start reading at Data 0
-    0x0100,            // Command a Read byte (Bit 8 is CMD_READ)
-    0x0100,            // Command a Read byte
-    0x0300            // Command a Read byte //0300
-    }
+LightSensor::LightSensor(i2c_inst_t* i2c_hardware) : _i2c(i2c_hardware)
     {
     /*_boot_cmd[0] = LTR308_MAIN_CTRL;
     _boot_cmd[1] = 0x02 ;//| 0x0200; // Active mode, Gain = 1 //0202
@@ -30,7 +19,7 @@ LightSensor::LightSensor(i2c_inst_t* i2c_hardware) : _i2c(i2c_hardware), _raw_lu
     _read_request[2] = 0x0100;            // Command a Read byte
     _read_request[3] = 0x0300;            // Command a Read byte //0300*/
     
-    memset((void*)_rx_buffer, 0, sizeof(_rx_buffer));
+    //memset((void*)_rx_buffer, 0, sizeof(_rx_buffer));
 }
 
 void LightSensor::begin() {

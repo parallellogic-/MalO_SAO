@@ -59,6 +59,7 @@ void setup() {
   //while (!Serial); // Wait for terminal connection
   //Serial.println("START");
   //while(1) loop4();
+
 }
 
 void loop() {
@@ -66,10 +67,14 @@ void loop() {
   Serial.printf("frame_id: %d, brightness: %d, ",frame_id,brightness);
 
   float imu_celsius=imu.get_celsius();
-  uint32_t fifo_count=pwm_hw->slice[11].div;
+  //uint32_t fifo_count=pwm_hw->slice[11].div;
   //pwm_hw->slice[11].div = 0x12345678;//1656
-  uint32_t fifo_count2=imu.get_fifo_sample_count();
-  Serial.printf("imu_celsius: %.2f, fifo_count: %d, fifo_count2: %d, ",imu_celsius,fifo_count,fifo_count2);
+  uint32_t fifo_count=imu.get_fifo_sample_count();
+  uint32_t sniff_ctrl=dma_hw->sniff_ctrl;
+  uint32_t sniff_data=dma_hw->sniff_data;
+  //Serial.printf("imu_celsius: %.2f, fifo_count: %d, fifo_count2: %d, ",imu_celsius,fifo_count,fifo_count2);
+  //Serial.printf("imu_celsius: %.2f, fifo_count2: %d, sniff_ctrl: %08X, sniff_data: %08X",imu_celsius,fifo_count2,sniff_ctrl,sniff_data);
+  Serial.printf("imu_celsius: %.2f, fifo_count: %d",imu_celsius,fifo_count);
 
   Serial.println();
 
@@ -81,7 +86,7 @@ void loop() {
 
   bool is_first=true;
   bool last_status=false;
-  while(millis()<(start_tms+500))
+  while(millis()<(start_tms+16))
   {
     
 
@@ -103,6 +108,12 @@ void loop() {
       is_first=false;
       last_status=isBusy;*/
     }
+  }
+
+  if(frame_id==1)
+  {
+    Serial.println("Pause for oscope reboot...");
+    delay(1000);
   }
 
   //delay(16);

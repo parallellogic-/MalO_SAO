@@ -4,12 +4,18 @@
 #define MAX_DMA_CONTROL_REGISTRANTS 8
 #define MAX_DMA_CONTROL_ACTIONS 256
 
-// Standard RP2040/RP2350 DMA Descriptors layout (this argument order is required bythe hardware for alternate_register_mapping_0)
+// Standard RP2040/RP2350 DMA Descriptors layout (this specific argument order is required by the hardware for alternate_register_mapping_0)
 struct DmaDescriptor {
     const void* read_addr;
     void* write_addr;
     uint32_t transfer_count;
     uint32_t config;
+};
+
+//the order of arguments is important to writing into the memory map correctly (0x454, 0x458 addresses for ctrl, data)
+struct SniffDescriptor {
+    uint32_t control;
+    uint32_t data;
 };
 
 // ==========================================
