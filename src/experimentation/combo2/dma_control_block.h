@@ -2,7 +2,7 @@
 #define DMA_CONTROL_BLOCK_H
 
 #define MAX_DMA_CONTROL_REGISTRANTS 8
-#define MAX_DMA_CONTROL_ACTIONS 64
+#define MAX_DMA_CONTROL_ACTIONS 256
 
 // Standard RP2040/RP2350 DMA Descriptors layout (this argument order is required bythe hardware for alternate_register_mapping_0)
 struct DmaDescriptor {
@@ -19,7 +19,7 @@ struct DmaDescriptor {
 class IMultiDmaTransactionSource {
 public:
     // Returns how many sequential descriptor slots this peripheral requires right now
-    virtual int getRequiredDescriptorCount(uint32_t frame_id, uint8_t subframe_id, uint8_t subframe_max) = 0;
+    virtual int getRequiredDescriptorCount(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max) = 0;
 
     /**
      * @brief Populates the shared engine pool with sequential transactions.
@@ -30,8 +30,10 @@ public:
      * @param current_index The absolute global index of this assigned slot.
      * @param data_channel The runtime hardware DMA data channel ID.
      * @param ctrl_channel The runtime hardware DMA control channel ID.
+     * @param aux0_channel For syncronized operations
+     * @param aux1_channel For syncronized operations
      */
-    virtual void populateDescriptors(uint32_t frame_id, uint8_t subframe_id, uint8_t subframe_max, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) = 0;
+    virtual void populateDescriptors(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) = 0;
 };
 
 
@@ -46,7 +48,7 @@ private:
     int _registrant_count;
 
     // Master contiguous block pool shared by all peripherals.  +1 to allow for terminating DMA _ctrl command at completion
-    DmaDescriptor _global_pool[MAX_DMA_CONTROL_REGISTRANTS + 1] __attribute__ ((aligned (16)));
+    DmaDescriptor _global_pool[MAX_DMA_CONTROL_ACTIONS + 1] __attribute__ ((aligned (16)));
 
 public:
     ScatterGatherEngine() : _data_chan(-1), _ctrl_chan(-1), _registrant_count(0) {}
@@ -55,7 +57,7 @@ public:
 
     bool registerSource(IMultiDmaTransactionSource* source);
 
-    void compileAndRun(uint32_t frame_id,uint8_t subframe_id,uint8_t subframe_max);
+    void compileAndRun(uint64_t frame_id,uint8_t subframe_id,uint8_t subframe_max);
 };
 
 #endif

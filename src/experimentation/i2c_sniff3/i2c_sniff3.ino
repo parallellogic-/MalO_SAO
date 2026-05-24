@@ -67,13 +67,13 @@ void setup() {
   // Set FIFO ODR to 104Hz and mode to Continuous Mode
   // ODR Bits [6:3] = 0101 (104 Hz) -> 0x28
   // Mode Bits [2:0] = 110 (Continuous Mode) -> 0x06 -> Combined: 0x2E
-  myIMU.writeRegister(0x0A, 0x2E);
-
+  //myIMU.writeRegister(0x0A, 0x2E);
+  myIMU.writeRegister(0x0A, (0x01 << 3) | 0x06);
   Serial.println("Registers pushed successfully! FIFO Engine started.");
 }
 
 void loop() {
-  Serial.println("loop");
+  //Serial.println("loop");
   uint8_t unreadWords = 0;
   uint8_t unreadBytes = 0;
 
@@ -83,7 +83,7 @@ void loop() {
   //myIMU.readRegister(&unreadBytes, 0x3B); // FIFO_STATUS2
   
   // Assemble 11-bit FIFO unread sample count
-  uint16_t fifoSamples = ((unreadBytes & 0x07) << 8) | unreadWords;
+  uint16_t fifoSamples = ((unreadBytes & 0x0F) << 8) | unreadWords;
   
   // Each complete 6-DoF sample takes 6 words (Ax, Ay, Az, Gx, Gy, Gz)
   uint16_t completeSets = fifoSamples / 6; 
@@ -96,12 +96,12 @@ void loop() {
     for (int i = 0; i < completeSets; i++) {
       // Read 6 consecutive 16-bit values from FIFO
       // Each fifoRead() call pulls a single 16-bit axis value
-      int16_t ax = myIMU.fifoRead();
-      int16_t ay = myIMU.fifoRead();
-      int16_t az = myIMU.fifoRead();
       int16_t gx = myIMU.fifoRead();
       int16_t gy = myIMU.fifoRead();
       int16_t gz = myIMU.fifoRead();
+      int16_t ax = myIMU.fifoRead();
+      int16_t ay = myIMU.fifoRead();
+      int16_t az = myIMU.fifoRead();
 
       // Print raw output 
       Serial.print("A: ");

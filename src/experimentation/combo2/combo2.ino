@@ -1,6 +1,11 @@
 #include "dma_control_block.h"
 #include "light_sensor.h"
 #include "imu.h"
+#include <hardware/watchdog.h>
+#include "hardware/pio.h"
+#include "hardware/clocks.h"
+#include "hardware/pwm.h"
+#include "hardware/resets.h"
 
 ScatterGatherEngine scatterer_gatherer_engine;
 LightSensor light_sensor(i2c0);
@@ -58,21 +63,22 @@ void setup() {
 
 void loop() {
   uint32_t brightness=light_sensor.getBrightness();
-  Serial.print(frame_id);
-  Serial.print(" frame, ");
-  Serial.print(brightness);
-  Serial.print(" light, ");
+  Serial.printf("frame_id: %d, brightness: %d, ",frame_id,brightness);
 
-  uint8_t fifo_count=imu.get_fifo_sample_count();
-  Serial.print(fifo_count,HEX);
-  Serial.print(" imu_reg, ");
-  Serial.print(fifo_count-6*(fifo_count/6));
-  Serial.println(" imu_reg2, ");
+  float imu_celsius=imu.get_celsius();
+  uint32_t fifo_count=pwm_hw->slice[11].div;
+  //pwm_hw->slice[11].div = 0x12345678;//1656
+  uint32_t fifo_count2=imu.get_fifo_sample_count();
+  Serial.printf("imu_celsius: %.2f, fifo_count: %d, fifo_count2: %d, ",imu_celsius,fifo_count,fifo_count2);
 
+  Serial.println();
+
+  //for(int iter=0;iter<8;iter++) Serial.printf("scratch %d: %08X\n",iter,watchdog_hw->scratch[iter]);
+  
   // setup and run next batch
+  uint32_t start_tms=millis();
   scatterer_gatherer_engine.compileAndRun(frame_id++,0,0);
 
-  uint32_t start_tms=millis();
   bool is_first=true;
   bool last_status=false;
   while(millis()<(start_tms+16))
@@ -88,14 +94,14 @@ void loop() {
     if(is_first or isBusy!=last_status)
     {
       // Print in hexadecimal format
-      Serial.print("Full IC_STATUS Register: 0x");
+      /*Serial.print("Full IC_STATUS Register: 0x");
       Serial.println(statusReg, HEX);
 
       
       Serial.print("I2C is_busy status: ");
       Serial.println(isBusy ? "BUSY" : "IDLE");
       is_first=false;
-      last_status=isBusy;
+      last_status=isBusy;*/
     }
   }
 

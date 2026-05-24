@@ -9,24 +9,32 @@ IMU::IMU(i2c_inst_t* i2c_hardware) : _i2c(i2c_hardware), _is_booted(0), _rx_fifo
 void IMU::begin() {
 }
 
-uint8_t IMU::get_fifo_sample_count() const{
+uint16_t IMU::get_fifo_sample_count() const{
   return _rx_fifo_count;
 }
 
-int IMU::getRequiredDescriptorCount(uint32_t frame_id, uint8_t subframe_id, uint8_t subframe_max) {
+float IMU::get_celsius() const{
+  return _temperature[!_temperature_ping_pong]/16.0;
+}
+
+int IMU::getRequiredDescriptorCount(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max) {
     if (subframe_id > 0) return 0;
     
+    //if(frame_id<2) return 0; //skip first 20 ms (2 framees at 60 FPS) to allow IMU to boot properly
+
     // We add 3 additional descriptor operations ahead of the data blocks to modify the I2C block target configuration 
     if (!_is_booted) {
-        return 3 + sizeof(_boot_cmd)/sizeof(_boot_cmd[0]);//+4; // 3 Address configs + Boot execution payload blocks
+        return 3 + sizeof(_boot_cmd)/sizeof(_boot_cmd[0]) +1;//+4; // 3 Address configs + Boot execution payload blocks
     } else {
-        return 3 + 2; // 3 Address configs + 1 fill mutable buffer with 0x0100, 1 fill mutable with 0x0300, 1 fill start address
+        return 17; // 3 Address configs + 1 fill mutable buffer with 0x0100, 1 fill mutable with 0x0300, 1 fill start address
     }
 }
 
-void IMU::populateDescriptors(uint32_t frame_id, uint8_t subframe_id, uint8_t subframe_max, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) {
+void IMU::populateDescriptors(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) {
     if (subframe_id > 0) return;
 
+    dma_channel_config cfg;
+    _temperature_ping_pong=frame_id%2;
     uint8_t dma_index=0;
 
     // Hardware Base Registers mapping pointers
@@ -34,42 +42,43 @@ void IMU::populateDescriptors(uint32_t frame_id, uint8_t subframe_id, uint8_t su
     volatile void* i2c_enable_reg   = (volatile void*)&hw->enable;
     volatile void* i2c_tar_reg      = (volatile void*)&hw->tar;
     volatile void* i2c_data_cmd_reg = (volatile void*)&hw->data_cmd;
+    //volatile void* scratch_reg      = (volatile void*)&watchdog_hw->scratch[0];
 
     // --- BASE DMA REGISTER METADATA FOR HARDWARE OVERRIDES ---
     // These run without a Data Request (DREQ) pacing flag because internal hardware register updates complete instantly
-    dma_channel_config cfg_reg = dma_channel_get_default_config(data_channel);
-    channel_config_set_transfer_data_size(&cfg_reg, DMA_SIZE_32);
-    channel_config_set_read_increment(&cfg_reg, false);
-    channel_config_set_write_increment(&cfg_reg, false);
-    channel_config_set_chain_to(&cfg_reg, ctrl_channel);
-    channel_config_set_enable(&cfg_reg, true);
+    cfg = dma_channel_get_default_config(data_channel);
+    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+    channel_config_set_read_increment(&cfg, false);
+    channel_config_set_write_increment(&cfg, false);
+    channel_config_set_chain_to(&cfg, ctrl_channel);
+    channel_config_set_enable(&cfg, true);
 
     // Stage 1: Disable I2C Engine (Required to update TAR)
     pool_start[dma_index].read_addr      = &_i2c_disable;
     pool_start[dma_index].write_addr     = (void*)i2c_enable_reg;
     pool_start[dma_index].transfer_count = 1;
-    pool_start[dma_index].config         = cfg_reg.ctrl;
+    pool_start[dma_index].config         = cfg.ctrl;
     dma_index++;
 
     // Stage 2: Inject Target Slave Device Address into I2C Core
     pool_start[dma_index].read_addr      = &_i2c_target_addr;
     pool_start[dma_index].write_addr     = (void*)i2c_tar_reg;
     pool_start[dma_index].transfer_count = 1;
-    pool_start[dma_index].config         = cfg_reg.ctrl;
+    pool_start[dma_index].config         = cfg.ctrl;
     dma_index++;
 
     // Stage 3: Re-Enable I2C Engine 
     pool_start[dma_index].read_addr      = &_i2c_enable;
     pool_start[dma_index].write_addr     = (void*)i2c_enable_reg;
     pool_start[dma_index].transfer_count = 1;
-    pool_start[dma_index].config         = cfg_reg.ctrl;
+    pool_start[dma_index].config         = cfg.ctrl;
     dma_index++;
 
     // --- DATA PAYLOAD TRANSMISSION CONFIGURATIONS ---
     if (!_is_booted) {
           for(uint8_t iter=0;iter<sizeof(_boot_cmd)/sizeof(_boot_cmd[0]);iter++)
           {
-            dma_channel_config cfg = dma_channel_get_default_config(data_channel);
+            cfg = dma_channel_get_default_config(data_channel);
             channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
             channel_config_set_read_increment(&cfg, true);
             channel_config_set_write_increment(&cfg, false);
@@ -83,7 +92,7 @@ void IMU::populateDescriptors(uint32_t frame_id, uint8_t subframe_id, uint8_t su
             pool_start[dma_index].config         = cfg.ctrl;
             dma_index++;
 
-            /*if(iter==0)
+            if(iter==0)
             {//after reboot command, allow >50us to stabalize
               cfg = dma_channel_get_default_config(data_channel);
               channel_config_set_transfer_data_size(&cfg, DMA_SIZE_8);
@@ -101,38 +110,12 @@ void IMU::populateDescriptors(uint32_t frame_id, uint8_t subframe_id, uint8_t su
               pool_start[dma_index].config         = cfg.ctrl;
               dma_index++;
 
-              // -- issue with light_sensor and imu exclusivity is needing to restate address? -- No, assuming it's the immediate write behavior of the i2c periphreal.  hard-code wait statement as fix?
-              cfg_reg = dma_channel_get_default_config(data_channel);
-              channel_config_set_transfer_data_size(&cfg_reg, DMA_SIZE_32);
-              channel_config_set_read_increment(&cfg_reg, false);
-              channel_config_set_write_increment(&cfg_reg, false);
-              channel_config_set_chain_to(&cfg_reg, ctrl_channel);
-              channel_config_set_enable(&cfg_reg, true);
-
-              // Stage 1: Disable I2C Engine (Required to update TAR)
-              pool_start[dma_index].read_addr      = &_i2c_disable;
-              pool_start[dma_index].write_addr     = (void*)i2c_enable_reg;
-              pool_start[dma_index].transfer_count = 1;
-              pool_start[dma_index].config         = cfg_reg.ctrl;
-              dma_index++;
-
-              // Stage 2: Inject Target Slave Device Address into I2C Core
-              pool_start[dma_index].read_addr      = &_i2c_target_addr;
-              pool_start[dma_index].write_addr     = (void*)i2c_tar_reg;
-              pool_start[dma_index].transfer_count = 1;
-              pool_start[dma_index].config         = cfg_reg.ctrl;
-              dma_index++;
-
-              // Stage 3: Re-Enable I2C Engine 
-              pool_start[dma_index].read_addr      = &_i2c_enable;
-              pool_start[dma_index].write_addr     = (void*)i2c_enable_reg;
-              pool_start[dma_index].transfer_count = 1;
-              pool_start[dma_index].config         = cfg_reg.ctrl;
-              dma_index++;
-            }*/
+            }
 
           }
           _is_booted=true;
+          //TODO: Also reset address pointers on FIFO
+          _rx_buffer_ptr = (uint32_t)_rx_buffer;
     } else {
         //PRECON: there are >0 samples to read from FIFO (else tries to read 255 bytes from FIFO)
         //read the number of axes in fifo (uint16_t gyro_x, _y, _z, accel_x, _y, _z, gyro_x, _y, _z --> qty 9 (?)) = 1/2 number of bytes to read
@@ -149,125 +132,274 @@ void IMU::populateDescriptors(uint32_t frame_id, uint8_t subframe_id, uint8_t su
         //want to know how many samples are in imu buffer, so ask imu...
 
         // Issue TX commands for I2C data extraction clocks
-        dma_channel_config cfg_tx = dma_channel_get_default_config(data_channel);
-        channel_config_set_transfer_data_size(&cfg_tx, DMA_SIZE_16);
-        channel_config_set_read_increment(&cfg_tx, true);
-        channel_config_set_write_increment(&cfg_tx, false);
-        channel_config_set_dreq(&cfg_tx, i2c_get_dreq(_i2c, true)); // TX DREQ
-        channel_config_set_chain_to(&cfg_tx, ctrl_channel);
-        channel_config_set_enable(&cfg_tx, true);
+        cfg = dma_channel_get_default_config(data_channel);
+        channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
+        channel_config_set_read_increment(&cfg, true);
+        channel_config_set_write_increment(&cfg, false);
+        channel_config_set_dreq(&cfg, i2c_get_dreq(_i2c, true)); // TX DREQ
+        channel_config_set_chain_to(&cfg, ctrl_channel);
+        channel_config_set_enable(&cfg, true);
 
         pool_start[dma_index].read_addr      = &_get_fifo_size_cmd;
         pool_start[dma_index].write_addr     = (void*)i2c_data_cmd_reg;
         pool_start[dma_index].transfer_count = sizeof(_get_fifo_size_cmd)/sizeof(_get_fifo_size_cmd[0]);
-        pool_start[dma_index].config         = cfg_tx.ctrl;
+        pool_start[dma_index].config         = cfg.ctrl;
         dma_index++;
 
         // Strip values out of the RX FIFO stream
-        dma_channel_config cfg_rx = dma_channel_get_default_config(data_channel);
-        channel_config_set_transfer_data_size(&cfg_rx, DMA_SIZE_8);
-        channel_config_set_read_increment(&cfg_rx, false);
-        channel_config_set_write_increment(&cfg_rx, false);
-        channel_config_set_dreq(&cfg_rx, i2c_get_dreq(_i2c, false)); // RX DREQ
-        channel_config_set_chain_to(&cfg_rx, ctrl_channel);
-        channel_config_set_enable(&cfg_rx, true);
+        cfg = dma_channel_get_default_config(data_channel);
+        channel_config_set_transfer_data_size(&cfg, DMA_SIZE_8);
+        channel_config_set_read_increment(&cfg, false);
+        channel_config_set_write_increment(&cfg, true);
+        channel_config_set_dreq(&cfg, i2c_get_dreq(_i2c, false)); // RX DREQ
+        channel_config_set_chain_to(&cfg, ctrl_channel);
+        channel_config_set_enable(&cfg, true);
 
         pool_start[dma_index].read_addr      = (const void*)i2c_data_cmd_reg;
         pool_start[dma_index].write_addr     = (void*)&_rx_fifo_count;
-        pool_start[dma_index].transfer_count = 1; //read one byte: the number of samples availabe in imu fifo
-        pool_start[dma_index].config         = cfg_rx.ctrl;
+        //pool_start[dma_index].write_addr     = (void*)&IMU_DMA_SCRATCH_REG; //write to destination that will only keep the lower 12 bits
+        pool_start[dma_index].transfer_count = sizeof(_get_fifo_size_cmd)/sizeof(_get_fifo_size_cmd[0])-1; //read one byte: the number of samples availabe in imu fifo
+        pool_start[dma_index].config         = cfg.ctrl;
         dma_index++;
 
-        /*dma_channel_config cfg_data;
+        //need to write SCRATCH_REG as a single operation. so do two uint8_t writes to RAM above, then move uint16_t into scratch reg
+        cfg = dma_channel_get_default_config(data_channel);
+        channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
+        channel_config_set_read_increment(&cfg, false);
+        channel_config_set_write_increment(&cfg, false);
+        channel_config_set_chain_to(&cfg, ctrl_channel);
+        channel_config_set_enable(&cfg, true);
 
-        // -- setup aux0 register values for aux0 to write values to i2c.  setup data_chan to be the one to populate aux0 --
-
-        dma_channel_config cfg__aux0_fifo_size_write = dma_channel_get_default_config(aux0_channel);
-        channel_config_set_transfer_data_size(&cfg__aux0_fifo_size_write, DMA_SIZE_16);
-        channel_config_set_read_increment(&cfg__aux0_fifo_size_write, true);
-        channel_config_set_write_increment(&cfg__aux0_fifo_size_write, false);
-        channel_config_set_dreq(&cfg__aux0_fifo_size_write, i2c_get_dreq(_i2c, true)); // TX DREQ
-        //channel_config_set_chain_to(&cfg__aux0_fifo_size_write, ctrl_channel);
-        channel_config_set_chain_to(&cfg__aux0_fifo_size_write, aux1_channel);
-        channel_config_set_enable(&cfg__aux0_fifo_size_write, false); //aux0 and aux1 will be kicked off syncronously by data_chan
-
-        _aux0_fifo_size_write.read_addr      = &_get_fifo_size_cmd;
-        _aux0_fifo_size_write.write_addr     = (void*)i2c_data_cmd_reg;
-        _aux0_fifo_size_write.transfer_count = sizeof(_get_fifo_size_cmd)/sizeof(_get_fifo_size_cmd[0]);
-        _aux0_fifo_size_write.config         = cfg__aux0_fifo_size_write.ctrl;
-
-        cfg_data = dma_channel_get_default_config(data_channel);
-        channel_config_set_transfer_data_size(&cfg_data, DMA_SIZE_32);
-        channel_config_set_read_increment(&cfg_data, true);
-        channel_config_set_write_increment(&cfg_data, true);
-        //channel_config_set_dreq(&cfg_data, i2c_get_dreq(_i2c, true)); // TX DREQ
-        channel_config_set_chain_to(&cfg_data, ctrl_channel);
-        channel_config_set_enable(&cfg_data, true);
-
-        pool_start[dma_index].read_addr      = (const void*)&_aux0_fifo_size_write;
-        pool_start[dma_index].write_addr     = (void*)&dma_hw->ch[aux0_channel].read_addr;
-        pool_start[dma_index].transfer_count = 4;
-        pool_start[dma_index].config         = cfg_data.ctrl;
-        dma_index++;
-
-        // -- setup aux1 register values for aux1 to read value from i2c.  setup data_chan to be the one to populate aux1 --
-
-        dma_channel_config cfg__aux1_fifo_size_read = dma_channel_get_default_config(aux1_channel);
-        channel_config_set_transfer_data_size(&cfg__aux1_fifo_size_read, DMA_SIZE_8);
-        channel_config_set_read_increment(&cfg__aux1_fifo_size_read, true);
-        channel_config_set_write_increment(&cfg__aux1_fifo_size_read, false);
-        channel_config_set_dreq(&cfg__aux1_fifo_size_read, i2c_get_dreq(_i2c, false)); // RX DREQ
-        channel_config_set_chain_to(&cfg__aux1_fifo_size_read, ctrl_channel); //read operation is the one that passes control back to ctrl_chan
-        channel_config_set_enable(&cfg__aux1_fifo_size_read, false); //aux0 and aux1 will be kicked off syncronously by data_chan
-
-        _aux1_fifo_size_read.read_addr      = (const void*)i2c_data_cmd_reg;
-        _aux1_fifo_size_read.write_addr     = (void*)&_rx_fifo_count;
-        _aux1_fifo_size_read.transfer_count = 1;
-        _aux1_fifo_size_read.config         = cfg__aux1_fifo_size_read.ctrl;
-
-        cfg_data = dma_channel_get_default_config(data_channel);
-        channel_config_set_transfer_data_size(&cfg_data, DMA_SIZE_32);
-        channel_config_set_read_increment(&cfg_data, true);
-        channel_config_set_write_increment(&cfg_data, true);
-        //channel_config_set_dreq(&cfg_data, i2c_get_dreq(_i2c, true)); // TX DREQ
-        channel_config_set_chain_to(&cfg_data, ctrl_channel);
-        channel_config_set_enable(&cfg_data, true);
-
-        pool_start[dma_index].read_addr      = (const void*)&_aux1_fifo_size_read;
-        pool_start[dma_index].write_addr     = (void*)&dma_hw->ch[aux1_channel].read_addr;
-        pool_start[dma_index].transfer_count = 4;
-        pool_start[dma_index].config         = cfg_data.ctrl;
-        dma_index++;
-
-        // -- setup data_chan to kick-off both aux0 and aux1--
-
-        _aux0_aux1_trigger_mask=(1u << aux0_channel);// | (1u << aux1_channel);
-
-        cfg_data = dma_channel_get_default_config(data_channel);
-        channel_config_set_transfer_data_size(&cfg_data, DMA_SIZE_32);
-        channel_config_set_read_increment(&cfg_data, false);
-        channel_config_set_write_increment(&cfg_data, false);
-        //channel_config_set_chain_to(&cfg_data, ctrl_channel); //aux1 is the one that passes chain back to ctrl_chan
-        channel_config_set_enable(&cfg_data, true);
-
-        pool_start[dma_index].read_addr      = &_aux0_aux1_trigger_mask;
-        pool_start[dma_index].write_addr     = (void*)&dma_hw->multi_channel_trigger;
+        pool_start[dma_index].read_addr      = (const void*)&_rx_fifo_count;
+        pool_start[dma_index].write_addr     = (void*)&IMU_DMA_SCRATCH_REG;
         pool_start[dma_index].transfer_count = 1;
-        pool_start[dma_index].config         = cfg_data.ctrl;
-        dma_index++;*/
+        pool_start[dma_index].config         = cfg.ctrl;
+        dma_index++;
+
+        //ok, now have uint16_t size of buffer (12 bits, without upper bits of status flags because scratch reg removed them)
+
+        cfg = dma_channel_get_default_config(data_channel);
+        channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
+        channel_config_set_read_increment(&cfg, false);
+        channel_config_set_write_increment(&cfg, false);
+        channel_config_set_chain_to(&cfg, ctrl_channel);
+        channel_config_set_enable(&cfg, true);
+
+        pool_start[dma_index].read_addr      = (const void*)&IMU_DMA_SCRATCH_REG;
+        pool_start[dma_index].write_addr     = (void*)&_rx_fifo_count;
+        pool_start[dma_index].transfer_count = 1;
+        pool_start[dma_index].config         = cfg.ctrl;
+        dma_index++;
+
+        //ok, now have true 12-bit count of number of 16-bit readings that need to be collected
+        //proceed to setup aux0 to read 
+
+        for(uint8_t iter=0;iter<2;iter++)
+        {//because readings are uint16_t, but i2c only reads uint8_t, need to execute this transaction 2 times (doubles the numberof bytes read)
+          if(iter==0)
+          {
+            //start by taking to the FIFO address on the IMU (and mask as a restart after the prior operation to read the number of samples in the buffer)
+            cfg = dma_channel_get_default_config(data_channel);
+            channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
+            channel_config_set_read_increment(&cfg, false);
+            channel_config_set_write_increment(&cfg, false);
+            channel_config_set_dreq(&cfg, i2c_get_dreq(_i2c, true)); // TX DREQ
+            channel_config_set_chain_to(&cfg, ctrl_channel);
+            channel_config_set_enable(&cfg, true);
+
+            pool_start[dma_index].read_addr      = (const void*)&_get_fifo_cmd;
+            pool_start[dma_index].write_addr     = (void*)i2c_data_cmd_reg;
+            pool_start[dma_index].transfer_count = 1;
+            pool_start[dma_index].config         = cfg.ctrl;
+            dma_index++;
+          }
+          //setup aux0 to be the one to stream data from i2c into ram
+          //won't know the size of the transfer until runtime
+          //1. write the transfer size into the aux0 config
+          //2. write the target address within the _rx_buffer (continue where the past dma left off)
+          //3. have data_chan write to aux0 config
+          if(iter==0)
+          {
+            //configure data_chan push 0x0100 to i2c periphreal _rx_fifo_count times
+            cfg=dma_channel_get_default_config(aux0_channel);
+            channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
+            channel_config_set_read_increment(&cfg, false);
+            channel_config_set_write_increment(&cfg, false);
+            channel_config_set_dreq(&cfg, i2c_get_dreq(_i2c, true)); 
+            //channel_config_set_chain_to(&cfg, ctrl_channel); //aux0 links back to master control
+            channel_config_set_enable(&cfg, true);
+
+            //Serial.print("_aux0_write_fifo_cmd.read_addr &_read_operation: "); Serial.println((uint32_t)&_read_operation,HEX);
+            //Serial.print("_aux0_write_fifo_cmd.write_addr i2c_data_cmd_reg: "); Serial.println((uint32_t)i2c_data_cmd_reg,HEX);
+            _aux0_write_fifo_cmd.read_addr      = (const void*)&_read_operation;
+            _aux0_write_fifo_cmd.write_addr     = (void*)i2c_data_cmd_reg;
+            //Serial.print("stale tx count _aux0_write_fifo_cmd: "); Serial.println(_aux0_write_fifo_cmd.transfer_count);
+            _aux0_write_fifo_cmd.transfer_count = 0; //_rx_fifo_count
+            _aux0_write_fifo_cmd.config         = cfg.ctrl;
+
+            //configure aux0_chan to read _rx_fifo_count bytes
+            cfg=dma_channel_get_default_config(aux1_channel);
+            channel_config_set_transfer_data_size(&cfg, DMA_SIZE_8);
+            channel_config_set_read_increment(&cfg, false);
+            channel_config_set_write_increment(&cfg, true);
+            channel_config_set_ring(&cfg, true, IMU_BUFFER_SIZE_LOG2);
+            channel_config_set_dreq(&cfg, i2c_get_dreq(_i2c, false)); 
+            channel_config_set_chain_to(&cfg, ctrl_channel);
+            channel_config_set_enable(&cfg, true);
+
+            _aux1_read_fifo_cmd.read_addr      = (const void*)i2c_data_cmd_reg;
+            _aux1_read_fifo_cmd.write_addr     = (void*)_rx_buffer_ptr;
+            //Serial.print("stale tx count _aux1_read_fifo_cmd: "); Serial.println(_aux1_read_fifo_cmd.transfer_count);
+            _aux1_read_fifo_cmd.transfer_count = 0; //_rx_fifo_count
+            _aux1_read_fifo_cmd.config         = cfg.ctrl;
+
+            //need data_chan to populate data_chan's transfer size
+            cfg = dma_channel_get_default_config(data_channel);
+            channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
+            channel_config_set_read_increment(&cfg, false);
+            channel_config_set_write_increment(&cfg, false);
+            channel_config_set_chain_to(&cfg, ctrl_channel);
+            channel_config_set_enable(&cfg, true);
+
+            pool_start[dma_index].read_addr      = (const void*)&_rx_fifo_count;
+            pool_start[dma_index].write_addr     = (void*)&_aux0_write_fifo_cmd.transfer_count;
+            pool_start[dma_index].transfer_count = 1;
+            pool_start[dma_index].config         = cfg.ctrl;
+            dma_index++;
+
+            //transfer sizes are being set, so works up to this point
+
+            //same for aux0_chan
+            cfg = dma_channel_get_default_config(data_channel);
+            channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
+            channel_config_set_read_increment(&cfg, false);
+            channel_config_set_write_increment(&cfg, false);
+            channel_config_set_chain_to(&cfg, ctrl_channel);
+            channel_config_set_enable(&cfg, true);
+
+            pool_start[dma_index].read_addr      = (const void*)&_rx_fifo_count;
+            pool_start[dma_index].write_addr     = (void*)&_aux1_read_fifo_cmd.transfer_count;
+            pool_start[dma_index].transfer_count = 1;
+            pool_start[dma_index].config         = cfg.ctrl;
+            dma_index++;
+
+            //now that axu0 chan is setup where to write to, and both aux0 and data_chan's know
+            //how much data to move, kick off aux0 read, then data_chan write
+            //flow control will start with data_chan writing, and aux0 start receiving data
+            //when aux0 done, then flow control is sent back to control_channel
+
+            cfg = dma_channel_get_default_config(data_channel);
+            channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+            channel_config_set_read_increment(&cfg, true);
+            channel_config_set_write_increment(&cfg, true);
+            channel_config_set_chain_to(&cfg, ctrl_channel);
+            channel_config_set_enable(&cfg, true);
+
+            pool_start[dma_index].read_addr      = (const void*)&_aux1_read_fifo_cmd;
+            pool_start[dma_index].write_addr     = (void*)&dma_hw->ch[aux1_channel].read_addr;
+            pool_start[dma_index].transfer_count = 4;
+            pool_start[dma_index].config         = cfg.ctrl;
+            dma_index++;
+
+            //with aux0 ready and idling for data, setup data_chan to start pushing to i2c
+
+            cfg = dma_channel_get_default_config(data_channel);
+            channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+            channel_config_set_read_increment(&cfg, true);
+            channel_config_set_write_increment(&cfg, true);
+            //channel_config_set_chain_to(&cfg, data_channel);
+            channel_config_set_enable(&cfg, true);
+
+            //Serial.print("&_aux0_write_fifo_cmd: "); Serial.println((uint32_t)&_aux0_write_fifo_cmd,HEX);
+            //Serial.print("&dma_hw->ch[data_channel].read_addr: "); Serial.println((uint32_t)&dma_hw->ch[data_channel].read_addr,HEX);
+            pool_start[dma_index].read_addr      = (const void*)&_aux0_write_fifo_cmd;
+            pool_start[dma_index].write_addr     = (void*)&dma_hw->ch[aux0_channel].read_addr;
+            pool_start[dma_index].transfer_count = 4;
+            pool_start[dma_index].config         = cfg.ctrl;
+            dma_index++;
+
+          }else{//re-trigger without changing the address in the output array
+            //only need to re-start what has already been done.  note: do not over-write the aux0.write_addr, since this location needs to carry over from the first transfer
+
+            cfg = dma_channel_get_default_config(data_channel);
+            channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+            channel_config_set_read_increment(&cfg, false);
+            channel_config_set_write_increment(&cfg, false);
+            channel_config_set_chain_to(&cfg, ctrl_channel);
+            channel_config_set_enable(&cfg, true);
+
+            pool_start[dma_index].read_addr      = (const void*)&_aux1_read_fifo_cmd.config;
+            pool_start[dma_index].write_addr     = (void*)&dma_hw->ch[aux1_channel].ctrl_trig;
+            pool_start[dma_index].transfer_count = 1;
+            pool_start[dma_index].config         = cfg.ctrl;
+            dma_index++;
+
+            //with aux1 ready and idling for data, setup aux0_chan to start pushing to i2c (aux1 will return control flow back to control_dma)
+
+            cfg = dma_channel_get_default_config(data_channel);
+            channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+            channel_config_set_read_increment(&cfg, true);
+            channel_config_set_write_increment(&cfg, true);
+            //channel_config_set_chain_to(&cfg, ctrl_channel);
+            channel_config_set_enable(&cfg, true);
+
+            pool_start[dma_index].read_addr      = (const void*)&_aux0_write_fifo_cmd;
+            pool_start[dma_index].write_addr     = (void*)&dma_hw->ch[aux0_channel].ctrl_trig;
+            pool_start[dma_index].transfer_count = 1;
+            pool_start[dma_index].config         = cfg.ctrl;
+            dma_index++;
+          }
+        }
+        //4. dump the aux0 pointer to RAM for the next operation to pickup where this one left off
+        //_rx_buffer_ptr
+        cfg = dma_channel_get_default_config(data_channel);
+        channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+        channel_config_set_read_increment(&cfg, false);
+        channel_config_set_write_increment(&cfg, false);
+        channel_config_set_chain_to(&cfg, ctrl_channel);
+        channel_config_set_enable(&cfg, true);
+
+        pool_start[dma_index].read_addr      = (const void*)&dma_hw->ch[aux0_channel].write_addr;
+        pool_start[dma_index].write_addr     = (void*)&_rx_buffer_ptr;
+        pool_start[dma_index].transfer_count = 1;
+        pool_start[dma_index].config         = cfg.ctrl;
+        dma_index++;
 
 
-        //_rx_fifo_count now has "18" (for example) to mean there are 3x gyro readings (3x axes each), and 3x accel readings (3x axes each) in periphreal buffer (each reading is 16 bits - requires 2x i2c reads to fetch)
-
-        //now need to read that many samples (16-bit values), including an I2C termination character
-        //take the _rx_fifo_count, decrement by 1, save in _rx_fifo_count_decrement
-        //do this by indexing into _rx_buffer at index _rx_fifo_count, moving backward one read, then pulling out the decremented index into _rx_fifo_count_decrement
 
 
 
+        // too complicated to put a stop bit on the end of the varaible-size fifo read, so settle for repeated start, and use that to fetch temperature
+        cfg = dma_channel_get_default_config(data_channel);
+        channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
+        channel_config_set_read_increment(&cfg, true);
+        channel_config_set_write_increment(&cfg, false);
+        channel_config_set_dreq(&cfg, i2c_get_dreq(_i2c, true)); // TX DREQ
+        channel_config_set_chain_to(&cfg, ctrl_channel);
+        channel_config_set_enable(&cfg, true);
 
+        pool_start[dma_index].read_addr      = (const void*)&_get_temperature_cmd;
+        pool_start[dma_index].write_addr     = (void*)i2c_data_cmd_reg;
+        pool_start[dma_index].transfer_count = sizeof(_get_temperature_cmd)/sizeof(_get_temperature_cmd[0]);
+        pool_start[dma_index].config         = cfg.ctrl;
+        dma_index++;
 
-        //now that _rx_fifo_count and _rx_fifo_count_decrement are set, need to perform parallel dma operation: one to write i2c
+        // Strip values out of the RX FIFO stream
+        cfg = dma_channel_get_default_config(data_channel);
+        channel_config_set_transfer_data_size(&cfg, DMA_SIZE_8);
+        channel_config_set_read_increment(&cfg, false);
+        channel_config_set_write_increment(&cfg, true);
+        channel_config_set_dreq(&cfg, i2c_get_dreq(_i2c, false)); // RX DREQ
+        channel_config_set_chain_to(&cfg, ctrl_channel);
+        channel_config_set_enable(&cfg, true);
+
+        pool_start[dma_index].read_addr      = (const void*)i2c_data_cmd_reg;
+        pool_start[dma_index].write_addr     = (void*)&_temperature[_temperature_ping_pong];
+        pool_start[dma_index].transfer_count = sizeof(_get_temperature_cmd)/sizeof(_get_temperature_cmd[0])-1; //read one byte: the number of samples availabe in imu fifo
+        pool_start[dma_index].config         = cfg.ctrl;
+        dma_index++;
+
+        //Serial.print("IMU DMA instruction size: "); Serial.println(dma_index); while(1);
 
     }
 }

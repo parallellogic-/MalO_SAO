@@ -40,7 +40,7 @@ uint32_t LightSensor::getBrightness() const {
     return _raw_lux[!_raw_lux_ping_pong];
 }
 
-int LightSensor::getRequiredDescriptorCount(uint32_t frame_id, uint8_t subframe_id, uint8_t subframe_max) {
+int LightSensor::getRequiredDescriptorCount(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max) {
     if (subframe_id > 0) return 0;
     
     // We add 3 additional descriptor operations ahead of the data blocks to modify the I2C block target configuration 
@@ -51,7 +51,7 @@ int LightSensor::getRequiredDescriptorCount(uint32_t frame_id, uint8_t subframe_
     }
 }
 
-void LightSensor::populateDescriptors(uint32_t frame_id, uint8_t subframe_id, uint8_t subframe_max, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) {
+void LightSensor::populateDescriptors(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) {
     if (subframe_id > 0) return;
 
     _raw_lux_ping_pong=frame_id%2;
