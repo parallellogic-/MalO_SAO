@@ -34,9 +34,9 @@ int LightSensor::getRequiredDescriptorCount(uint64_t frame_id, uint8_t subframe_
     
     // We add 3 additional descriptor operations ahead of the data blocks to modify the I2C block target configuration 
     if (!_is_booted) {
-        return 3 + sizeof(_boot_cmd)/sizeof(_boot_cmd[0])+1; // 3 Address configs + 1 Boot execution payload block
+        return 3 + sizeof(_boot_cmd)/sizeof(_boot_cmd[0])+1+1; // 3 Address configs + 1 Boot execution payload block
     } else {
-        return 3 + 2+1; // 3 Address configs + 1 TX request block + 1 RX fetch block
+        return 3 + 2; // 3 Address configs + 1 TX request block + 1 RX fetch block
     }
 }
 
@@ -45,6 +45,7 @@ void LightSensor::populateDescriptors(uint64_t frame_id, uint8_t subframe_id, ui
 
     _raw_lux_ping_pong=frame_id%2;
     uint8_t dma_index=0;
+    dma_channel_config cfg;
 
     // Hardware Base Registers mapping pointers
     i2c_hw_t* hw = i2c_get_hw(_i2c);
@@ -54,39 +55,39 @@ void LightSensor::populateDescriptors(uint64_t frame_id, uint8_t subframe_id, ui
 
     // --- BASE DMA REGISTER METADATA FOR HARDWARE OVERRIDES ---
     // These run without a Data Request (DREQ) pacing flag because internal hardware register updates complete instantly
-    dma_channel_config cfg_reg = dma_channel_get_default_config(data_channel);
-    channel_config_set_transfer_data_size(&cfg_reg, DMA_SIZE_32);
-    channel_config_set_read_increment(&cfg_reg, false);
-    channel_config_set_write_increment(&cfg_reg, false);
-    channel_config_set_chain_to(&cfg_reg, ctrl_channel);
-    channel_config_set_enable(&cfg_reg, true);
+    cfg = dma_channel_get_default_config(data_channel);
+    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+    channel_config_set_read_increment(&cfg, false);
+    channel_config_set_write_increment(&cfg, false);
+    channel_config_set_chain_to(&cfg, ctrl_channel);
+    channel_config_set_enable(&cfg, true);
 
     // Stage 1: Disable I2C Engine (Required to update TAR)
     pool_start[dma_index].read_addr      = &_i2c_disable;
     pool_start[dma_index].write_addr     = (void*)i2c_enable_reg;
     pool_start[dma_index].transfer_count = 1;
-    pool_start[dma_index].config         = cfg_reg.ctrl;
+    pool_start[dma_index].config         = cfg.ctrl;
     dma_index++;
 
     // Stage 2: Inject Target Slave Device Address into I2C Core
     pool_start[dma_index].read_addr      = &_i2c_target_addr;
     pool_start[dma_index].write_addr     = (void*)i2c_tar_reg;
     pool_start[dma_index].transfer_count = 1;
-    pool_start[dma_index].config         = cfg_reg.ctrl;
+    pool_start[dma_index].config         = cfg.ctrl;
     dma_index++;
 
     // Stage 3: Re-Enable I2C Engine 
     pool_start[dma_index].read_addr      = &_i2c_enable;
     pool_start[dma_index].write_addr     = (void*)i2c_enable_reg;
     pool_start[dma_index].transfer_count = 1;
-    pool_start[dma_index].config         = cfg_reg.ctrl;
+    pool_start[dma_index].config         = cfg.ctrl;
     dma_index++;
 
     // --- DATA PAYLOAD TRANSMISSION CONFIGURATIONS ---
     if (!_is_booted) {
       for(uint8_t iter=0;iter<sizeof(_boot_cmd)/sizeof(_boot_cmd[0]);iter++)
       {
-          dma_channel_config cfg = dma_channel_get_default_config(data_channel);
+          cfg = dma_channel_get_default_config(data_channel);
           channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
           channel_config_set_read_increment(&cfg, true);
           channel_config_set_write_increment(&cfg, false);
@@ -100,6 +101,36 @@ void LightSensor::populateDescriptors(uint64_t frame_id, uint8_t subframe_id, ui
           pool_start[dma_index].config         = cfg.ctrl;
           dma_index++;
       }
+
+      //append a final read operation, so that the dma stalls until it is complete, allowing fifo buffer to empty and allow clean swap between i2c targets
+      cfg = dma_channel_get_default_config(data_channel);
+      channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
+      channel_config_set_read_increment(&cfg, true);
+      channel_config_set_write_increment(&cfg, false);
+      channel_config_set_dreq(&cfg, i2c_get_dreq(_i2c, true)); // TX DREQ
+      channel_config_set_chain_to(&cfg, ctrl_channel);
+      channel_config_set_enable(&cfg, true);
+
+      pool_start[dma_index].read_addr      = &_boot_check_cmd;
+      pool_start[dma_index].write_addr     = (void*)i2c_data_cmd_reg;
+      pool_start[dma_index].transfer_count = sizeof(_boot_check_cmd)/sizeof(_boot_check_cmd[0]);
+      pool_start[dma_index].config         = cfg.ctrl;
+      dma_index++;
+
+      //read will hang dma until byte is read from i2d->ram
+      cfg = dma_channel_get_default_config(data_channel);
+      channel_config_set_transfer_data_size(&cfg, DMA_SIZE_8);
+      channel_config_set_read_increment(&cfg, false);
+      channel_config_set_write_increment(&cfg, false);
+      channel_config_set_dreq(&cfg, i2c_get_dreq(_i2c, false)); // RX DREQ
+      channel_config_set_chain_to(&cfg, ctrl_channel);
+      channel_config_set_enable(&cfg, true);
+
+      pool_start[dma_index].read_addr      = (const void*)i2c_data_cmd_reg;
+      pool_start[dma_index].write_addr     = (void*)&_boot_check;
+      pool_start[dma_index].transfer_count = sizeof(_boot_check_cmd)/sizeof(_boot_check_cmd[0])-1;
+      pool_start[dma_index].config         = cfg.ctrl;
+      dma_index++;
           
            /*cfg = dma_channel_get_default_config(data_channel);
           channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
@@ -114,43 +145,46 @@ void LightSensor::populateDescriptors(uint64_t frame_id, uint8_t subframe_id, ui
           pool_start[4].transfer_count = sizeof(_boot_cmd2)/sizeof(_boot_cmd2[0]);
           pool_start[4].config         = cfg.ctrl;*/
           _is_booted=true;
+          //Serial.print("IMU DMA instruction size: "); Serial.println(dma_index); while(1);
     } else {
         // Unpack calculations from preceding framework frames
 
         // Stage 4 (Index 3): Issue TX commands for I2C data extraction clocks
         //PRECON: transaction is sort <~16 values and fits within I2C FIFO
-        dma_channel_config cfg_tx = dma_channel_get_default_config(data_channel);
-        channel_config_set_transfer_data_size(&cfg_tx, DMA_SIZE_16);
-        channel_config_set_read_increment(&cfg_tx, true);
-        channel_config_set_write_increment(&cfg_tx, false);
-        channel_config_set_dreq(&cfg_tx, i2c_get_dreq(_i2c, true)); // TX DREQ
-        channel_config_set_chain_to(&cfg_tx, ctrl_channel);
-        channel_config_set_enable(&cfg_tx, true);
+        cfg = dma_channel_get_default_config(data_channel);
+        channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
+        channel_config_set_read_increment(&cfg, true);
+        channel_config_set_write_increment(&cfg, false);
+        channel_config_set_dreq(&cfg, i2c_get_dreq(_i2c, true)); // TX DREQ
+        channel_config_set_chain_to(&cfg, ctrl_channel);
+        channel_config_set_enable(&cfg, true);
 
         pool_start[dma_index].read_addr      = &_read_request;
         pool_start[dma_index].write_addr     = (void*)i2c_data_cmd_reg;
         pool_start[dma_index].transfer_count = sizeof(_read_request)/sizeof(_read_request[0]);
-        pool_start[dma_index].config         = cfg_tx.ctrl;
+        pool_start[dma_index].config         = cfg.ctrl;
         dma_index++;
 
         // Stage 5 (Index 4): Strip values out of the RX FIFO stream
-        dma_channel_config cfg_rx = dma_channel_get_default_config(data_channel);
-        channel_config_set_transfer_data_size(&cfg_rx, DMA_SIZE_8);
-        channel_config_set_read_increment(&cfg_rx, false);
-        channel_config_set_write_increment(&cfg_rx, true);
-        channel_config_set_dreq(&cfg_rx, i2c_get_dreq(_i2c, false)); // RX DREQ
-        channel_config_set_chain_to(&cfg_rx, ctrl_channel);
-        channel_config_set_enable(&cfg_rx, true);
+        cfg = dma_channel_get_default_config(data_channel);
+        channel_config_set_transfer_data_size(&cfg, DMA_SIZE_8);
+        channel_config_set_read_increment(&cfg, false);
+        channel_config_set_write_increment(&cfg, true);
+        channel_config_set_dreq(&cfg, i2c_get_dreq(_i2c, false)); // RX DREQ
+        channel_config_set_chain_to(&cfg, ctrl_channel);
+        channel_config_set_enable(&cfg, true);
 
         pool_start[dma_index].read_addr      = (const void*)i2c_data_cmd_reg;
         pool_start[dma_index].write_addr     = (void*)&_raw_lux[_raw_lux_ping_pong];
         pool_start[dma_index].transfer_count = sizeof(_read_request)/sizeof(_read_request[0])-1; // same number of bytes, minus the address byte
-        pool_start[dma_index].config         = cfg_rx.ctrl;
+        pool_start[dma_index].config         = cfg.ctrl;
         dma_index++;
+
+        //Serial.print("DMA instruction size: "); Serial.println(dma_index); while(1);
     }              
 
     // -- dead reckoning delay to allow this i2c fifo transaction to clear before moving to the next transaction --
-    dma_channel_config cfg = dma_channel_get_default_config(data_channel);
+    /*dma_channel_config cfg = dma_channel_get_default_config(data_channel);
     channel_config_set_transfer_data_size(&cfg, DMA_SIZE_8);
     channel_config_set_read_increment(&cfg, false);
     channel_config_set_write_increment(&cfg, false);
@@ -164,5 +198,5 @@ void LightSensor::populateDescriptors(uint64_t frame_id, uint8_t subframe_id, ui
     pool_start[dma_index].write_addr     = (void*)&dummy_reg_write;
     pool_start[dma_index].transfer_count = 25000; 
     pool_start[dma_index].config         = cfg.ctrl;
-    dma_index++;
+    dma_index++;*/
 }

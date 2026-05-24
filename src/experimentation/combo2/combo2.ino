@@ -40,11 +40,12 @@ void setup() {
   //gpio_pull_up(I2C0_SCL);
 
   // put your setup code here, to run once:
+  
   scatterer_gatherer_engine.begin();
   light_sensor.begin();
   imu.begin();
-  scatterer_gatherer_engine.registerSource(&light_sensor);
   scatterer_gatherer_engine.registerSource(&imu);
+  scatterer_gatherer_engine.registerSource(&light_sensor);
   
 
   frame_id=0;
@@ -110,11 +111,11 @@ void loop() {
     }
   }
 
-  if(frame_id==1)
+  /*if(frame_id==1)
   {
     Serial.println("Pause for oscope reboot...");
     delay(1000);
-  }
+  }*/
 
   //delay(16);
   //delay(1000);

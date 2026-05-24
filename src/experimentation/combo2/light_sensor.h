@@ -31,13 +31,13 @@ private:
     //uint16_t _boot_cmd2[2] __attribute__((aligned(4))); 
     const uint16_t _boot_cmd[2][2] __attribute__((aligned(4)))={
         {LTR308_MAIN_CTRL,0x02}, // Active mode, Gain = 1 //0202
-        {0x04 | 0x0400, 0x40 | 0x0200},// Targets the ALS_GAIN / Integration Time Register // 0x04 = 10ms integration time + 0x0200 (I2C STOP bit!)
-    }
+        {0x04 | 0x0400, 0x40 },// Targets the ALS_GAIN / Integration Time Register // 0x04 = 10ms integration time + 0x0200 (I2C STOP bit!)
+    };
 
-    /*const uint16_t _boot_check_cmd[1][2] __attribute__((aligned(4)))={
-      | 0x0400, 
+    const uint16_t _boot_check_cmd[2] __attribute__((aligned(4)))={
+      LTR308_MAIN_CTRL | 0x0400, 0x0100 | 0x0200 //restart, read+stop
     }; //to cleanly switch between i2c targets, need to end with a read operation to ensure fifos are empty
-    uint8_t _boot_check;*/
+    uint8_t _boot_check=0;
 
     // I2C requires writing read requests to IC_DATA_CMD (bit 8 set) to trigger read clocks
     uint16_t _read_request[4] __attribute__((aligned(4)))={

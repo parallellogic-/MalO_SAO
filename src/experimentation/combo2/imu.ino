@@ -24,7 +24,7 @@ int IMU::getRequiredDescriptorCount(uint64_t frame_id, uint8_t subframe_id, uint
 
     // We add 3 additional descriptor operations ahead of the data blocks to modify the I2C block target configuration 
     if (!_is_booted) {
-        return 3 + sizeof(_boot_cmd)/sizeof(_boot_cmd[0]) +1;//+4; // 3 Address configs + Boot execution payload blocks
+        return 3 + sizeof(_boot_cmd)/sizeof(_boot_cmd[0]) +4;//+4; // 3 Address configs + Boot execution payload blocks
     } else {
         return 19; // 3 Address configs + 1 fill mutable buffer with 0x0100, 1 fill mutable with 0x0300, 1 fill start address
     }
@@ -95,8 +95,24 @@ void IMU::populateDescriptors(uint64_t frame_id, uint8_t subframe_id, uint8_t su
             pool_start[dma_index].config         = cfg.ctrl;
             dma_index++;
 
-            if(iter==0)
-            {//after reboot command, allow >50us to stabalize
+            if(iter==1)
+            {//precon: command 0 is a reboot, command 1 is a read - after read then wait for reboot to finish
+              //read will hang dma until byte is read from i2d->ram
+              cfg = dma_channel_get_default_config(data_channel);
+              channel_config_set_transfer_data_size(&cfg, DMA_SIZE_8);
+              channel_config_set_read_increment(&cfg, false);
+              channel_config_set_write_increment(&cfg, false);
+              channel_config_set_dreq(&cfg, i2c_get_dreq(_i2c, false)); // RX DREQ
+              channel_config_set_chain_to(&cfg, ctrl_channel);
+              channel_config_set_enable(&cfg, true);
+
+              pool_start[dma_index].read_addr      = (const void*)i2c_data_cmd_reg;
+              pool_start[dma_index].write_addr     = (void*)&_boot_check;
+              pool_start[dma_index].transfer_count = 1;
+              pool_start[dma_index].config         = cfg.ctrl;
+              dma_index++;
+
+              //after reboot command, allow >50us to stabalize
               cfg = dma_channel_get_default_config(data_channel);
               channel_config_set_transfer_data_size(&cfg, DMA_SIZE_8);
               channel_config_set_read_increment(&cfg, false);
@@ -109,10 +125,40 @@ void IMU::populateDescriptors(uint64_t frame_id, uint8_t subframe_id, uint8_t su
               pool_start[dma_index].transfer_count = 25000; //factor of ~2 margin on reboot time
               pool_start[dma_index].config         = cfg.ctrl;
               dma_index++;
-
             }
-
           }
+
+          //append a final read operation, so that the dma stalls until it is complete, allowing fifo buffer to empty and allow clean swap between i2c targets
+          cfg = dma_channel_get_default_config(data_channel);
+          channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
+          channel_config_set_read_increment(&cfg, true);
+          channel_config_set_write_increment(&cfg, false);
+          channel_config_set_dreq(&cfg, i2c_get_dreq(_i2c, true)); // TX DREQ
+          channel_config_set_chain_to(&cfg, ctrl_channel);
+          channel_config_set_enable(&cfg, true);
+
+          pool_start[dma_index].read_addr      = &_boot_check_cmd;
+          pool_start[dma_index].write_addr     = (void*)i2c_data_cmd_reg;
+          pool_start[dma_index].transfer_count = sizeof(_boot_check_cmd)/sizeof(_boot_check_cmd[0]);
+          pool_start[dma_index].config         = cfg.ctrl;
+          dma_index++;
+
+          //read will hang dma until byte is read from i2c->ram
+          cfg = dma_channel_get_default_config(data_channel);
+          channel_config_set_transfer_data_size(&cfg, DMA_SIZE_8);
+          channel_config_set_read_increment(&cfg, false);
+          channel_config_set_write_increment(&cfg, false);
+          channel_config_set_dreq(&cfg, i2c_get_dreq(_i2c, false)); // RX DREQ
+          channel_config_set_chain_to(&cfg, ctrl_channel);
+          channel_config_set_enable(&cfg, true);
+
+          pool_start[dma_index].read_addr      = (const void*)i2c_data_cmd_reg;
+          pool_start[dma_index].write_addr     = (void*)&_boot_check;
+          pool_start[dma_index].transfer_count = sizeof(_boot_check_cmd)/sizeof(_boot_check_cmd[0])-1;
+          pool_start[dma_index].config         = cfg.ctrl;
+          dma_index++;
+
+          //Serial.print("DMA instruction size: "); Serial.println(dma_index); while(1);
           //Also reset address pointer on FIFO
           _aux1_fifo_i2c_to_ram_cmd.write_addr=(void*)&_rx_buffer[0];
           _is_booted=true;
@@ -423,7 +469,7 @@ void IMU::populateDescriptors(uint64_t frame_id, uint8_t subframe_id, uint8_t su
         pool_start[dma_index].config         = cfg.ctrl;
         dma_index++;
 
-        //Serial.print("IMU DMA instruction size: "); Serial.println(dma_index); while(1);
+        //Serial.print("DMA instruction size: "); Serial.println(dma_index); while(1);
 
     }
 }

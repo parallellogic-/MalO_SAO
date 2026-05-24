@@ -39,15 +39,16 @@ private:
     //The RESTART is only required when changing direction from a write to a read.
 
     // list of register-value pairs to write to i2c periphreal on boot
-    const uint16_t _boot_cmd[6][2] __attribute__((aligned(4))) ={
+    const uint16_t _boot_cmd[7][2] __attribute__((aligned(4))) ={
         // 1. Reset device
       {REG_CTRL3_C,0x01}, //needs 50 us after reboot
+      {REG_WHO_AM_I | 0x0400,0x0100}, //needs 50 us after reboot
       //{REG_CTRL3_C,0x01}, //rigger reboot
-      {REG_CTRL3_C,(0x01 << 6) | (0x01 << 2)}, //block data update (new), read_increment_enabled (default)
+      {REG_CTRL3_C | 0x0400,(0x01 << 6) | (0x01 << 2)}, //block data update (new), read_increment_enabled (default)
         // 2. Set Accel ODR to 104 Hz (>60 Hz) and Anti-Aliasing filter to 50 Hz
         // CTRL1_XL: ODR[7:4] = 0101 (104 Hz), FS[3:2] = 01 (±16g), LPF2[1] = 0 (Filter BW = ODR/9)
       {REG_FIFO_CTRL3  | 0x0400,0x09 /*(0x01 << 3) | 0x01 */ },
-      {REG_CTRL1_XL   | 0x0400,0x55 /*(0x05 << 4) | (0x01 << 2) | 0x01*/   }, //XL Hz, range, LPF
+      {REG_CTRL1_XL | 0x0400,0x55 /*(0x05 << 4) | (0x01 << 2) | 0x01*/   }, //XL Hz, range, LPF
       {REG_CTRL2_G  | 0x0400,0x5C  /*(0x05 << 4) | (0x03 << 2) */  }, //gyro Hz, range
         // 3. Configure FIFO Decimation
         // FIFO_CTRL3: Accel decimation = 1 (1 sample), Gyro decimation = 0 (Disabled)
@@ -56,6 +57,11 @@ private:
         // FIFO_CTRL5: FIFO_Mode[2:0] = 110 (Continuous Mode), 0x01 for FIFO mode. Stops collecting data when FIFO is full
       {REG_FIFO_CTRL5  | 0x0400,/*0x2E*/(0x05 << 3) | 0x06 | 0x0200 },// 0x0200 (I2C STOP bit)
     };
+
+    const uint16_t _boot_check_cmd[2] __attribute__((aligned(4)))={
+      REG_FIFO_CTRL5 | 0x0400, 0x0100 | 0x0200 //restart, read+stop
+    }; //to cleanly switch between i2c targets, need to end with a read operation to ensure fifos are empty
+    uint8_t _boot_check=0;
 
     // list of register-value pairs to write to i2c periphreal on boot
     /*const uint16_t _boot_cmd[2][2] __attribute__((aligned(4))) ={
@@ -90,7 +96,7 @@ private:
     //volatile uint32_t _rx_buffer_ptr=(uint32_t)&_rx_buffer[0];
 
     bool _temperature_ping_pong;
-    volatile uint16_t _temperature[2] __attribute__((aligned(4)));
+    volatile int16_t _temperature[2] __attribute__((aligned(4)));//0xFE70 is 0degC, 0x0000 is 25degC, 0x0190 is 50degC
 
     volatile DmaDescriptor _aux0_sum_cmd;
     volatile DmaDescriptor _aux0_fifo_ram_to_i2c_cmd; //command the i2c periphreal to read X bytes from imu
