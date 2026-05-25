@@ -16,8 +16,53 @@
 #define REG_FIFO_DATA_OUT_L 0x3E
 #define REG_FIFO_DATA_OUT_H 0x3F
 
-//#define IMU_BUFFER_SIZE_LOG2 12 //ring buffer size
-#define IMU_BUFFER_SIZE (1<<12) // 2048 elements (uint16_t) //gyro and accel data: 2 bytes gyro_x, _y, _z, accel_x, _y, _z
+/* GYRO_RANGE_DEG_SEC | GYRO_RANGE_CONFIG
+ *  250               | 0b00
+ *  500               | 0b01
+ * 1000               | 0b10
+ * 2000               | 0b11
+ */
+#define GYRO_RANGE_DEG_SEC 2000
+#define GYRO_RANGE_CONFIG 0b11
+#define GYRO_DEG_SEC_PER_LSB (GYRO_RANGE_DEG_SEC*1.0/0x8000)
+
+/* G's | config
+ * 2   | 0b00
+ * 4   | 0b10 //beware out-of-order bits (bit flip in design?)
+ * 8   | 0b11
+ * 16  | 0b01
+*/
+#define ACCEL_RANGE_G          16
+#define ACCEL_RANGE_G_PER_LSB  (ACCEL_RANGE_G*1.0/0x8000)
+#define ACCEL_RANGE_CONFIG     0b01
+
+/* Hz   | config
+ * 12.5 | 0b0001
+ * 26   | 0b0010
+ * 52   | 0b0011
+ * 104  | 0b0100
+ * 208  | 0b0101
+ * 416  | 0b0110
+ * 833  | 0b0111
+ * 1660 | 0b1000
+*/
+#define IMU_HZ          208
+#define IMU_MS          (1000.0/IMU_HZ)
+#define HZ_CONFIG       0b0101
+
+/* Low pass filter (ex. 100 Hz 3dB BW for 208 Hz sampling: factor of 2 offset/Nyquist)
+ * Hz  | config
+ * 50  | 0b11
+ * 100 | 0b10
+ * 200 | 0b01
+ * 400 | 0b00
+*/
+#define ACCEL_LPF_CONFIG     0b01
+
+
+
+
+#define IMU_BUFFER_SIZE (1<<12) // 4096 elements (uint16_t) //gyro and accel data: 2 bytes gyro_x, _y, _z, accel_x, _y, _z
 #define IMU_BUFFER_SIZE_BYTES (IMU_BUFFER_SIZE * sizeof(uint16_t))
 
 #define IMU_DMA_SCRATCH_REG pwm_hw->slice[11].div //need somewhere to write the 12-bit fifo size to where it can be operated on (set/clear/xor).  pwm/div has the bonus of have only 12 bits viable anyway - automatically filtering out the upper 4 bits without a separate operation
@@ -41,38 +86,25 @@ private:
     // list of register-value pairs to write to i2c periphreal on boot
     const uint16_t _boot_cmd[7][2] __attribute__((aligned(4))) ={
         // 1. Reset device
-      {REG_CTRL3_C,0x01}, //needs 50 us after reboot
-      {REG_WHO_AM_I | 0x0400,0x0100}, //needs 50 us after reboot
-      //{REG_CTRL3_C,0x01}, //rigger reboot
-      {REG_CTRL3_C | 0x0400,(0x01 << 6) | (0x01 << 2)}, //block data update (new), read_increment_enabled (default)
-        // 2. Set Accel ODR to 104 Hz (>60 Hz) and Anti-Aliasing filter to 50 Hz
-        // CTRL1_XL: ODR[7:4] = 0101 (104 Hz), FS[3:2] = 01 (±16g), LPF2[1] = 0 (Filter BW = ODR/9)
-      {REG_FIFO_CTRL3  | 0x0400,0x09 /*(0x01 << 3) | 0x01 */ },
-      {REG_CTRL1_XL | 0x0400,0x55 /*(0x05 << 4) | (0x01 << 2) | 0x01*/   }, //XL Hz, range, LPF
-      {REG_CTRL2_G  | 0x0400,0x5C  /*(0x05 << 4) | (0x03 << 2) */  }, //gyro Hz, range
-        // 3. Configure FIFO Decimation
-        // FIFO_CTRL3: Accel decimation = 1 (1 sample), Gyro decimation = 0 (Disabled)
+      {REG_CTRL3_C            ,  0x01 },//reboot
+      {REG_WHO_AM_I   | 0x0400,  0x0100 }, //reboot needs 50 us to clear, downstream code will insert a delay after this read operation
+      {REG_CTRL3_C    | 0x0400, (0x01 << 6) | (0x01 << 2) }, //block data update (new), read_increment_enabled (default)
+      {REG_FIFO_CTRL3 | 0x0400,  0x09 }, //no FIFO decimation
+      {REG_CTRL1_XL   | 0x0400, (HZ_CONFIG << 4) | (ACCEL_RANGE_CONFIG << 2) | ACCEL_LPF_CONFIG  }, //XL Hz, range, LPF
+      {REG_CTRL2_G    | 0x0400, (HZ_CONFIG << 4) | (GYRO_RANGE_CONFIG  << 2)   }, //gyro Hz, range
       
         // 4. Set FIFO Mode to "Continuous Mode" (overwrites old data if full)
         // FIFO_CTRL5: FIFO_Mode[2:0] = 110 (Continuous Mode), 0x01 for FIFO mode. Stops collecting data when FIFO is full
-      {REG_FIFO_CTRL5  | 0x0400,/*0x2E*/(0x05 << 3) | 0x06 | 0x0200 },// 0x0200 (I2C STOP bit)
+      {REG_FIFO_CTRL5 | 0x0400, (HZ_CONFIG << 3) | 0x06 | 0x0200 },// 0x0200 (I2C STOP bit)
     };
 
     const uint16_t _boot_check_cmd[2] __attribute__((aligned(4)))={
       REG_FIFO_CTRL5 | 0x0400, 0x0100 | 0x0200 //restart, read+stop
-    }; //to cleanly switch between i2c targets, need to end with a read operation to ensure fifos are empty
+    }; //to cleanly switch between i2c targets, need to end with a read operation to ensure fifos are empty before moving on
     uint8_t _boot_check=0;
 
-    // list of register-value pairs to write to i2c periphreal on boot
-    /*const uint16_t _boot_cmd[2][2] __attribute__((aligned(4))) ={
-      {0x10,0x54},
-      {0x11,(0x05 << 4) | (0x03 << 2) | 0x0200},
-    };*/
-
     const uint16_t _get_fifo_size_cmd[3] __attribute__((aligned(4))) ={
-      //REG_WHO_AM_I, 0x0300 // test
-      //0x0A,0x0300, //test
-      0x3A,0x0100,0x0100
+      REG_FIFO_STATUS1,0x0100,0x0100
     };
 
     const uint16_t _get_fifo_cmd[4] __attribute__((aligned(4*sizeof(uint16_t)))) ={
@@ -81,7 +113,7 @@ private:
     };//alignment needed for ring looping buffer
 
     const uint16_t _get_temperature_cmd[3] __attribute__((aligned(4))) = {
-      0x20 | 0x0400,0x0100,0x0300
+      0x20 | 0x0400,0x0100,0x0100 | 0x0200
     };
     
     //const uint16_t _get_fifo_cmd = REG_FIFO_DATA_OUT_L | 0x0400;
@@ -89,19 +121,21 @@ private:
 
     // Target buffer for incoming RX FIFO data (doubles as the read request - in-place morphing buffer) --> skip this functionality, just send 0x0100 X times, then 0x0300
     //const uint16_t _rx_fifo_count_mask=0xFFFFF000;//which bits to zero-out (the fifo status) when using the fifo count register
-    volatile uint16_t _rx_fifo_count; //number of unread words (16-bit axes) stored in FIFO (qty 6 is one accel+gyro reading).  must be 32-bit to pass through watchdog scratch register in order to do CLEAR operation on upp 4 bits of uint16_t
-    volatile uint16_t _rx_fifo_count_x2;
-    volatile uint16_t _rx_fifo_count_x4;
+    volatile uint16_t _rx_fifo_count=0; //number of unread words (16-bit axes) stored in FIFO (qty 6 is one accel+gyro reading).  must be 32-bit to pass through watchdog scratch register in order to do CLEAR operation on upp 4 bits of uint16_t
+    volatile uint16_t _rx_fifo_count_x2=0;
+    volatile uint16_t _rx_fifo_count_x4=0;
     volatile uint16_t _rx_buffer[IMU_BUFFER_SIZE] __attribute__((aligned(IMU_BUFFER_SIZE_BYTES))); 
     //volatile uint32_t _rx_buffer_ptr=(uint32_t)&_rx_buffer[0];
     //volatile bool _is_data_ready=0;//flag for core1 to poll to see when samples are ready to be processed for state estaimte update
 
-    bool _temperature_ping_pong;
+    bool _temperature_ping_pong=0;
     volatile int16_t _temperature[2] __attribute__((aligned(4)));//0xFE70 is 0degC, 0x0000 is 25degC, 0x0190 is 50degC
 
-    volatile DmaDescriptor _aux0_sum_cmd;
+    volatile DmaDescriptor _aux0_sum_cmd; //command used to double/quadruple _rx_fifo_count to support i2c operations
     volatile DmaDescriptor _aux0_fifo_ram_to_i2c_cmd; //command the i2c periphreal to read X bytes from imu
     volatile DmaDescriptor _aux1_fifo_i2c_to_ram_cmd; //the data the i2c periphreal spits out is read into buffer in local RAM
+
+    uint16_t _update_from_index=0;//the index within _rx_buffer that has been processed by accel/gyro/quat state estimate
 
 public:
     IMU(i2c_inst_t* i2c_hardware = i2c0);
@@ -118,7 +152,7 @@ public:
     int getRequiredDescriptorCount(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max) override;
     void populateDescriptors(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) override;
 
-    bool update(); //the populateDescriptors operation is a DMA to get data from the external periphreal into local RAM.  this method converts data (if any is available) into a format usable by dostream processing
+    bool update(); //the populateDescriptors operation is a DMA to get data from the external periphreal into local RAM.  update() method converts data (if any is available) into a format usable by downstream processing.   mult/div/float operations are in update()
 
 volatile bool _is_data_ready=0;
 };

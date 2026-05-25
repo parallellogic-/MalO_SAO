@@ -7,6 +7,8 @@
 #include "hardware/pwm.h"
 #include "hardware/resets.h"
 
+#include <Wire.h>
+
 ScatterGatherEngine scatterer_gatherer_engine;
 LightSensor light_sensor(i2c0);
 IMU imu(i2c0);
@@ -27,17 +29,25 @@ void setup() {
 
   Serial.begin();
   long start_tms=millis();
-  while(!Serial && (millis()-start_tms)<6000);//wait for terminal to connect or timeout, whichever is first
+  while(!Serial && (millis()-start_tms)<7000);//wait for terminal to connect or timeout, whichever is first
   Serial.println("START");
 
   //restart_all_rp2350_resources();//still starts on frame 8
 
-  //init shared i2c bus
-  i2c_init(i2c0, 400'000); //PRECON: imu reboot delay assumes 400 kHz.  if lower speed, need to increase reboot time
-  gpio_set_function(I2C0_SDA, GPIO_FUNC_I2C);
-  gpio_set_function(I2C0_SCL, GPIO_FUNC_I2C);
-  //gpio_pull_up(I2C0_SDA);
-  //gpio_pull_up(I2C0_SCL);
+  if(0)
+  {
+    //init shared i2c bus
+    i2c_init(i2c0, 100'000); //PRECON: imu reboot delay assumes 400 kHz.  if lower speed, need to increase reboot time
+    gpio_set_function(I2C0_SDA, GPIO_FUNC_I2C);
+    gpio_set_function(I2C0_SCL, GPIO_FUNC_I2C);
+    //gpio_pull_up(I2C0_SDA);
+    //gpio_pull_up(I2C0_SCL);
+  }else{
+    Wire.setSDA(I2C0_SDA);
+    Wire.setSCL(I2C0_SCL);
+    Wire.begin();
+    Wire.setClock(400000);
+  }
 
   // put your setup code here, to run once:
 
@@ -95,6 +105,7 @@ void loop() {
   bool last_status=false;
   while(millis()<(start_tms+16))
   {
+    imu.update();
     if(!is_imu_print_runtime && imu._is_data_ready)
     {
       is_imu_print_runtime=true;

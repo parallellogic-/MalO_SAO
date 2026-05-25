@@ -490,13 +490,45 @@ void IMU::populateDescriptors(uint64_t frame_id, uint8_t subframe_id, uint8_t su
     }
 }
 
+//do math on imu readings
 bool IMU::update()
 {
   if(!_is_data_ready) return false;
-  //there are samples in the buffer
-  //uint32_t next_data_pointer=;//location where the next data will be written to in the DMA (on the next frame, future-tense) - acts as a end-point for the data to be operated on here
+  //there are samples in the buffer to be processed
 
+  //find the location where the DMA wants to write to on the next frame (serves as the endpoint of the update list)
+  uint16_t update_to_index=((uint32_t)_aux1_fifo_i2c_to_ram_cmd.write_addr-(uint32_t)&_rx_buffer)/sizeof(_rx_buffer[0]);
 
+  //be aware of wrap around in circular buffer
+  //Serial.printf("loop 1: %d\n",update_to_index);
+  if(update_to_index<_update_from_index) update_to_index+=IMU_BUFFER_SIZE;
+  //Serial.printf("_update_from_index: %d, update_to_index: %d\n",_update_from_index,update_to_index);
+  while((_update_from_index+6)<=update_to_index)
+  {//for every 6-axis sample: x_ y_ z_ gyro, x_, y_, z_ accel
+    int16_t gyro_x=_rx_buffer[(_update_from_index+0)%IMU_BUFFER_SIZE];//units are in counts, ref _boot_cmd for gyro/accel gain settings to map to deg/sec, g's
+    int16_t gyro_y=_rx_buffer[(_update_from_index+1)%IMU_BUFFER_SIZE];
+    int16_t gyro_z=_rx_buffer[(_update_from_index+2)%IMU_BUFFER_SIZE];
+    int16_t accl_x=_rx_buffer[(_update_from_index+3)%IMU_BUFFER_SIZE];
+    int16_t accl_y=_rx_buffer[(_update_from_index+4)%IMU_BUFFER_SIZE];
+    int16_t accl_z=_rx_buffer[(_update_from_index+5)%IMU_BUFFER_SIZE];
+    //Serial.printf("gyro: %d, %d, %d, accel: %d, %d, %d\n",gyro_x,gyro_y,gyro_z,accl_x,accl_y,accl_z);
+    Serial.printf("gyro: %.2f, %.2f, %.2f deg/sec, accel: %.2f, %.2f, %.2f g's\n",
+      gyro_x*GYRO_DEG_SEC_PER_LSB,
+      gyro_y*GYRO_DEG_SEC_PER_LSB,
+      gyro_z*GYRO_DEG_SEC_PER_LSB,
+      accl_x*ACCEL_RANGE_G_PER_LSB,
+      accl_y*ACCEL_RANGE_G_PER_LSB,
+      accl_z*ACCEL_RANGE_G_PER_LSB);
 
+    _update_from_index+=6;
+  }
+
+  //Serial.println("loop 2");
+  while(update_to_index>=IMU_BUFFER_SIZE) update_to_index-=IMU_BUFFER_SIZE;
+  _update_from_index=update_to_index;
+
+  //hold off on updating the ping-pong buffer until the frame boundary to avoid shearing state estaimte mid-frame
+
+  _is_data_ready=false;//clear data-ready flag
   return true;
 }
