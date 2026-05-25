@@ -17,26 +17,6 @@
 
 // ----
 
-/* GYRO_RANGE_DEG_SEC | GYRO_RANGE_CONFIG
- *  250               | 0b00
- *  500               | 0b01
- * 1000               | 0b10
- * 2000               | 0b11
- */
-#define GYRO_RANGE_DEG_SEC 2000
-#define GYRO_RANGE_CONFIG 0b11
-#define GYRO_DEG_SEC_PER_LSB (GYRO_RANGE_DEG_SEC*1.0/0x8000)
-
-/* G's | config
- * 2   | 0b00
- * 4   | 0b10 //beware out-of-order bits (bit flip in design?)
- * 8   | 0b11
- * 16  | 0b01
-*/
-#define ACCEL_RANGE_G          16
-#define ACCEL_RANGE_G_PER_LSB  (ACCEL_RANGE_G*1.0/0x8000)
-#define ACCEL_RANGE_CONFIG     0b01
-
 /* Hz   | config
  * 12.5 | 0b0001
  * 26   | 0b0010
@@ -59,6 +39,26 @@
  * 400 | 0b00
 */
 #define ACCEL_LPF_CONFIG     0b11
+
+/* GYRO_RANGE_DEG_SEC | GYRO_RANGE_CONFIG
+ *  250               | 0b00
+ *  500               | 0b01
+ * 1000               | 0b10
+ * 2000               | 0b11
+ */
+#define GYRO_RANGE_DEG_SEC 2000
+#define GYRO_RANGE_CONFIG 0b11
+#define GYRO_DEG_SEC_PER_LSB (GYRO_RANGE_DEG_SEC*1.0/0x8000)
+
+/* G's | config
+ * 2   | 0b00
+ * 4   | 0b10 //beware out-of-order bits (bit flip in design?)
+ * 8   | 0b11
+ * 16  | 0b01
+*/
+#define ACCEL_RANGE_G          16
+#define ACCEL_RANGE_G_PER_LSB  (ACCEL_RANGE_G*1.0/0x8000)
+#define ACCEL_RANGE_CONFIG     0b01
 
 // ----
 

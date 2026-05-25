@@ -10,6 +10,7 @@
 #include "hardware/resets.h"
 
 #include <Wire.h>
+#define HAULT_ON_DMA_FAULT 1
 
 ScatterGatherEngine scatterer_gatherer_engine;
 LightSensor light_sensor(i2c0);
@@ -84,8 +85,8 @@ void setup() {
   light_sensor.begin();
   imu.begin();
   scatterer_gatherer_engine.registerSource(&screen);
-  scatterer_gatherer_engine.registerSource(&light_sensor);
-  scatterer_gatherer_engine.registerSource(&imu);
+  //scatterer_gatherer_engine.registerSource(&light_sensor);
+  //scatterer_gatherer_engine.registerSource(&imu);
   scatterer_gatherer_engine.registerSource(&scatterer_gatherer_engine);//register self to perform end-of-cycle completion check
   
   Serial.println("DONE setup");
@@ -121,7 +122,7 @@ void loop() {
 
   bool is_first=true;
   bool last_status=false;
-  while(millis()<(start_tms+16))//16))
+  while(millis()<(start_tms+100))//16))
   {//core1 contents
     imu.update();
     
@@ -151,7 +152,7 @@ void loop() {
     }
   }
   bool is_dma_success=scatterer_gatherer_engine.is_dma_success(frame_id);
-  if(!is_dma_success)
+  if(!is_dma_success && HAULT_ON_DMA_FAULT)
   {
     Serial.println("DMA FAULT");
     while(1);
@@ -215,9 +216,9 @@ void led_update()
         float gyro=imu.get_gyro(2)/100.0;
         if(iter<CHARLIPLEX_LED_COUNT/2)
         {
-          brightness=gyro*.3+.7*accel+imu.get_accel(1)*.75;
+          brightness=gyro*.5+.5*accel+imu.get_accel(1)*.75;
         }else{
-          brightness=gyro*.7+.3*accel+imu.get_accel(1)*.75;
+          brightness=gyro*.8+.2*accel+imu.get_accel(1)*.75;
         }
         brightness=max(brightness,-1.0);
         brightness=min(brightness,1.0);
@@ -628,7 +629,7 @@ void placeholder_begin(){
 }
 void flush(){//push buffer to hardware
   _display_index^=1;
-  draw();
+  //draw();
 }
 void draw(){//update hardware
   send_data_dma(frame_command_buffer, sizeof(frame_command_buffer),false);
@@ -652,7 +653,8 @@ void send_data_dma(const uint8_t *data, size_t len, bool dc_value) {
     gpio_put(SPI1_DC,dc_value);
 
     // Pull CS low to begin transaction
-    gpio_put(SPI1_CS, LOW);
+    //gpio_put(SPI1_CS, LOW);
+    temp_set_pin(temp_spi_chan,SPI1_CS,LOW);
     //temp_set_pin(temp_spi_chan,SPI1_CS,LOW);
 
     // Reconfigure the DMA transfer count for the current data length
@@ -667,7 +669,7 @@ void send_data_dma(const uint8_t *data, size_t len, bool dc_value) {
     dma_channel_wait_for_finish_blocking(_dma_tx_channel);
     while (spi_is_busy(spi1));
     // Pull CS high to end transaction
-    gpio_put(SPI1_CS, HIGH);
+    //gpio_put(SPI1_CS, HIGH);
     temp_set_pin(temp_spi_chan,SPI1_CS,HIGH);
 
 }
@@ -684,16 +686,30 @@ void temp_set_pin(int dma_chan, int gpio_pin, bool state)
   // Instead of the SIO register, we target the Pad Control Register for the pin.
   // We can force the pin high/low by modifying its drive/pad overrides.
   // PAD_BANK_BASE is sitting on the main bus matrix and is accessible by DMA.
+  //volatile uint32_t *pad_reg = (volatile uint32_t *)(PADS_BANK0_BASE + PADS_BANK0_GPIO0_OFFSET + (gpio_pin * 4)); //only sets meta info about pin control,not actually changing pin state: ISO, OD, IE, DRIVE, PUE, PDE, SCHMITT, SLEWFAST
   //volatile uint32_t *pad_reg = (volatile uint32_t *)(PADS_BANK0_BASE + PADS_BANK0_GPIO0_OFFSET + (gpio_pin * 4));
-  volatile uint32_t *pad_reg = (volatile uint32_t *)(PADS_BANK0_BASE + PADS_BANK0_GPIO9_OFFSET + (gpio_pin * 4));
   //page 608, IO_BANK0_BASE
+  //instead use output override... IO_BANK0_GPIO0_CTRL
+  volatile uint32_t *ctrl_reg_ptr = (volatile uint32_t *)&io_bank0_hw->io[gpio_pin].ctrl;
 
   // Create a persistent or static configuration value to write
   // We will alter the Output Disable (OD) or Drive Strength bits to change state
-  static uint32_t pad_value_high = 0x0000005a; // Standard pad configuration (Output enabled)
-  static uint32_t pad_value_low  = 0x000000da; // Pad configuration with OD (Output Disabled / Low)
-
-  uint32_t *source_ptr = state ? &pad_value_high : &pad_value_low;
+  //static uint32_t pad_value_high = 0x0000005a; // Standard pad configuration (Output enabled) 00001010
+  //static uint32_t pad_value_low  = 0x000000da; // Pad configuration with OD (Output Disabled / Low) 010010
+  //uint32_t *source_ptr = state ? &pad_value_high : &pad_value_low;
+  /*static uint32_t ctrl_reg_data =
+    ( IO_BANK0_GPIO0_CTRL_FUNCSEL_VALUE_SIOB_PROC_0 << IO_BANK0_GPIO0_CTRL_FUNCSEL_LSB ) |
+    ( IO_BANK0_GPIO0_CTRL_OEOVER_VALUE_ENABLE << IO_BANK0_GPIO0_CTRL_OEOVER_LSB ) |
+    ( ( state ? IO_BANK0_GPIO1_CTRL_OUTOVER_VALUE_HIGH : IO_BANK0_GPIO1_CTRL_OUTOVER_VALUE_LOW ) << IO_BANK0_GPIO1_CTRL_OUTOVER_LSB ); 
+    //state ? &pad_value_high : &pad_value_low;*/
+  static uint32_t ctrl_reg_data[2] = { //configure override for HIGH or LOW
+    ( IO_BANK0_GPIO0_CTRL_FUNCSEL_VALUE_SIOB_PROC_0 << IO_BANK0_GPIO0_CTRL_FUNCSEL_LSB ) |
+    //( IO_BANK0_GPIO0_CTRL_OEOVER_VALUE_ENABLE << IO_BANK0_GPIO0_CTRL_OEOVER_LSB ) |
+    ( IO_BANK0_GPIO1_CTRL_OUTOVER_VALUE_LOW << IO_BANK0_GPIO1_CTRL_OUTOVER_LSB ),
+    ( IO_BANK0_GPIO0_CTRL_FUNCSEL_VALUE_SIOB_PROC_0 << IO_BANK0_GPIO0_CTRL_FUNCSEL_LSB ) |
+    //( IO_BANK0_GPIO0_CTRL_OEOVER_VALUE_ENABLE << IO_BANK0_GPIO0_CTRL_OEOVER_LSB ) |
+    ( IO_BANK0_GPIO1_CTRL_OUTOVER_VALUE_HIGH << IO_BANK0_GPIO1_CTRL_OUTOVER_LSB ),
+  };
 
   Serial.println("START GPIO SET");
 
@@ -701,17 +717,50 @@ void temp_set_pin(int dma_chan, int gpio_pin, bool state)
   dma_channel_configure(
       dma_chan,
       &c,
-      (volatile void *)pad_reg, // Destination address (Bus accessible)
-      source_ptr,               // Source address
+      (volatile void *)ctrl_reg_ptr, // Destination address (Bus accessible)
+      &ctrl_reg_data[state],           // Source address
+      1,                        // Number of transfers
+      true                      // Trigger immediately
+  );
+  //dma_channel_start(_dma_tx_channel);
+  
+  //Serial.print("A: 0x"); Serial.println((uint32_t)&pads_bank0_hw->io[gpio_pin],HEX);
+  //Serial.print("B: 0x"); Serial.println((uint32_t)pad_reg,HEX); //identical 0x40038028
+  dma_channel_wait_for_finish_blocking(dma_chan);
+  Serial.println("START GPIO DONE");
+}
+
+/*void temp_set_pin(int dma_chan, int gpio_pin, bool state)
+{
+  dma_channel_config c = dma_channel_get_default_config(dma_chan);
+
+  // Configure for 32-bit transfer, disabling read and write increments
+  channel_config_set_transfer_data_size(&c, DMA_SIZE_32);
+  channel_config_set_read_increment(&c, false);
+  channel_config_set_write_increment(&c, false);
+  
+  static uint32_t ctrl_reg_ptr[2] = {
+    (uint32_t)&sio_hw->gpio_clr,
+    (uint32_t)&sio_hw->gpio_set
+  };
+
+  static uint32_t ctrl_reg_data = 1<<state; //note: this is static, defined once per program - need to have dedicated value/memory for every pin used
+
+  Serial.println("START GPIO SET");
+
+  // Initialize and trigger DMA targeting the Pad registers on the main bus
+  dma_channel_configure(
+      dma_chan,
+      &c,
+      (volatile void*)&ctrl_reg_ptr[state], // Destination address (Bus accessible)
+      &ctrl_reg_data,           // Source address
       1,                        // Number of transfers
       true                      // Trigger immediately
   );
   
-  //Serial.print("A: "); Serial.println((uint32_t)&pads_bank0_hw->io[gpio_pin],HEX);
-  //Serial.print("B: "); Serial.println((uint32_t)pad_reg,HEX); //identical 40038028
   dma_channel_wait_for_finish_blocking(dma_chan);
   Serial.println("START GPIO DONE");
-}
+}*/
 
 
 /*#include "hardware/timer.h"
