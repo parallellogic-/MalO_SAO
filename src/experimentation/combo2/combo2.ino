@@ -77,7 +77,7 @@ void setup() {
   //i2c_deinit(i2c0);
   //i2c_init(i2c0, 400000);
   scatterer_gatherer_engine.begin(true);
-  //placeholder_begin();
+  placeholder_begin();
   screen.begin();
   light_sensor.begin();
   imu.begin();
@@ -103,7 +103,7 @@ void loop() {
 
   Serial.println();
   
-  //placeholder_spi();
+  placeholder_spi();
 
   // setup and run next batch
   uint32_t start_tms=millis();
@@ -113,10 +113,11 @@ void loop() {
 
 
     
+      led_update();
 
   bool is_first=true;
   bool last_status=false;
-  while(millis()<(start_tms+16))
+  while(millis()<(start_tms+16))//16))
   {//core1 contents
     imu.update();
     
@@ -142,7 +143,7 @@ void loop() {
     //if(is_first or isBusy!=last_status)
     if(scatterer_gatherer_engine.is_dma_success(frame_id))
     {
-      led_update();
+
     }
   }
   bool is_dma_success=scatterer_gatherer_engine.is_dma_success(frame_id);
@@ -291,17 +292,10 @@ const uint8_t contrast_command_buffer_1[]={SSD1327_DISPLAYON};
 const uint8_t contrast_command_buffer_2[]={0x81,0x2F};
 
 void placeholder_begin(){
-  for(uint8_t demo=0;demo<2;demo++)
-  {
-    uint8_t* tx_buffer=get_buffer(0);
-    for (int i = 0; i < SSD1327_BUFFER_SIZE; i++) {
-        tx_buffer[i] = (i + (demo?0x0101:0)) % 256; 
-    }
-    flush();
-  }
   //claim spi channel, init spi pins
   
   // --- DMA Setup ---
+  
   _dma_tx_channel = dma_claim_unused_channel(true);
 
   dma_channel_config c = dma_channel_get_default_config(_dma_tx_channel);
@@ -326,6 +320,14 @@ void placeholder_begin(){
   delay(100);
   send_data_dma(contrast_command_buffer_1, sizeof(contrast_command_buffer_1),false);
   send_data_dma(contrast_command_buffer_2, sizeof(contrast_command_buffer_2),false);
+  for(uint8_t demo=0;demo<2;demo++)
+  {
+    uint8_t* tx_buffer=get_buffer(0);
+    for (int i = 0; i < SSD1327_BUFFER_SIZE; i++) {
+        tx_buffer[i] = (i + (demo?0x0101:0)) % 256; 
+    }
+    flush();
+  }
 }
 void flush(){//push buffer to hardware
   _display_index^=1;
