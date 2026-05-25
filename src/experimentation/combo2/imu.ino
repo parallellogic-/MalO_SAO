@@ -518,7 +518,7 @@ bool IMU::update()
     int16_t accl_x=_rx_buffer[(_update_from_index+3)%IMU_BUFFER_SIZE];
     int16_t accl_y=_rx_buffer[(_update_from_index+4)%IMU_BUFFER_SIZE];
     int16_t accl_z=_rx_buffer[(_update_from_index+5)%IMU_BUFFER_SIZE];
-    //Serial.printf("gyro: %d, %d, %d, accel: %d, %d, %d\n",gyro_x,gyro_y,gyro_z,accl_x,accl_y,accl_z);
+    //Serial.printf("gyro, %d, %d, %d, accel, %d, %d, %d, %d, %08X\n",gyro_x,gyro_y,gyro_z,accl_x,accl_y,accl_z,sample_count,(uint32_t)_aux1_fifo_i2c_to_ram_cmd.write_addr);
     /*Serial.printf("gyro: %.2f, %.2f, %.2f deg/sec, accel: %.2f, %.2f, %.2f g's\n",
       gyro_x*GYRO_DEG_SEC_PER_LSB,
       gyro_y*GYRO_DEG_SEC_PER_LSB,
@@ -535,6 +535,7 @@ bool IMU::update()
         (imu_sample[idx]*(idx<3?GYRO_DEG_SEC_PER_LSB:ACCEL_RANGE_G_PER_LSB)/(float)sample_count); //convert raw gryo/accel counts to an average in engineering units
         //if no data, use stale data (rather than snapping around at zeros)
   }
+  
   //_imu_ping_pong=!_imu_ping_pong;
 
   //Serial.println("loop 2");
