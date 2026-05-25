@@ -40,30 +40,38 @@ public:
      * @param aux1_channel For syncronized operations
      */
     virtual void populateDescriptors(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) = 0;
+
+    //virtual void update(); //hook that core1 will call when idle to allow periphreals to perform work as they have it available to do
 };
 
 
-class ScatterGatherEngine {
+class ScatterGatherEngine : public IMultiDmaTransactionSource{
 private:
-    int _data_chan;
-    int _aux0_chan;
-    int _aux1_chan;
-    int _ctrl_chan;
+    int _data_chan=-1;
+    int _aux0_chan=-1;
+    int _aux1_chan=-1;
+    int _ctrl_chan=-1;
+    bool _is_data_ready=0;
     
     IMultiDmaTransactionSource* _registrants[MAX_DMA_CONTROL_REGISTRANTS];
-    int _registrant_count;
+    int _registrant_count=0;
 
     // Master contiguous block pool shared by all peripherals.  +1 to allow for terminating DMA _ctrl command at completion
     DmaDescriptor _global_pool[MAX_DMA_CONTROL_ACTIONS + 1] __attribute__ ((aligned (16)));
 
 public:
-    ScatterGatherEngine() : _data_chan(-1), _ctrl_chan(-1), _registrant_count(0) {}
+    ScatterGatherEngine() {}
 
     void begin();
 
     bool registerSource(IMultiDmaTransactionSource* source);
 
     void compileAndRun(uint64_t frame_id,uint8_t subframe_id,uint8_t subframe_max);
+
+    int getRequiredDescriptorCount(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max) override;
+    void populateDescriptors(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) override;
+
+    bool is_dma_success(uint64_t frame_id) const;
 };
 
 #endif

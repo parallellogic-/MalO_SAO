@@ -26,7 +26,7 @@ int IMU::getRequiredDescriptorCount(uint64_t frame_id, uint8_t subframe_id, uint
     if (!_is_booted) {
         return 3 + sizeof(_boot_cmd)/sizeof(_boot_cmd[0]) +4;//+4; // 3 Address configs + Boot execution payload blocks
     } else {
-        return 19; // 3 Address configs + 1 fill mutable buffer with 0x0100, 1 fill mutable with 0x0300, 1 fill start address
+        return 20; // 3 Address configs + 1 fill mutable buffer with 0x0100, 1 fill mutable with 0x0300, 1 fill start address
     }
 }
 
@@ -469,7 +469,34 @@ void IMU::populateDescriptors(uint64_t frame_id, uint8_t subframe_id, uint8_t su
         pool_start[dma_index].config         = cfg.ctrl;
         dma_index++;
 
+        _is_data_ready=0;
+        //assert data is ready flag when dma operations are complete
+        const static bool is_data_ready=1;
+        cfg = dma_channel_get_default_config(data_channel);
+        channel_config_set_transfer_data_size(&cfg, DMA_SIZE_8);
+        channel_config_set_read_increment(&cfg, false);
+        channel_config_set_write_increment(&cfg, false);
+        channel_config_set_chain_to(&cfg, ctrl_channel);
+        channel_config_set_enable(&cfg, true);
+
+        pool_start[dma_index].read_addr      = (const void*)&is_data_ready;
+        pool_start[dma_index].write_addr     = (void*)&_is_data_ready;
+        pool_start[dma_index].transfer_count = 1;
+        pool_start[dma_index].config         = cfg.ctrl;
+        dma_index++;
+
         //Serial.print("DMA instruction size: "); Serial.println(dma_index); while(1);
 
     }
+}
+
+bool IMU::update()
+{
+  if(!_is_data_ready) return false;
+  //there are samples in the buffer
+  //uint32_t next_data_pointer=;//location where the next data will be written to in the DMA (on the next frame, future-tense) - acts as a end-point for the data to be operated on here
+
+
+
+  return true;
 }

@@ -40,12 +40,16 @@ void setup() {
   //gpio_pull_up(I2C0_SCL);
 
   // put your setup code here, to run once:
-  
+
+  //optional force-clear i2c on every use
+  //i2c_deinit(i2c0);
+  //i2c_init(i2c0, 400000);
   scatterer_gatherer_engine.begin();
   light_sensor.begin();
   imu.begin();
-  scatterer_gatherer_engine.registerSource(&imu);
   scatterer_gatherer_engine.registerSource(&light_sensor);
+  scatterer_gatherer_engine.registerSource(&imu);
+  scatterer_gatherer_engine.registerSource(&scatterer_gatherer_engine);//register self to perform end-of-cycle completion check
   
 
   frame_id=0;
@@ -83,13 +87,25 @@ void loop() {
   
   // setup and run next batch
   uint32_t start_tms=millis();
-  scatterer_gatherer_engine.compileAndRun(frame_id++,0,0);
+  uint64_t start_time = time_us_64();
+  bool is_imu_print_runtime=false;
+  scatterer_gatherer_engine.compileAndRun(frame_id,0,0);
 
   bool is_first=true;
   bool last_status=false;
   while(millis()<(start_tms+16))
   {
-    
+    if(!is_imu_print_runtime && imu._is_data_ready)
+    {
+      is_imu_print_runtime=true;
+      // 2. Capture the finishing timestamp in microseconds
+      uint64_t finish_time = time_us_64();
+
+      // 3. Calculate total elapsed microseconds
+      uint64_t elapsed_time = finish_time - start_time;
+
+      Serial.printf("IMU Elapsed time: %llu microseconds\n", elapsed_time);
+    }
 
     // Read the full IC_STATUS register
     uint32_t statusReg = i2c0->hw->status;
@@ -110,6 +126,12 @@ void loop() {
       last_status=isBusy;*/
     }
   }
+  bool is_dma_success=scatterer_gatherer_engine.is_dma_success(frame_id);
+  if(!is_dma_success)
+  {
+    Serial.println("DMA FAULT");
+    while(1);
+  }
 
   /*if(frame_id==1)
   {
@@ -119,6 +141,7 @@ void loop() {
 
   //delay(16);
   //delay(1000);
+  frame_id++;
 }
 
 /*#include "hardware/timer.h"

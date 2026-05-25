@@ -94,6 +94,7 @@ private:
     volatile uint16_t _rx_fifo_count_x4;
     volatile uint16_t _rx_buffer[IMU_BUFFER_SIZE] __attribute__((aligned(IMU_BUFFER_SIZE_BYTES))); 
     //volatile uint32_t _rx_buffer_ptr=(uint32_t)&_rx_buffer[0];
+    //volatile bool _is_data_ready=0;//flag for core1 to poll to see when samples are ready to be processed for state estaimte update
 
     bool _temperature_ping_pong;
     volatile int16_t _temperature[2] __attribute__((aligned(4)));//0xFE70 is 0degC, 0x0000 is 25degC, 0x0190 is 50degC
@@ -117,6 +118,9 @@ public:
     int getRequiredDescriptorCount(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max) override;
     void populateDescriptors(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) override;
 
+    bool update(); //the populateDescriptors operation is a DMA to get data from the external periphreal into local RAM.  this method converts data (if any is available) into a format usable by dostream processing
+
+volatile bool _is_data_ready=0;
 };
 
 

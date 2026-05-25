@@ -61,10 +61,10 @@ void printDmaChannelStatus(int channel_id, const char* channel_name) {
 // 2. THE COMPILING SCATTER-GATHER ENGINE
 // ==========================================
 void ScatterGatherEngine::begin() {
+        _ctrl_chan = dma_claim_unused_channel(true);
         _data_chan = dma_claim_unused_channel(true);
         _aux0_chan = dma_claim_unused_channel(true);
         _aux1_chan = dma_claim_unused_channel(true);
-        _ctrl_chan = dma_claim_unused_channel(true);
     }
 
 bool ScatterGatherEngine::registerSource(IMultiDmaTransactionSource* source) {
@@ -170,5 +170,37 @@ void ScatterGatherEngine::compileAndRun(uint64_t frame_id,uint8_t subframe_id,ui
           }
         }
     }
+
+int ScatterGatherEngine::getRequiredDescriptorCount(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max) {
+  return 1;
+}
+
+void ScatterGatherEngine::populateDescriptors(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) {
+
+    dma_channel_config cfg;
+    uint8_t dma_index=0;
+
+    _is_data_ready=0;
+    //assert data is ready flag when dma operations are complete
+    const static bool is_data_ready=1;
+    cfg = dma_channel_get_default_config(data_channel);
+    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_8);
+    channel_config_set_read_increment(&cfg, false);
+    channel_config_set_write_increment(&cfg, false);
+    channel_config_set_chain_to(&cfg, ctrl_channel);
+    channel_config_set_enable(&cfg, true);
+
+    pool_start[dma_index].read_addr      = (const void*)&is_data_ready;
+    pool_start[dma_index].write_addr     = (void*)&_is_data_ready;
+    pool_start[dma_index].transfer_count = 1;
+    pool_start[dma_index].config         = cfg.ctrl;
+    dma_index++;
+
+}
+
+bool ScatterGatherEngine::is_dma_success(uint64_t frame_id) const{
+  return frame_id==0 || _is_data_ready;
+}
+ 
 
 
