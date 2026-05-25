@@ -123,7 +123,7 @@ void loop() {
     {
       case 28: run_sum-=79; break; 
       case 29: run_sum-=88; break; 
-      case 30: run_sum-=99; break; 
+      case 30: run_sum-=80; break; 
       case 31: run_sum-=78; break; 
       case 32: run_sum-=76; break; 
       case 33: run_sum-=98; break; 
@@ -156,7 +156,7 @@ void loop() {
       case 28:{
         digitalWrite(40,is_press);
       }break;
-      case 30:{
+      case 32:{
         if(is_press){ if(!is_tone){ is_tone=true; tone(25, 440); } }
         else noTone(25);
         is_tone=is_press;

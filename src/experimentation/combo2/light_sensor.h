@@ -1,5 +1,4 @@
-#ifndef LIGHT_SENSOR_H
-#define LIGHT_SENSOR_H
+#pragma once
 
 #include <Arduino.h>
 #include <hardware/i2c.h>
@@ -29,12 +28,12 @@ private:
     // LTR-308 Active Mode Config: Write 0x01 to MAIN_CTRL (0x00)
     //uint16_t _boot_cmd[2] __attribute__((aligned(4))); 
     //uint16_t _boot_cmd2[2] __attribute__((aligned(4))); 
-    const uint16_t _boot_cmd[2][2] __attribute__((aligned(4)))={
+    static constexpr uint16_t _boot_cmd[2][2] __attribute__((aligned(4)))={
         {LTR308_MAIN_CTRL,0x02}, // Active mode, Gain = 1 //0202
         {0x04 | 0x0400, 0x40 },// Targets the ALS_GAIN / Integration Time Register // 0x04 = 10ms integration time + 0x0200 (I2C STOP bit!)
     };
 
-    const uint16_t _boot_check_cmd[2] __attribute__((aligned(4)))={
+    static constexpr uint16_t _boot_check_cmd[2] __attribute__((aligned(4)))={
       LTR308_MAIN_CTRL | 0x0400, 0x0100 | 0x0200 //restart, read+stop
     }; //to cleanly switch between i2c targets, need to end with a read operation to ensure fifos are empty
     uint8_t _boot_check=0;
@@ -63,4 +62,3 @@ public:
     void populateDescriptors(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) override;
 };
 
-#endif

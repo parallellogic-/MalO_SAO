@@ -1,5 +1,4 @@
-#ifndef DMA_CONTROL_BLOCK_H
-#define DMA_CONTROL_BLOCK_H
+#pragma once
 
 #define MAX_DMA_CONTROL_REGISTRANTS 8
 #define MAX_DMA_CONTROL_ACTIONS 256
@@ -62,7 +61,7 @@ private:
 public:
     ScatterGatherEngine() {}
 
-    void begin();
+    void begin(bool is_aux);
 
     bool registerSource(IMultiDmaTransactionSource* source);
 
@@ -74,4 +73,3 @@ public:
     bool is_dma_success(uint64_t frame_id) const;
 };
 
-#endif

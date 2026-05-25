@@ -1,9 +1,9 @@
-//#include <Wire.h>
 
-IMU::IMU(i2c_inst_t* i2c_hardware) : _i2c(i2c_hardware), _is_booted(0), _rx_fifo_count(0),
-        _state_quaternion{ {1.0f, 0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 0.0f} }  {
+#include "imu.h"
 
-    memset((void*)_state_quaternion, 0, sizeof(_state_quaternion));
+IMU::IMU(i2c_inst_t* i2c_hardware) : _i2c(i2c_hardware)  {
+
+    //memset((void*)_state_quaternion, 0, sizeof(_state_quaternion));
 }
 
 void IMU::begin() {
@@ -14,7 +14,7 @@ uint16_t IMU::get_fifo_sample_count() const{
 }
 
 float IMU::get_celsius() const{
-  return _temperature[!_temperature_ping_pong]/16.0;
+  return _temperature[!_imu_ping_pong]/16.0;
 }
 
 int IMU::getRequiredDescriptorCount(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max) {
@@ -34,7 +34,7 @@ void IMU::populateDescriptors(uint64_t frame_id, uint8_t subframe_id, uint8_t su
     if (subframe_id > 0) return;
 
     dma_channel_config cfg;
-    _temperature_ping_pong=frame_id%2;
+    _imu_ping_pong=frame_id%2;//_temperature_ping_pong
     uint8_t dma_index=0;
 
     static uint32_t dummy_reg_read=0x00;
@@ -161,6 +161,7 @@ void IMU::populateDescriptors(uint64_t frame_id, uint8_t subframe_id, uint8_t su
           //Serial.print("DMA instruction size: "); Serial.println(dma_index); while(1);
           //Also reset address pointer on FIFO
           _aux1_fifo_i2c_to_ram_cmd.write_addr=(void*)&_rx_buffer[0];
+          _update_from_index=0;
           _is_booted=true;
     } else {
         //PRECON: there are >0 samples to read from FIFO (else tries to read 255 bytes from FIFO)
@@ -464,7 +465,7 @@ void IMU::populateDescriptors(uint64_t frame_id, uint8_t subframe_id, uint8_t su
         channel_config_set_enable(&cfg, true);
 
         pool_start[dma_index].read_addr      = (const void*)i2c_data_cmd_reg;
-        pool_start[dma_index].write_addr     = (void*)&_temperature[_temperature_ping_pong];
+        pool_start[dma_index].write_addr     = (void*)&_temperature[_imu_ping_pong];
         pool_start[dma_index].transfer_count = sizeof(_get_temperature_cmd)/sizeof(_get_temperature_cmd[0])-1; //read one byte: the number of samples availabe in imu fifo
         pool_start[dma_index].config         = cfg.ctrl;
         dma_index++;
@@ -503,8 +504,14 @@ bool IMU::update()
   //Serial.printf("loop 1: %d\n",update_to_index);
   if(update_to_index<_update_from_index) update_to_index+=IMU_BUFFER_SIZE;
   //Serial.printf("_update_from_index: %d, update_to_index: %d\n",_update_from_index,update_to_index);
+  uint8_t sample_count=0;
+  int32_t imu_sample[6]={};
   while((_update_from_index+6)<=update_to_index)
   {//for every 6-axis sample: x_ y_ z_ gyro, x_, y_, z_ accel
+    for(uint8_t idx=0;idx<6;idx++) imu_sample[idx]+=_rx_buffer[(_update_from_index+idx)%IMU_BUFFER_SIZE];
+    sample_count++;
+    
+
     int16_t gyro_x=_rx_buffer[(_update_from_index+0)%IMU_BUFFER_SIZE];//units are in counts, ref _boot_cmd for gyro/accel gain settings to map to deg/sec, g's
     int16_t gyro_y=_rx_buffer[(_update_from_index+1)%IMU_BUFFER_SIZE];
     int16_t gyro_z=_rx_buffer[(_update_from_index+2)%IMU_BUFFER_SIZE];
@@ -512,16 +519,23 @@ bool IMU::update()
     int16_t accl_y=_rx_buffer[(_update_from_index+4)%IMU_BUFFER_SIZE];
     int16_t accl_z=_rx_buffer[(_update_from_index+5)%IMU_BUFFER_SIZE];
     //Serial.printf("gyro: %d, %d, %d, accel: %d, %d, %d\n",gyro_x,gyro_y,gyro_z,accl_x,accl_y,accl_z);
-    Serial.printf("gyro: %.2f, %.2f, %.2f deg/sec, accel: %.2f, %.2f, %.2f g's\n",
+    /*Serial.printf("gyro: %.2f, %.2f, %.2f deg/sec, accel: %.2f, %.2f, %.2f g's\n",
       gyro_x*GYRO_DEG_SEC_PER_LSB,
       gyro_y*GYRO_DEG_SEC_PER_LSB,
       gyro_z*GYRO_DEG_SEC_PER_LSB,
       accl_x*ACCEL_RANGE_G_PER_LSB,
       accl_y*ACCEL_RANGE_G_PER_LSB,
-      accl_z*ACCEL_RANGE_G_PER_LSB);
+      accl_z*ACCEL_RANGE_G_PER_LSB);*/
 
+    
     _update_from_index+=6;
   }
+  for(uint8_t idx=0;idx<6;idx++){
+      _gyro_accel_reading[_imu_ping_pong][idx]=(sample_count==0)?_gyro_accel_reading[!_imu_ping_pong][idx]:
+        (imu_sample[idx]*(idx<3?GYRO_DEG_SEC_PER_LSB:ACCEL_RANGE_G_PER_LSB)/(float)sample_count); //convert raw gryo/accel counts to an average in engineering units
+        //if no data, use stale data (rather than snapping around at zeros)
+  }
+  //_imu_ping_pong=!_imu_ping_pong;
 
   //Serial.println("loop 2");
   while(update_to_index>=IMU_BUFFER_SIZE) update_to_index-=IMU_BUFFER_SIZE;
@@ -531,4 +545,15 @@ bool IMU::update()
 
   _is_data_ready=false;//clear data-ready flag
   return true;
+}
+
+float IMU::get_accel(uint8_t xyz) const //m/s, xyz: 0=x, 1=y, 2=z
+{
+  if(xyz>3) return 0;
+  return _gyro_accel_reading[!_imu_ping_pong][xyz+3];
+}
+float IMU::get_gyro(uint8_t xyz) const //deg/sec, xyz: 0=x, 1=y, 2=z
+{
+  if(xyz>3) return 0;
+  return _gyro_accel_reading[!_imu_ping_pong][xyz];
 }

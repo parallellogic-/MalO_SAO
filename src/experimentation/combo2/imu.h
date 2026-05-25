@@ -1,5 +1,4 @@
-#ifndef IMU_H
-#define IMU_H
+#pragma once
 
 // LSM6DS3TR I2C Configuration
 #define LSM6DS_ADDR 0x6B //0xd6/0x67 for W/R
@@ -15,6 +14,8 @@
 #define REG_FIFO_STATUS2 0x3B
 #define REG_FIFO_DATA_OUT_L 0x3E
 #define REG_FIFO_DATA_OUT_H 0x3F
+
+// ----
 
 /* GYRO_RANGE_DEG_SEC | GYRO_RANGE_CONFIG
  *  250               | 0b00
@@ -57,10 +58,9 @@
  * 200 | 0b01
  * 400 | 0b00
 */
-#define ACCEL_LPF_CONFIG     0b01
+#define ACCEL_LPF_CONFIG     0b11
 
-
-
+// ----
 
 #define IMU_BUFFER_SIZE (1<<12) // 4096 elements (uint16_t) //gyro and accel data: 2 bytes gyro_x, _y, _z, accel_x, _y, _z
 #define IMU_BUFFER_SIZE_BYTES (IMU_BUFFER_SIZE * sizeof(uint16_t))
@@ -72,7 +72,12 @@ private:
     i2c_inst_t* _i2c;
     bool _is_booted=false;
 
-    float _state_quaternion[2][4];
+    bool _imu_ping_pong=0;
+
+    float _state_quaternion[2][4]={{1.0,0.0,0.0,0.0},{1.0,0.0,0.0,0.0}};
+    float _gyro_accel_reading[2][6]={};//gyro deg/sec, accel g's - lastest reading average (16 ms avg)
+    //float _accel_g[2][4]={};
+    //float _gyro_deg_sec[2][4]={};
     
     //to be verified: The I2C hardware macro block cannot change its target address (IC_TAR) while the peripheral is actively enabled. Attempting to write to IC_TAR via DMA while the block is active will cause the hardware to silently ignore the transaction.
     uint32_t _i2c_disable       __attribute__((aligned(4))) = 0;
@@ -84,7 +89,8 @@ private:
     //The RESTART is only required when changing direction from a write to a read.
 
     // list of register-value pairs to write to i2c periphreal on boot
-    const uint16_t _boot_cmd[7][2] __attribute__((aligned(4))) ={
+    // to make this more portable: would need to make this list varaible and populate in the constructor
+    static constexpr uint16_t _boot_cmd[7][2] __attribute__((aligned(4))) ={
         // 1. Reset device
       {REG_CTRL3_C            ,  0x01 },//reboot
       {REG_WHO_AM_I   | 0x0400,  0x0100 }, //reboot needs 50 us to clear, downstream code will insert a delay after this read operation
@@ -98,37 +104,31 @@ private:
       {REG_FIFO_CTRL5 | 0x0400, (HZ_CONFIG << 3) | 0x06 | 0x0200 },// 0x0200 (I2C STOP bit)
     };
 
-    const uint16_t _boot_check_cmd[2] __attribute__((aligned(4)))={
+    static constexpr uint16_t _boot_check_cmd[2] __attribute__((aligned(4)))={
       REG_FIFO_CTRL5 | 0x0400, 0x0100 | 0x0200 //restart, read+stop
     }; //to cleanly switch between i2c targets, need to end with a read operation to ensure fifos are empty before moving on
     uint8_t _boot_check=0;
 
-    const uint16_t _get_fifo_size_cmd[3] __attribute__((aligned(4))) ={
+    static constexpr uint16_t _get_fifo_size_cmd[3] __attribute__((aligned(4))) ={
       REG_FIFO_STATUS1,0x0100,0x0100
     };
 
-    const uint16_t _get_fifo_cmd[4] __attribute__((aligned(4*sizeof(uint16_t)))) ={
+    static constexpr uint16_t _get_fifo_cmd[4] __attribute__((aligned(4*sizeof(uint16_t)))) ={
       REG_FIFO_DATA_OUT_L | 0x0400, 0x0100,
       REG_FIFO_DATA_OUT_H | 0x0400, 0x0100 //could do start adress with auto-incrementto support 3 commands rather than 4, but then wouldn't align with ring buffer size
     };//alignment needed for ring looping buffer
 
-    const uint16_t _get_temperature_cmd[3] __attribute__((aligned(4))) = {
+    static constexpr uint16_t _get_temperature_cmd[3] __attribute__((aligned(4))) = {
       0x20 | 0x0400,0x0100,0x0100 | 0x0200
     };
-    
-    //const uint16_t _get_fifo_cmd = REG_FIFO_DATA_OUT_L | 0x0400;
-    const uint16_t _read_operation = 0x0100; //read one uin8_t from FIFO
 
     // Target buffer for incoming RX FIFO data (doubles as the read request - in-place morphing buffer) --> skip this functionality, just send 0x0100 X times, then 0x0300
-    //const uint16_t _rx_fifo_count_mask=0xFFFFF000;//which bits to zero-out (the fifo status) when using the fifo count register
     volatile uint16_t _rx_fifo_count=0; //number of unread words (16-bit axes) stored in FIFO (qty 6 is one accel+gyro reading).  must be 32-bit to pass through watchdog scratch register in order to do CLEAR operation on upp 4 bits of uint16_t
     volatile uint16_t _rx_fifo_count_x2=0;
     volatile uint16_t _rx_fifo_count_x4=0;
-    volatile uint16_t _rx_buffer[IMU_BUFFER_SIZE] __attribute__((aligned(IMU_BUFFER_SIZE_BYTES))); 
-    //volatile uint32_t _rx_buffer_ptr=(uint32_t)&_rx_buffer[0];
-    //volatile bool _is_data_ready=0;//flag for core1 to poll to see when samples are ready to be processed for state estaimte update
+    volatile int16_t _rx_buffer[IMU_BUFFER_SIZE] __attribute__((aligned(IMU_BUFFER_SIZE_BYTES))); //holds gryo/accel samples
 
-    bool _temperature_ping_pong=0;
+    //bool _temperature_ping_pong=0;
     volatile int16_t _temperature[2] __attribute__((aligned(4)));//0xFE70 is 0degC, 0x0000 is 25degC, 0x0190 is 50degC
 
     volatile DmaDescriptor _aux0_sum_cmd; //command used to double/quadruple _rx_fifo_count to support i2c operations
@@ -137,6 +137,7 @@ private:
 
     uint16_t _update_from_index=0;//the index within _rx_buffer that has been processed by accel/gyro/quat state estimate
 
+    volatile bool _is_data_ready=0;//flag from DMA to core1 to perform math for update()
 public:
     IMU(i2c_inst_t* i2c_hardware = i2c0);
     
@@ -154,8 +155,6 @@ public:
 
     bool update(); //the populateDescriptors operation is a DMA to get data from the external periphreal into local RAM.  update() method converts data (if any is available) into a format usable by downstream processing.   mult/div/float operations are in update()
 
-volatile bool _is_data_ready=0;
 };
 
 
-#endif

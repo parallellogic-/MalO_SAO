@@ -17,7 +17,7 @@ void printDmaChannelStatus(int channel_id, const char* channel_name) {
     uint32_t current_count  = hw->transfer_count;
     uint32_t current_ctrl   = hw->ctrl_trig;
 
-    // Decode explicit bitfields from the CTRL register map
+    // Decode explicit bit fields from the CTRL register map
     bool is_busy     = (current_ctrl & DMA_CH0_CTRL_TRIG_BUSY_BITS) != 0;
     bool is_enabled  = (current_ctrl & DMA_CH0_CTRL_TRIG_EN_BITS) != 0;
     uint8_t data_size = (current_ctrl & DMA_CH0_CTRL_TRIG_DATA_SIZE_BITS) >> DMA_CH0_CTRL_TRIG_DATA_SIZE_LSB;
@@ -60,11 +60,14 @@ void printDmaChannelStatus(int channel_id, const char* channel_name) {
 // ==========================================
 // 2. THE COMPILING SCATTER-GATHER ENGINE
 // ==========================================
-void ScatterGatherEngine::begin() {
+void ScatterGatherEngine::begin(bool is_aux) {
         _ctrl_chan = dma_claim_unused_channel(true);
         _data_chan = dma_claim_unused_channel(true);
-        _aux0_chan = dma_claim_unused_channel(true);
-        _aux1_chan = dma_claim_unused_channel(true);
+        if(is_aux)
+        {
+          _aux0_chan = dma_claim_unused_channel(true);
+          _aux1_chan = dma_claim_unused_channel(true);
+        }
     }
 
 bool ScatterGatherEngine::registerSource(IMultiDmaTransactionSource* source) {
