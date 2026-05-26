@@ -29,6 +29,8 @@
 #define SSD1327_FUNCSELB 0xD5
 #define SSD1327_CMDLOCK 0xFD
 
+#define SSD1327_BUFFER_SIZE 128*128/2
+
 class Screen : public IMultiDmaTransactionSource {
 private:
     static constexpr uint8_t init_128x128[] = {
@@ -67,28 +69,35 @@ private:
           0x12, // 0xFD, 0x12
           SSD1327_NORMALDISPLAY, SSD1327_DISPLAYON};
 
-    static constexpr uint8_t contrast_command_buffer_1[]={SSD1327_DISPLAYON};
-    static constexpr uint8_t contrast_command_buffer_2[]={0x81,0x2F};
+    static constexpr uint8_t contrast_command_buffer[]={SSD1327_DISPLAYON,0x81,0x2F};
 
     static constexpr uint8_t frame_command_buffer[]={
                       SSD1327_SETROW,    0, 0x7F,
                       SSD1327_SETCOLUMN, 0, 0x3F};
-    
+
     // ----
 
-    bool _screen_ping_pong=0;
+    spi_inst_t* _spi;
+    uint32_t _baud=8'000'000;
 
+    volatile uint32_t *_dc_pin_ctrl_reg_ptr;
 
+    bool _is_flush=0; //application raises flag with flush()
+    bool _screen_ping_pong=0; //internal varaible to track toggling between screen buffers
+    uint8_t _frame_buffer[2][SSD1327_BUFFER_SIZE]={};
 
-    uint8_t _get_boot_state(uint64_t frame_id) const;
+    uint8_t _get_boot_state(uint64_t frame_id) const; //detemrine what stage of commands to send we're at
 public:
-    Screen(spi_inst_t* spi_port = spi1);
+    Screen(spi_inst_t* spi_port = spi1, uint32_t baud = 8'000'000, uint8_t dc_pin = 9);
     
     void begin();
 
+    //pointer to where application can upload the frame information (4-bits per pixel)
+    //be aware of existing dirty frame contents present in buffer
+    uint8_t* get_frame_buffer();
 
-    //rotate 0,90,180,270 degrees
-    void flush(uint8_t* img,uint16_t rotate_degrees);
+    //if no flush, then screen re-sends the previous frame (holds frame static until flush())
+    void flush();
 
     // IMultiDmaTransactionSource Interface
     int getRequiredDescriptorCount(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max) override;

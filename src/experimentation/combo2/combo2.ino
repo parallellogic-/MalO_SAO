@@ -10,14 +10,8 @@
 #include "hardware/resets.h"
 
 #include <Wire.h>
-#define HAULT_ON_DMA_FAULT 1
-
-ScatterGatherEngine scatterer_gatherer_engine;
-LightSensor light_sensor(i2c0);
-IMU imu(i2c0);
-Screen screen(spi1);
-Charlieplex led_lower(0);
-Charlieplex led_upper(1);
+#define HAULT_ON_GENERAL_DMA_FAULT 1
+#define HAULT_ON_SCREEN_DMA_FAULT 1
 
 #define I2C0_SDA 12
 #define I2C0_SCL 13
@@ -28,6 +22,14 @@ Charlieplex led_upper(1);
 #define SPI1_MOSI 11
 #define SPI1_SCLK 10
 #define SPI1_BAUD 8'000'000
+
+ScatterGatherEngine scatterer_gatherer_engine_general;
+ScatterGatherEngine scatterer_gatherer_engine_screen;
+LightSensor light_sensor(i2c0);
+IMU imu(i2c0);
+Screen screen(spi1,SPI1_BAUD,SPI1_DC);
+Charlieplex led_lower(0);
+Charlieplex led_upper(1);
 
 uint32_t frame_id=0;
 int temp_spi_chan;
@@ -42,6 +44,7 @@ void setup() {
   Serial.begin();
   long start_tms=millis();
   while(!Serial && (millis()-start_tms)<7000);//wait for terminal to connect or timeout, whichever is first
+  //delay(2000);
   Serial.println("START");
 
   Serial.println("Init I2C...");
@@ -63,15 +66,16 @@ void setup() {
   spi_init(spi1, SPI1_BAUD);
   gpio_set_function(SPI1_SCLK, GPIO_FUNC_SPI);
   gpio_set_function(SPI1_MOSI, GPIO_FUNC_SPI);
+  gpio_set_function(SPI1_CS,   GPIO_FUNC_SPI);
   
   Serial.println("Init LEDs...");
   led_upper.begin();
   led_lower.begin();
 
   // Set CS and DC pins as GPIO outputs (software controlled)
-  gpio_init(SPI1_CS);
-  gpio_set_dir(SPI1_CS, GPIO_OUT);
-  gpio_put(SPI1_CS, HIGH); // CS high by default (inactive)
+  //gpio_init(SPI1_CS);
+  //gpio_set_dir(SPI1_CS, GPIO_OUT);
+  //gpio_put(SPI1_CS, HIGH); // CS high by default (inactive)
 
   gpio_init(SPI1_DC);
   gpio_set_dir(SPI1_DC, GPIO_OUT);
@@ -79,15 +83,18 @@ void setup() {
   //optional force-clear i2c on every use
   //i2c_deinit(i2c0);
   //i2c_init(i2c0, 400000);
-  scatterer_gatherer_engine.begin(true);
-  placeholder_begin();
+  scatterer_gatherer_engine_general.begin(true);
+  scatterer_gatherer_engine_screen.begin(false);
+  //placeholder_begin();
   screen.begin();
   light_sensor.begin();
   imu.begin();
-  scatterer_gatherer_engine.registerSource(&screen);
-  //scatterer_gatherer_engine.registerSource(&light_sensor);
-  //scatterer_gatherer_engine.registerSource(&imu);
-  scatterer_gatherer_engine.registerSource(&scatterer_gatherer_engine);//register self to perform end-of-cycle completion check
+  scatterer_gatherer_engine_general.registerSource(&light_sensor);
+  scatterer_gatherer_engine_general.registerSource(&imu);
+  scatterer_gatherer_engine_general.registerSource(&scatterer_gatherer_engine_general);
+
+  scatterer_gatherer_engine_screen.registerSource(&screen);
+  scatterer_gatherer_engine_screen.registerSource(&scatterer_gatherer_engine_screen);//register self to perform end-of-cycle completion check
   
   Serial.println("DONE setup");
 }
@@ -102,67 +109,56 @@ void loop() {
 
   if(1)//frame_id%60==0)
   {
-    Serial.printf("frame_id: %d, brightness: %d, ",frame_id,brightness);
-    Serial.printf("imu_celsius: %.2f, fifo_count: %d, ",imu_celsius,fifo_count);
+    Serial.printf("frame_id: %d, light: %d, ",frame_id,brightness);
+    Serial.printf("imu_c: %.2f, fifo: %d, ",imu_celsius,fifo_count);
     Serial.printf("accel: %0.2f, %0.2f, %0.2f, gyro: %0.2f, %0.2f, %0.2f, ",imu.get_accel(0),imu.get_accel(1),imu.get_accel(2),imu.get_gyro(0),imu.get_gyro(1),imu.get_gyro(2));
     Serial.println();
   }
   
-  placeholder_spi();
+  //placeholder_spi();
 
   // setup and run next batch
   uint32_t start_tms=millis();
   uint64_t start_time = time_us_64();
   bool is_imu_print_runtime=false;
-  scatterer_gatherer_engine.compileAndRun(frame_id,0,0);
+  scatterer_gatherer_engine_general.compileAndRun(frame_id,0,0);
+  scatterer_gatherer_engine_screen.compileAndRun(frame_id,0,0);
 
-
-    
-      led_update();
-
-  bool is_first=true;
   bool last_status=false;
-  while(millis()<(start_tms+100))//16))
+  bool is_alarmed_general=false;
+  bool is_alarmed_screen=false;
+
+  uint32_t core1_loop_count=0;//simulate core1 behavior
+  while(core1_loop_count==0 || (millis()<(start_tms+16)) )//16))
   {//core1 contents
+    if(core1_loop_count==0)  update_screen(); //fetch commands from shared memory, if any are present
     imu.update();
-    
+    if(core1_loop_count==0) update_led();//TODO: if flush frommemory map, then pull data from shared memory to instant update LEDs
 
-    /*if(!is_imu_print_runtime && imu._is_data_ready)
-    {
-      is_imu_print_runtime=true;
-      // 2. Capture the finishing timestamp in microseconds
-      uint64_t finish_time = time_us_64();
 
-      // 3. Calculate total elapsed microseconds
-      uint64_t elapsed_time = finish_time - start_time;
-
-      Serial.printf("IMU Elapsed time: %llu microseconds\n", elapsed_time);
-    }*/
-
-    // Read the full IC_STATUS register
-    uint32_t statusReg = i2c0->hw->status;
-
-    // The is_busy flag is bit 12 of the IC_STATUS register
-    bool isBusy = (statusReg & I2C_IC_STATUS_ACTIVITY_BITS) != 0; 
-
-    //if(is_first or isBusy!=last_status)
-    if(scatterer_gatherer_engine.is_dma_success(frame_id))
-    {
-
-    }
+    core1_loop_count++;
   }
-  bool is_dma_success=scatterer_gatherer_engine.is_dma_success(frame_id);
-  if(!is_dma_success && HAULT_ON_DMA_FAULT)
+
+  bool is_dma_success=scatterer_gatherer_engine_general.is_dma_success(frame_id);
+  if(!is_dma_success&&!is_alarmed_general)
   {
-    Serial.println("DMA FAULT");
-    while(1);
+    Serial.println("DMA FAULT: general");
+    if(HAULT_ON_GENERAL_DMA_FAULT) while(1);
+    is_alarmed_general=true;
+  }
+  is_dma_success=scatterer_gatherer_engine_screen.is_dma_success(frame_id);
+  if(!is_dma_success&&!is_alarmed_screen)
+  {
+    Serial.println("DMA FAULT: screen");
+    if(HAULT_ON_SCREEN_DMA_FAULT) while(1);
+    is_alarmed_screen=true;
   }
 
   frame_id++;
 }
 
 float prev_accel=0.0;
-void led_update()
+void update_led()
 {
 // -- led update --
     led_upper.set_max_effective_led_count(CHARLIPLEX_LED_COUNT/2);
@@ -183,34 +179,6 @@ void led_update()
         if((((iter%24)%5)==(millis()/(64*4))%5)) brightness_lower=iter<24?255:128;
         led_lower.set_brightness(iter,brightness_lower);
       }else{
-        //float accel=imu.get_accel(1);
-        /*int8_t led_0=(int8_t)accel;
-        int8_t led_1=(int8_t)(accel+1);
-        uint8_t brightness_1=(uint8_t)((accel-led_0)*255);
-        uint8_t brightness_0=255-brightness_1;
-        led_0=max(led_0,0);
-        led_1=max(led_1,0);
-        led_0=min(led_0,CHARLIPLEX_LED_COUNT/2-1);
-        led_1=min(led_1,CHARLIPLEX_LED_COUNT/2-1);
-        led_lower.set_brightness(led_0,brightness_0);
-        led_lower.set_brightness(led_1,led_0!=led_1?brightness_1:max(brightness_0,brightness_1));
-        led_lower.set_brightness(led_0+CHARLIPLEX_LED_COUNT/2,brightness_0);
-        led_lower.set_brightness(led_1+CHARLIPLEX_LED_COUNT/2,led_0!=led_1?brightness_1:max(brightness_0,brightness_1));*/
-        /*
-        float accel=imu.get_gyro(2)/100.0;
-        accel=(0.25-accel/4)*CHARLIPLEX_LED_COUNT;
-        if(iter<CHARLIPLEX_LED_COUNT/2)
-        {
-          for(int is_green=0;is_green<2;is_green++)
-          {
-            float brightness=255*(1.4-abs(accel-iter+(is_green?-1.5:1.5))/3.0);
-            brightness=max(brightness,0);
-            brightness=min(brightness,255);
-            uint8_t brightness8=(uint8_t)brightness;
-            //led_lower.set_brightness(iter,brightness8);
-            led_lower.set_brightness(iter+is_green*CHARLIPLEX_LED_COUNT/2,brightness8);
-          }
-        }*/
         float brightness;
         float accel=(imu.get_accel(1)-prev_accel)*2.0;//imu.get_accel(1);
         float gyro=imu.get_gyro(2)/100.0;
@@ -227,7 +195,6 @@ void led_update()
         brightness=max(brightness,0);
         brightness=min(brightness,255);
         uint8_t brightness8=(uint8_t)brightness;
-        //led_lower.set_brightness(iter,brightness8);
         led_lower.set_brightness(iter,brightness8);
       }
     }
@@ -503,12 +470,13 @@ uint8_t test_image[SSD1327_BUFFER_SIZE]={
 0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,
 };
 
-void placeholder_spi()
+void update_screen()
 {
   float rate=millis()*3.1415/2000.0;
   float pos_col=sin(rate)*20+35;//col - where to draw sprite
   float pos_row=cos(rate)*40+70;//row
-  uint8_t* tx_buffer=get_buffer(0);
+  //uint8_t* tx_buffer=get_buffer(0);
+  uint8_t* tx_buffer=screen.get_frame_buffer();
   for (int i = 0; i < SSD1327_BUFFER_SIZE; i++) {
     if(!is_image_demo) tx_buffer[i]+=0x0202; //animation
     else{
@@ -537,8 +505,9 @@ void placeholder_spi()
 
     }
   }
-  flush();
-  draw();
+  //flush();
+  //draw();
+  screen.flush();
 }
 
 int _dma_tx_channel;
@@ -650,11 +619,12 @@ void send_data_dma(const uint8_t *data, size_t len, bool dc_value) {
     while (spi_is_busy(spi1));
 
     // Set Data/Command line to Data mode (if required by your OLED)
-    gpio_put(SPI1_DC,dc_value);
+    temp_set_pin(temp_spi_chan,SPI1_DC,dc_value);
+    //gpio_put(SPI1_DC,dc_value);
 
     // Pull CS low to begin transaction
     //gpio_put(SPI1_CS, LOW);
-    temp_set_pin(temp_spi_chan,SPI1_CS,LOW);
+//    temp_set_pin(temp_spi_chan,SPI1_CS,LOW);
     //temp_set_pin(temp_spi_chan,SPI1_CS,LOW);
 
     // Reconfigure the DMA transfer count for the current data length
@@ -670,7 +640,7 @@ void send_data_dma(const uint8_t *data, size_t len, bool dc_value) {
     while (spi_is_busy(spi1));
     // Pull CS high to end transaction
     //gpio_put(SPI1_CS, HIGH);
-    temp_set_pin(temp_spi_chan,SPI1_CS,HIGH);
+//    temp_set_pin(temp_spi_chan,SPI1_CS,HIGH);
 
 }
 
@@ -683,25 +653,8 @@ void temp_set_pin(int dma_chan, int gpio_pin, bool state)
   channel_config_set_read_increment(&c, false);
   channel_config_set_write_increment(&c, false);
 
-  // Instead of the SIO register, we target the Pad Control Register for the pin.
-  // We can force the pin high/low by modifying its drive/pad overrides.
-  // PAD_BANK_BASE is sitting on the main bus matrix and is accessible by DMA.
-  //volatile uint32_t *pad_reg = (volatile uint32_t *)(PADS_BANK0_BASE + PADS_BANK0_GPIO0_OFFSET + (gpio_pin * 4)); //only sets meta info about pin control,not actually changing pin state: ISO, OD, IE, DRIVE, PUE, PDE, SCHMITT, SLEWFAST
-  //volatile uint32_t *pad_reg = (volatile uint32_t *)(PADS_BANK0_BASE + PADS_BANK0_GPIO0_OFFSET + (gpio_pin * 4));
-  //page 608, IO_BANK0_BASE
-  //instead use output override... IO_BANK0_GPIO0_CTRL
   volatile uint32_t *ctrl_reg_ptr = (volatile uint32_t *)&io_bank0_hw->io[gpio_pin].ctrl;
 
-  // Create a persistent or static configuration value to write
-  // We will alter the Output Disable (OD) or Drive Strength bits to change state
-  //static uint32_t pad_value_high = 0x0000005a; // Standard pad configuration (Output enabled) 00001010
-  //static uint32_t pad_value_low  = 0x000000da; // Pad configuration with OD (Output Disabled / Low) 010010
-  //uint32_t *source_ptr = state ? &pad_value_high : &pad_value_low;
-  /*static uint32_t ctrl_reg_data =
-    ( IO_BANK0_GPIO0_CTRL_FUNCSEL_VALUE_SIOB_PROC_0 << IO_BANK0_GPIO0_CTRL_FUNCSEL_LSB ) |
-    ( IO_BANK0_GPIO0_CTRL_OEOVER_VALUE_ENABLE << IO_BANK0_GPIO0_CTRL_OEOVER_LSB ) |
-    ( ( state ? IO_BANK0_GPIO1_CTRL_OUTOVER_VALUE_HIGH : IO_BANK0_GPIO1_CTRL_OUTOVER_VALUE_LOW ) << IO_BANK0_GPIO1_CTRL_OUTOVER_LSB ); 
-    //state ? &pad_value_high : &pad_value_low;*/
   static uint32_t ctrl_reg_data[2] = { //configure override for HIGH or LOW
     ( IO_BANK0_GPIO0_CTRL_FUNCSEL_VALUE_SIOB_PROC_0 << IO_BANK0_GPIO0_CTRL_FUNCSEL_LSB ) |
     //( IO_BANK0_GPIO0_CTRL_OEOVER_VALUE_ENABLE << IO_BANK0_GPIO0_CTRL_OEOVER_LSB ) |
@@ -711,7 +664,7 @@ void temp_set_pin(int dma_chan, int gpio_pin, bool state)
     ( IO_BANK0_GPIO1_CTRL_OUTOVER_VALUE_HIGH << IO_BANK0_GPIO1_CTRL_OUTOVER_LSB ),
   };
 
-  Serial.println("START GPIO SET");
+  //Serial.println("START GPIO SET");
 
   // Initialize and trigger DMA targeting the Pad registers on the main bus
   dma_channel_configure(
@@ -722,12 +675,9 @@ void temp_set_pin(int dma_chan, int gpio_pin, bool state)
       1,                        // Number of transfers
       true                      // Trigger immediately
   );
-  //dma_channel_start(_dma_tx_channel);
   
-  //Serial.print("A: 0x"); Serial.println((uint32_t)&pads_bank0_hw->io[gpio_pin],HEX);
-  //Serial.print("B: 0x"); Serial.println((uint32_t)pad_reg,HEX); //identical 0x40038028
   dma_channel_wait_for_finish_blocking(dma_chan);
-  Serial.println("START GPIO DONE");
+  //Serial.println("START GPIO DONE");
 }
 
 /*void temp_set_pin(int dma_chan, int gpio_pin, bool state)

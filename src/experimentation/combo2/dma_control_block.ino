@@ -152,24 +152,25 @@ void ScatterGatherEngine::compileAndRun(uint64_t frame_id,uint8_t subframe_id,ui
         // Fire the pipeline burst
         dma_channel_abort(_data_chan);
         dma_channel_abort(_ctrl_chan);
-        dma_channel_abort(_aux0_chan);
-        dma_channel_abort(_aux1_chan);
+        if(_aux0_chan>=0) dma_channel_abort(_aux0_chan);
+        if(_aux1_chan>=0) dma_channel_abort(_aux1_chan);
         dma_channel_set_read_addr(_ctrl_chan, _global_pool, true);
         //Serial.print("dma_control_block_started");  Serial.print(": "); Serial.println("dma_control_block_started");
         
         if(0)
         {
-          delay(16);
+          delay(11);
           printDmaChannelStatus(_ctrl_chan,"_ctrl_chan");
           printDmaChannelStatus(_data_chan,"_data_chan");
-          printDmaChannelStatus(_aux0_chan,"_aux0_chan");
-          printDmaChannelStatus(_aux1_chan,"_aux1_chan");
-          for (int iter = 0; iter < current_pool_index; iter++)
+          if(_aux0_chan>=0) printDmaChannelStatus(_aux0_chan,"_aux0_chan");
+          if(_aux1_chan>=0) printDmaChannelStatus(_aux1_chan,"_aux1_chan");
+          for (int iter = 0; iter < current_pool_index+1; iter++)
           {
-            Serial.print("_global_pool["); Serial.print(iter); Serial.print("].read_addr: "); Serial.println((uint32_t)_global_pool[iter].read_addr,HEX);
-            Serial.print("_global_pool["); Serial.print(iter); Serial.print("].write_addr: "); Serial.println((uint32_t)_global_pool[iter].write_addr,HEX);
+            Serial.print("_global_pool["); Serial.print(iter); Serial.print("] address:        "); Serial.println((uint32_t)&_global_pool[iter],HEX);
+            Serial.print("_global_pool["); Serial.print(iter); Serial.print("].read_addr:      "); Serial.println((uint32_t)_global_pool[iter].read_addr,HEX);
+            Serial.print("_global_pool["); Serial.print(iter); Serial.print("].write_addr:     "); Serial.println((uint32_t)_global_pool[iter].write_addr,HEX);
             Serial.print("_global_pool["); Serial.print(iter); Serial.print("].transfer_count: "); Serial.println((uint32_t)_global_pool[iter].transfer_count,HEX);
-            Serial.print("_global_pool["); Serial.print(iter); Serial.print("].config: "); Serial.println((uint32_t)_global_pool[iter].config,HEX);
+            Serial.print("_global_pool["); Serial.print(iter); Serial.print("].config:         "); Serial.println((uint32_t)_global_pool[iter].config,HEX);
           }
         }
     }
