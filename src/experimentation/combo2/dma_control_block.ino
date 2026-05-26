@@ -76,7 +76,7 @@ bool ScatterGatherEngine::registerSource(IMultiDmaTransactionSource* source) {
         return true;
     }
 
-void ScatterGatherEngine::compileAndRun(uint64_t frame_id,uint8_t subframe_id,uint8_t subframe_max) {
+void ScatterGatherEngine::compileAndRun(uint64_t frame_id) {
         //Serial.print("frame_id");  Serial.print(": "); Serial.println(frame_id);
         int current_pool_index = 0;
 
@@ -84,7 +84,7 @@ void ScatterGatherEngine::compileAndRun(uint64_t frame_id,uint8_t subframe_id,ui
         for (int i = 0; i < _registrant_count; i++) {
             if (_registrants[i] == nullptr) continue;
 
-            int needed = _registrants[i]->getRequiredDescriptorCount(frame_id,subframe_id,subframe_max);
+            int needed = _registrants[i]->getRequiredDescriptorCount(frame_id);
             if (needed == 0) continue;
 
             // Bounds check to ensure the memory buffer doesn't overflow
@@ -94,7 +94,7 @@ void ScatterGatherEngine::compileAndRun(uint64_t frame_id,uint8_t subframe_id,ui
             }
 
             // Let the object build its internal block chain directly inside the global pool
-            _registrants[i]->populateDescriptors(frame_id,subframe_id,subframe_max,
+            _registrants[i]->populateDescriptors(frame_id,
                 &_global_pool[current_pool_index], 
                 _data_chan, 
                 _aux0_chan, 
@@ -175,11 +175,11 @@ void ScatterGatherEngine::compileAndRun(uint64_t frame_id,uint8_t subframe_id,ui
         }
     }
 
-int ScatterGatherEngine::getRequiredDescriptorCount(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max) {
+int ScatterGatherEngine::getRequiredDescriptorCount(uint64_t frame_id) {
   return 1;
 }
 
-void ScatterGatherEngine::populateDescriptors(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) {
+void ScatterGatherEngine::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) {
 
     dma_channel_config cfg;
     uint8_t dma_index=0;

@@ -150,8 +150,8 @@ public:
     float get_celsius() const;
 
     // IMultiDmaTransactionSource Interface
-    int getRequiredDescriptorCount(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max) override;
-    void populateDescriptors(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) override;
+    int getRequiredDescriptorCount(uint64_t frame_id) override;
+    void populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) override;
 
     bool update(); //the populateDescriptors operation is a DMA to get data from the external periphreal into local RAM.  update() method converts data (if any is available) into a format usable by downstream processing.   mult/div/float operations are in update()
 

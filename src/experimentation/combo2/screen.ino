@@ -8,12 +8,11 @@ Screen::Screen(spi_inst_t* spi_port,uint32_t baud,uint8_t dc_pin) : _spi(spi_por
 void Screen::begin() {
 }
 
-int Screen::getRequiredDescriptorCount(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max) {
-    if (subframe_id > 0) return 0;
+int Screen::getRequiredDescriptorCount(uint64_t frame_id) {
 
     switch(_get_boot_state(frame_id))
     {
-      case 1: case 2:  return 2;
+      case 1: case 2:  return 0;
       case 3:  return 5;
       default: return 0;
     }
@@ -31,8 +30,7 @@ uint8_t* Screen::get_frame_buffer(){ return _frame_buffer[_screen_ping_pong]; }
 
 void Screen::flush(){ _is_flush=true; }
 
-void Screen::populateDescriptors(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) {
-    if(subframe_id>0) return;
+void Screen::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) {
 
     uint8_t boot_state= _get_boot_state(frame_id);
     if(boot_state==0) return;

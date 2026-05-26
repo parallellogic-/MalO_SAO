@@ -3,6 +3,8 @@
 #include "imu.h"
 #include "screen.h"
 #include "led.h"
+#include "hardware/adc.h"
+#include "analog.h"
 #include <hardware/watchdog.h>
 #include "hardware/pio.h"
 #include "hardware/clocks.h"
@@ -23,6 +25,13 @@
 #define SPI1_SCLK 10
 #define SPI1_BAUD 8'000'000
 
+#define PIN_DEBUG_R 37
+#define PIN_DEBUG_G 38
+
+#define PIN_SPARE 38
+#define PIN_HALL 39
+#define PIN_POTENTIOMETER 40
+
 ScatterGatherEngine scatterer_gatherer_engine_general;
 ScatterGatherEngine scatterer_gatherer_engine_screen;
 LightSensor light_sensor(i2c0);
@@ -30,6 +39,7 @@ IMU imu(i2c0);
 Screen screen(spi1,SPI1_BAUD,SPI1_DC);
 Charlieplex led_lower(0);
 Charlieplex led_upper(1);
+Analog analog;
 
 uint32_t frame_id=0;
 int temp_spi_chan;
@@ -41,12 +51,22 @@ void setup() {
   digitalWrite(15, HIGH);
   delay(20);  //AN4650 needed for reboot time of IMU --> later, put as part of boot-up sequence routine
 
+  uint64_t start_us=time_us_64();
+
   //"Init Terminal..."
   Serial.begin();
   long start_tms=millis();
   while(!Serial && (millis()-start_tms)<7000);//wait for terminal to connect or timeout, whichever is first
   //delay(2000);
   Serial.println("START");
+
+  Serial.println("Init Debug LEDs...");
+  gpio_init(PIN_DEBUG_R);
+  gpio_set_dir(PIN_DEBUG_R, GPIO_OUT);
+  gpio_put(PIN_DEBUG_R,HIGH);
+  gpio_init(PIN_DEBUG_G);
+  gpio_set_dir(PIN_DEBUG_G, GPIO_OUT);
+  gpio_put(PIN_DEBUG_G,HIGH);
 
   Serial.println("Init I2C...");
   if(0)
@@ -70,10 +90,41 @@ void setup() {
   gpio_set_function(SPI1_CS,   GPIO_FUNC_SPI);
   gpio_init(SPI1_DC);//is needed for proper screen operation
   gpio_set_dir(SPI1_DC, GPIO_OUT);
+  gpio_put(SPI1_DC,HIGH);
   
   Serial.println("Init LEDs...");
   led_upper.begin();
   led_lower.begin();
+
+  Serial.println("Init Analog..."); //screw potentiometer, hall, internal temperature, spare - just measure all of the inputs
+  adc_gpio_init(PIN_SPARE);
+  adc_gpio_init(PIN_HALL);
+  adc_gpio_init(PIN_POTENTIOMETER);
+  analog.begin();
+
+  Serial.println("Init Buzzer...");
+
+
+  Serial.println("Init Mic...");
+
+
+  Serial.println("Init IR TxD...");
+
+
+  Serial.println("Init IR RxD...");
+
+
+  Serial.println("Init Touch...");
+
+
+  Serial.println("Init Motor...");//pin GP40 on prototype
+
+
+  Serial.println("Init SAO I2C...");
+
+
+  Serial.println("Init RFID...");
+
 
   Serial.println("Init Scatterer Gatherer...");
   scatterer_gatherer_engine_general.begin(true); //I2C needs aux channels to perform sync'd reads
@@ -89,10 +140,12 @@ void setup() {
   scatterer_gatherer_engine_screen.registerSource(&screen);
   scatterer_gatherer_engine_screen.registerSource(&scatterer_gatherer_engine_screen);//register self to perform end-of-cycle completion check
   
-  Serial.println("DONE setup");
+  Serial.printf("DONE setup, boot time (us): %d\n",(time_us_64()-start_us)/1'000'000);
 }
 
 void loop() {
+  gpio_put(PIN_DEBUG_R,millis()%400>200);
+
   uint32_t brightness=light_sensor.getBrightness();
 
   float imu_celsius=imu.get_celsius();
@@ -112,8 +165,8 @@ void loop() {
   uint32_t start_tms=millis();
   uint64_t start_time = time_us_64();
   bool is_imu_print_runtime=false;
-  scatterer_gatherer_engine_general.compileAndRun(frame_id,0,0);
-  scatterer_gatherer_engine_screen.compileAndRun(frame_id,0,0);
+  scatterer_gatherer_engine_general.compileAndRun(frame_id);
+  scatterer_gatherer_engine_screen.compileAndRun(frame_id);
 
   uint32_t core1_loop_count=0;//simulate core1 behavior
   while(core1_loop_count==0 || (millis()<(start_tms+16)) )//16))

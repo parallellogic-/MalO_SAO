@@ -17,8 +17,7 @@ float IMU::get_celsius() const{
   return _temperature[!_imu_ping_pong]/16.0;
 }
 
-int IMU::getRequiredDescriptorCount(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max) {
-    if (subframe_id > 0) return 0;
+int IMU::getRequiredDescriptorCount(uint64_t frame_id) {
     
     //if(frame_id<2) return 0; //skip first 20 ms (2 framees at 60 FPS) to allow IMU to boot properly
 
@@ -30,9 +29,8 @@ int IMU::getRequiredDescriptorCount(uint64_t frame_id, uint8_t subframe_id, uint
     }
 }
 
-void IMU::populateDescriptors(uint64_t frame_id, uint8_t subframe_id, uint8_t subframe_max, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) {
-    if (subframe_id > 0) return;
-
+void IMU::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) {
+    
     dma_channel_config cfg;
     _imu_ping_pong=frame_id%2;//_temperature_ping_pong
     uint8_t dma_index=0;
