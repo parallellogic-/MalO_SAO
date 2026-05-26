@@ -41,6 +41,7 @@ void setup() {
   digitalWrite(15, HIGH);
   delay(20);  //AN4650 needed for reboot time of IMU --> later, put as part of boot-up sequence routine
 
+  //"Init Terminal..."
   Serial.begin();
   long start_tms=millis();
   while(!Serial && (millis()-start_tms)<7000);//wait for terminal to connect or timeout, whichever is first
@@ -67,28 +68,20 @@ void setup() {
   gpio_set_function(SPI1_SCLK, GPIO_FUNC_SPI);
   gpio_set_function(SPI1_MOSI, GPIO_FUNC_SPI);
   gpio_set_function(SPI1_CS,   GPIO_FUNC_SPI);
+  gpio_init(SPI1_DC);//is needed for proper screen operation
+  gpio_set_dir(SPI1_DC, GPIO_OUT);
   
   Serial.println("Init LEDs...");
   led_upper.begin();
   led_lower.begin();
 
-  // Set CS and DC pins as GPIO outputs (software controlled)
-  //gpio_init(SPI1_CS);
-  //gpio_set_dir(SPI1_CS, GPIO_OUT);
-  //gpio_put(SPI1_CS, HIGH); // CS high by default (inactive)
-
-  gpio_init(SPI1_DC);
-  gpio_set_dir(SPI1_DC, GPIO_OUT);
-
-  //optional force-clear i2c on every use
-  //i2c_deinit(i2c0);
-  //i2c_init(i2c0, 400000);
-  scatterer_gatherer_engine_general.begin(true);
-  scatterer_gatherer_engine_screen.begin(false);
-  //placeholder_begin();
+  Serial.println("Init Scatterer Gatherer...");
+  scatterer_gatherer_engine_general.begin(true); //I2C needs aux channels to perform sync'd reads
+  scatterer_gatherer_engine_screen.begin(false); //limit to only 2 channels for screen
   screen.begin();
   light_sensor.begin();
   imu.begin();
+
   scatterer_gatherer_engine_general.registerSource(&light_sensor);
   scatterer_gatherer_engine_general.registerSource(&imu);
   scatterer_gatherer_engine_general.registerSource(&scatterer_gatherer_engine_general);
@@ -114,8 +107,6 @@ void loop() {
     Serial.printf("accel: %0.2f, %0.2f, %0.2f, gyro: %0.2f, %0.2f, %0.2f, ",imu.get_accel(0),imu.get_accel(1),imu.get_accel(2),imu.get_gyro(0),imu.get_gyro(1),imu.get_gyro(2));
     Serial.println();
   }
-  
-  //placeholder_spi();
 
   // setup and run next batch
   uint32_t start_tms=millis();
@@ -124,34 +115,28 @@ void loop() {
   scatterer_gatherer_engine_general.compileAndRun(frame_id,0,0);
   scatterer_gatherer_engine_screen.compileAndRun(frame_id,0,0);
 
-  bool last_status=false;
-  bool is_alarmed_general=false;
-  bool is_alarmed_screen=false;
-
   uint32_t core1_loop_count=0;//simulate core1 behavior
   while(core1_loop_count==0 || (millis()<(start_tms+16)) )//16))
   {//core1 contents
     if(core1_loop_count==0)  update_screen(); //fetch commands from shared memory, if any are present
     imu.update();
-    if(core1_loop_count==0) update_led();//TODO: if flush frommemory map, then pull data from shared memory to instant update LEDs
+    if(core1_loop_count==0) update_led();//TODO: if flush from memory map, then pull data from shared memory to instant update LEDs
 
 
     core1_loop_count++;
   }
 
   bool is_dma_success=scatterer_gatherer_engine_general.is_dma_success(frame_id);
-  if(!is_dma_success&&!is_alarmed_general)
+  if(!is_dma_success)
   {
     Serial.println("DMA FAULT: general");
     if(HAULT_ON_GENERAL_DMA_FAULT) while(1);
-    is_alarmed_general=true;
   }
   is_dma_success=scatterer_gatherer_engine_screen.is_dma_success(frame_id);
-  if(!is_dma_success&&!is_alarmed_screen)
+  if(!is_dma_success)
   {
     Serial.println("DMA FAULT: screen");
     if(HAULT_ON_SCREEN_DMA_FAULT) while(1);
-    is_alarmed_screen=true;
   }
 
   frame_id++;
@@ -160,7 +145,6 @@ void loop() {
 float prev_accel=0.0;
 void update_led()
 {
-// -- led update --
     led_upper.set_max_effective_led_count(CHARLIPLEX_LED_COUNT/2);
     led_lower.set_max_effective_led_count(14);
 
@@ -178,7 +162,7 @@ void update_led()
         brightness_lower=iter<24?brightness_lower:brightness_lower/2;
         if((((iter%24)%5)==(millis()/(64*4))%5)) brightness_lower=iter<24?255:128;
         led_lower.set_brightness(iter,brightness_lower);
-      }else{
+      }else{//display accel/gyro on lower screen as tilt bar (some chromattic aberration on difference between accel/gyro)
         float brightness;
         float accel=(imu.get_accel(1)-prev_accel)*2.0;//imu.get_accel(1);
         float gyro=imu.get_gyro(2)/100.0;
@@ -205,7 +189,6 @@ void update_led()
 
 
 #define SSD1327_BUFFER_SIZE 128*128/2
-
 bool is_image_demo=1;
 
 const uint8_t test_image2[SSD1327_BUFFER_SIZE]={
@@ -498,219 +481,38 @@ void update_screen()
       }
       
       uint8_t background=test_image2[i];
-      //uint8_t foreground=test_image[i];
       uint8_t upper=((foreground&0xF0)==0?background:foreground)&0xF0;//1 is foreground, 2 is background
       uint8_t lower=((foreground&0x0F)==0?background:foreground)&0x0F;
       tx_buffer[i]=upper|lower;
 
     }
   }
-  //flush();
-  //draw();
+  for(uint8_t xyz=0;xyz<3;xyz++)
+  {
+    for(uint8_t is_gyro=0;is_gyro<2;is_gyro++)
+    {
+      float reading=is_gyro?imu.get_gyro(xyz)/100:imu.get_accel(xyz);//-1.0-ish to 1.0-ish
+      reading=(reading+1)*64;//0 to 64
+      for(uint16_t pixel=0;pixel<SSD1327_BUFFER_SIZE;pixel++)
+      {
+        uint8_t col=pixel/64;//0-127
+        uint8_t row=(pixel%64)*2;//0-127
+        bool is_row_in_range=false;
+        bool is_col_in_range=false;
+        is_row_in_range=(row>=((xyz+is_gyro*3)*16+16)) && ((row<(xyz+is_gyro*3)*16+13+16));
+        if(reading<64)
+        {//drawing left of center
+          if(col>reading && col<64) is_col_in_range=true;
+        }else{
+          if(col>=64 && col<reading) is_col_in_range=true;
+        }
+        if(is_row_in_range && is_col_in_range) tx_buffer[pixel]=0;
+      }
+    }
+  }
+
   screen.flush();
 }
-
-int _dma_tx_channel;
-uint8_t _tx_buffer[2][SSD1327_BUFFER_SIZE];
-bool _display_index=0;//which index is being written to the hardware
-
-const uint8_t frame_command_buffer[]={
-                   SSD1327_SETROW,    0, 0x7F,
-                   SSD1327_SETCOLUMN, 0, 0x3F};
-                   const uint8_t init_128x128[] = {
-      // Init sequence for 128x32 OLED module
-      SSD1327_DISPLAYOFF, // 0xAE
-      SSD1327_SETCONTRAST,
-      0x80,             // 0x81, 0x80
-      SSD1327_SEGREMAP, // 0xA0 0x53
-      0x51, // remap memory, odd even columns, com flip and column swap
-      SSD1327_SETSTARTLINE,
-      0x00, // 0xA1, 0x00
-      SSD1327_SETDISPLAYOFFSET,
-      0x00, // 0xA2, 0x00
-      SSD1327_DISPLAYALLOFF, SSD1327_SETMULTIPLEX,
-      0x7F, // 0xA8, 0x7F (1/64)
-      SSD1327_PHASELEN,
-      0x11, // 0xB1, 0x11
-      /*
-      SSD1327_GRAYTABLE,
-      0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
-      0x07, 0x08, 0x10, 0x18, 0x20, 0x2f, 0x38, 0x3f,
-      */
-      SSD1327_DCLK,
-      0x00, // 0xb3, 0x00 (100hz)
-      SSD1327_REGULATOR,
-      0x01, // 0xAB, 0x01
-      SSD1327_PRECHARGE2,
-      0x04, // 0xB6, 0x04
-      SSD1327_SETVCOM,
-      0x0F, // 0xBE, 0x0F
-      SSD1327_PRECHARGE,
-      0x08, // 0xBC, 0x08
-      SSD1327_FUNCSELB,
-      0x62, // 0xD5, 0x62
-      SSD1327_CMDLOCK,
-      0x12, // 0xFD, 0x12
-      SSD1327_NORMALDISPLAY, SSD1327_DISPLAYON};
-
-const uint8_t contrast_command_buffer_1[]={SSD1327_DISPLAYON};
-const uint8_t contrast_command_buffer_2[]={0x81,0x2F};
-
-
-void placeholder_begin(){
-  //claim spi channel, init spi pins
-  
-  // --- DMA Setup ---
-  
-  _dma_tx_channel = dma_claim_unused_channel(true);
-
-  dma_channel_config c = dma_channel_get_default_config(_dma_tx_channel);
-  channel_config_set_transfer_data_size(&c, DMA_SIZE_8); // 8-bit transfers
-  channel_config_set_read_increment(&c, true); // Increment read address (source buffer)
-  channel_config_set_write_increment(&c, false); // Don't increment write address (SPI data register is a fixed address)
-  // Set the DREQ for SPI0 TX to automatically trigger transfers
-  channel_config_set_dreq(&c, spi_get_dreq(spi1, true)); 
-
-  // Configure the DMA channel, but don't start it yet
-  dma_channel_configure(
-      _dma_tx_channel,
-      &c,
-      &spi_get_hw(spi1)->dr, // Destination: SPI Data Register
-      _tx_buffer[_display_index],// Source: our data buffer
-      SSD1327_BUFFER_SIZE,       // Number of transfers
-      false                      // Don't start immediately
-  );
-
-  delay(100);//need >30ms for screen to boot up stable, otherwise comes up with inverted or offset colors (?)
-  send_data_dma(init_128x128, sizeof(init_128x128),false);
-  delay(100);
-  send_data_dma(contrast_command_buffer_1, sizeof(contrast_command_buffer_1),false);
-  send_data_dma(contrast_command_buffer_2, sizeof(contrast_command_buffer_2),false);
-  for(uint8_t demo=0;demo<2;demo++)
-  {
-    uint8_t* tx_buffer=get_buffer(0);
-    for (int i = 0; i < SSD1327_BUFFER_SIZE; i++) {
-        if(is_image_demo) tx_buffer[i]=test_image[i];
-        else tx_buffer[i] = (i + (demo?0x0101:0)) % 256; 
-    }
-    flush();
-  }
-}
-void flush(){//push buffer to hardware
-  _display_index^=1;
-  //draw();
-}
-void draw(){//update hardware
-  send_data_dma(frame_command_buffer, sizeof(frame_command_buffer),false);
-  send_data_dma(_tx_buffer[_display_index], SSD1327_BUFFER_SIZE,true);//dc true only for frame data
-}
-uint8_t* get_buffer(){ return get_buffer(1); }
-uint8_t* get_buffer(bool is_black){//pointer to buffer that can be written into.  can set to all zeros with is_black=true (returns stale values if is_black=false)
-  if(is_black)
-  {
-    for (int i = 0; i < SSD1327_BUFFER_SIZE; i++) _tx_buffer[!_display_index][i]=0;
-  }
-  return _tx_buffer[!_display_index];
-}
-//TODO: refactor without blocking calls...
-void send_data_dma(const uint8_t *data, size_t len, bool dc_value) {
-    // Ensure the previous DMA transfer is complete
-    dma_channel_wait_for_finish_blocking(_dma_tx_channel);
-    while (spi_is_busy(spi1));
-
-    // Set Data/Command line to Data mode (if required by your OLED)
-    temp_set_pin(temp_spi_chan,SPI1_DC,dc_value);
-    //gpio_put(SPI1_DC,dc_value);
-
-    // Pull CS low to begin transaction
-    //gpio_put(SPI1_CS, LOW);
-//    temp_set_pin(temp_spi_chan,SPI1_CS,LOW);
-    //temp_set_pin(temp_spi_chan,SPI1_CS,LOW);
-
-    // Reconfigure the DMA transfer count for the current data length
-    dma_channel_set_read_addr(_dma_tx_channel, data, false);
-    dma_channel_set_trans_count(_dma_tx_channel, len, false);
-    
-    // Start the DMA transfer
-    dma_channel_start(_dma_tx_channel);
-
-    // Wait for the DMA transfer to complete without blocking the CPU
-    // The CPU can do other tasks here if needed
-    dma_channel_wait_for_finish_blocking(_dma_tx_channel);
-    while (spi_is_busy(spi1));
-    // Pull CS high to end transaction
-    //gpio_put(SPI1_CS, HIGH);
-//    temp_set_pin(temp_spi_chan,SPI1_CS,HIGH);
-
-}
-
-void temp_set_pin(int dma_chan, int gpio_pin, bool state)
-{
-  dma_channel_config c = dma_channel_get_default_config(dma_chan);
-
-  // Configure for 32-bit transfer, disabling read and write increments
-  channel_config_set_transfer_data_size(&c, DMA_SIZE_32);
-  channel_config_set_read_increment(&c, false);
-  channel_config_set_write_increment(&c, false);
-
-  volatile uint32_t *ctrl_reg_ptr = (volatile uint32_t *)&io_bank0_hw->io[gpio_pin].ctrl;
-
-  static uint32_t ctrl_reg_data[2] = { //configure override for HIGH or LOW
-    ( IO_BANK0_GPIO0_CTRL_FUNCSEL_VALUE_SIOB_PROC_0 << IO_BANK0_GPIO0_CTRL_FUNCSEL_LSB ) |
-    //( IO_BANK0_GPIO0_CTRL_OEOVER_VALUE_ENABLE << IO_BANK0_GPIO0_CTRL_OEOVER_LSB ) |
-    ( IO_BANK0_GPIO1_CTRL_OUTOVER_VALUE_LOW << IO_BANK0_GPIO1_CTRL_OUTOVER_LSB ),
-    ( IO_BANK0_GPIO0_CTRL_FUNCSEL_VALUE_SIOB_PROC_0 << IO_BANK0_GPIO0_CTRL_FUNCSEL_LSB ) |
-    //( IO_BANK0_GPIO0_CTRL_OEOVER_VALUE_ENABLE << IO_BANK0_GPIO0_CTRL_OEOVER_LSB ) |
-    ( IO_BANK0_GPIO1_CTRL_OUTOVER_VALUE_HIGH << IO_BANK0_GPIO1_CTRL_OUTOVER_LSB ),
-  };
-
-  //Serial.println("START GPIO SET");
-
-  // Initialize and trigger DMA targeting the Pad registers on the main bus
-  dma_channel_configure(
-      dma_chan,
-      &c,
-      (volatile void *)ctrl_reg_ptr, // Destination address (Bus accessible)
-      &ctrl_reg_data[state],           // Source address
-      1,                        // Number of transfers
-      true                      // Trigger immediately
-  );
-  
-  dma_channel_wait_for_finish_blocking(dma_chan);
-  //Serial.println("START GPIO DONE");
-}
-
-/*void temp_set_pin(int dma_chan, int gpio_pin, bool state)
-{
-  dma_channel_config c = dma_channel_get_default_config(dma_chan);
-
-  // Configure for 32-bit transfer, disabling read and write increments
-  channel_config_set_transfer_data_size(&c, DMA_SIZE_32);
-  channel_config_set_read_increment(&c, false);
-  channel_config_set_write_increment(&c, false);
-  
-  static uint32_t ctrl_reg_ptr[2] = {
-    (uint32_t)&sio_hw->gpio_clr,
-    (uint32_t)&sio_hw->gpio_set
-  };
-
-  static uint32_t ctrl_reg_data = 1<<state; //note: this is static, defined once per program - need to have dedicated value/memory for every pin used
-
-  Serial.println("START GPIO SET");
-
-  // Initialize and trigger DMA targeting the Pad registers on the main bus
-  dma_channel_configure(
-      dma_chan,
-      &c,
-      (volatile void*)&ctrl_reg_ptr[state], // Destination address (Bus accessible)
-      &ctrl_reg_data,           // Source address
-      1,                        // Number of transfers
-      true                      // Trigger immediately
-  );
-  
-  dma_channel_wait_for_finish_blocking(dma_chan);
-  Serial.println("START GPIO DONE");
-}*/
 
 
 /*#include "hardware/timer.h"
