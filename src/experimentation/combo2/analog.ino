@@ -7,7 +7,8 @@ Analog::Analog() {
 
 void Analog::begin() {
     // 3. Enable the internal temperature sensor line
-  adc_set_temp_sensor_enabled(true);
+    adc_init();
+  //adc_set_temp_sensor_enabled(true); //just a map into adc_hw->cs
 
 // 4. Reset Round Robin Mask and select ALL active channels to sequence
     // A bitmask where each high bit commands the ADC to sequence that channel number
@@ -26,19 +27,50 @@ void Analog::begin() {
       false,   // Do not modify error bit states
       false    // Do not truncate 12-bit resolution data down to 8-bit bytes
   );
+
+  //adc_fifo_drain(); //optional on boot?
+  //adc_run(false); 
 }
-
-int Analog::getRequiredDescriptorCount(uint64_t frame_id) {
-
-    return 0;
-}
-
 
 uint16_t Analog::get_sample(uint8_t gpio_pin) const
 {
   uint8_t channel=gpio_pin-ADC_BASE_PIN;
   if(channel>=ADC_CHANNEL_COUNT) return 0;
-  return _buffer[_ping_pong][channel];
+  return _raw_buffer[!_ping_pong][channel];
+}
+
+float Analog::get_vcc(uint8_t gpio_pin,float ideal_v_ref) const//around 3.0~3.3V
+{
+  uint16_t reading=get_sample(gpio_pin);
+  return 0x0FFF*ideal_v_ref/reading;
+}
+
+//-1.0 is -500Gauss (South), 1.0 is +500 Gauss (North)
+float Analog::get_hall(uint8_t gpio_pin) const//-1.0 to 1.0
+{
+  uint16_t reading=get_sample(gpio_pin);
+  return 2.0f*reading/0x0FFF-1.0;
+}
+
+float Analog::get_potentiometer(uint8_t gpio_pin) const//0 to 1.0
+{
+  uint16_t reading=get_sample(gpio_pin);
+  return 1.0f*reading/0x0FFF;
+}
+
+float Analog::get_internal_celsius(float vcc) const
+{
+  uint16_t raw_val=_raw_buffer[!_ping_pong][TEMP_SENSOR_CHANNEL];
+    // 12-bit conversion scale to reference voltage (3.3V)
+    float voltage = (float)raw_val * (vcc / 0x0FFF);
+    // Formula derived from the RP2350 Hardware Architecture documentation
+    return 27.0f - (voltage - 0.706f) / 0.001721f;
+}
+
+int Analog::getRequiredDescriptorCount(uint64_t frame_id) {
+
+    //if(!_is_booted) return 1;
+    return 3;
 }
 
 void Analog::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) {
@@ -47,38 +79,110 @@ void Analog::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_start, i
     _ping_pong=frame_id%2;
     uint8_t dma_index=0;
 
-    //
+    /*if(!_is_booted)
+    {
+        static const uint32_t ADC_START_MASK = ADC_CS_START_MANY_BITS;
 
-            //set DC LOW
-            /*cfg = dma_channel_get_default_config(data_channel);
-            channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
-            channel_config_set_read_increment(&cfg, false);
-            channel_config_set_write_increment(&cfg, false);
-            channel_config_set_chain_to(&cfg, ctrl_channel);
-            channel_config_set_enable(&cfg, true);
+        cfg = dma_channel_get_default_config(data_channel);
+        channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+        channel_config_set_read_increment(&cfg, false);
+        channel_config_set_write_increment(&cfg, false);
+        channel_config_set_chain_to(&cfg, ctrl_channel);
+        channel_config_set_enable(&cfg, true);
 
-            pool_start[dma_index].read_addr      = &_ctrl_reg_data[0];    //set DC LOW
-            pool_start[dma_index].write_addr     = (void *)_dc_pin_ctrl_reg_ptr;
-            pool_start[dma_index].transfer_count = 1;
-            pool_start[dma_index].config         = cfg.ctrl;
-            dma_index++;
+        pool_start[dma_index].read_addr      = (const void *)&ADC_START_MASK;    //set DC LOW
+        pool_start[dma_index].write_addr     = (void *)(&adc_hw->cs + REG_ALIAS_SET_BITS);
+        pool_start[dma_index].transfer_count = 1;
+        pool_start[dma_index].config         = cfg.ctrl;
+        dma_index++;
+      
+       _is_booted=true;
+      return;
+    }*/
 
-            //SPI send config
-            cfg = dma_channel_get_default_config(data_channel);
-            channel_config_set_transfer_data_size(&cfg, DMA_SIZE_8);
-            channel_config_set_read_increment(&cfg, true);
-            channel_config_set_write_increment(&cfg, false);
-            channel_config_set_dreq(&cfg, spi_get_dreq(_spi, true)); 
-            channel_config_set_chain_to(&cfg, ctrl_channel);
-            channel_config_set_enable(&cfg, true);
+      // 1. Force halt any free-running conversions immediately
+      /*adc_hw->cs &= ~ADC_CS_START_MANY_BITS; 
 
-            pool_start[dma_index].read_addr      = boot_state==1?(const void*)&init_128x128:(const void*)&contrast_command_buffer;
-            pool_start[dma_index].write_addr     = (void *)&spi_get_hw(_spi)->dr;
-            pool_start[dma_index].transfer_count = boot_state==1?sizeof(init_128x128):sizeof(contrast_command_buffer);
-            pool_start[dma_index].config         = cfg.ctrl;
-            dma_index++;*/
+      // 2. Clear the EN bit in FIFO Control Register to flush internal pointers
+      adc_hw->fcs &= ~ADC_FCS_EN_BITS;
 
-    if(1)//dma_index>0)
+      // 3. Re-enable the FIFO write capability so it is instantly ready for your next DMA run
+      adc_hw->fcs |= ADC_FCS_EN_BITS;
+
+      // Force hardware multiplexer register to begin at the lowest indexed active channel
+      adc_select_input(0); // is just part of &adc_hw->cs
+      */
+
+        // STEP 2: parpare the command to kick the ADC 
+        // into action right after the data channel is loaded and armed.
+        // use a static helper memory address so the DMA core can safely reference it.
+        //static const uint32_t FORCE_CONVERSION_START = ADC_CS_START_MANY_BITS;
+        static const uint32_t FORCE_CONVERSION_START = 
+          ADC_CS_RROBIN_BITS | // Enable round robin for all 9 channels
+          ADC_CS_START_MANY_BITS |
+          ADC_CS_TS_EN_BITS |
+          ADC_CS_EN_BITS;        // Set the continuous sampling engine to run
+
+        static const uint32_t FORCE_CONVERSION_STOP = 0x00;
+
+
+        cfg = dma_channel_get_default_config(aux0_channel);
+        channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
+        channel_config_set_read_increment(&cfg, false);
+        channel_config_set_write_increment(&cfg, true);
+        channel_config_set_dreq(&cfg, DREQ_ADC);         // Sync pace directly to ADC hardware
+        channel_config_set_chain_to(&cfg, ctrl_channel);
+        channel_config_set_enable(&cfg, true);
+
+        _aux0_read_adc_cmd.read_addr      = (const void *)&adc_hw->fifo;    
+        _aux0_read_adc_cmd.write_addr     = (void *)&_raw_buffer[_ping_pong];
+        _aux0_read_adc_cmd.transfer_count = sizeof(_raw_buffer[_ping_pong])/sizeof(_raw_buffer[_ping_pong][0]);
+        _aux0_read_adc_cmd.config         = cfg.ctrl;
+
+        //data_chan triggers aux0 (sits idle waiting for samples)
+        cfg = dma_channel_get_default_config(data_channel);
+        channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+        channel_config_set_read_increment(&cfg, true);
+        channel_config_set_write_increment(&cfg, true);
+        channel_config_set_chain_to(&cfg, ctrl_channel);
+        channel_config_set_enable(&cfg, true);
+
+        pool_start[dma_index].read_addr      = (const void*)&_aux0_read_adc_cmd;
+        pool_start[dma_index].write_addr     = (void*)&dma_hw->ch[aux0_channel].read_addr;
+        pool_start[dma_index].transfer_count = 4;
+        pool_start[dma_index].config         = cfg.ctrl;
+        dma_index++;
+
+        //data_chan starts adc collecting samples
+         cfg = dma_channel_get_default_config(data_channel);
+        channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+        channel_config_set_read_increment(&cfg, false); // Read from fixed register address
+        channel_config_set_write_increment(&cfg, false);  // Step through linear array array pointers
+        //channel_config_set_chain_to(&cfg, ctrl_channel); //aux0 loops back flow control after reading samples
+        channel_config_set_enable(&cfg, true);
+
+        pool_start[dma_index].read_addr      = (const void *)&FORCE_CONVERSION_START;    
+        pool_start[dma_index].write_addr     = (void *)(&adc_hw->cs);// + REG_ALIAS_SET_BITS);
+        pool_start[dma_index].transfer_count = 1;
+        pool_start[dma_index].config         = cfg.ctrl;
+        dma_index++;
+
+        //data_chan starts adc collecting samples
+         cfg = dma_channel_get_default_config(data_channel);
+        channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+        channel_config_set_read_increment(&cfg, false); // Read from fixed register address
+        channel_config_set_write_increment(&cfg, false);  // Step through linear array array pointers
+        channel_config_set_chain_to(&cfg, ctrl_channel); 
+        channel_config_set_enable(&cfg, true);
+
+        pool_start[dma_index].read_addr      = (const void *)&FORCE_CONVERSION_STOP;    
+        pool_start[dma_index].write_addr     = (void *)(&adc_hw->cs);// + REG_ALIAS_SET_BITS);
+        pool_start[dma_index].transfer_count = 1;
+        pool_start[dma_index].config         = cfg.ctrl;
+        dma_index++;
+
+
+    if(0)//dma_index>0)
     {
       Serial.print("DMA instruction size: "); Serial.println(dma_index); while(1);
     }

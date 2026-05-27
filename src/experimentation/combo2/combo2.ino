@@ -28,9 +28,10 @@
 #define PIN_DEBUG_R 37
 #define PIN_DEBUG_G 38
 
-#define PIN_SPARE 38
-#define PIN_HALL 39
-#define PIN_POTENTIOMETER 40
+#define PIN_V_REF 40
+#define IDEAL_V_REF 1.24
+#define PIN_HALL 41
+#define PIN_POTENTIOMETER 42
 
 ScatterGatherEngine scatterer_gatherer_engine_general;
 ScatterGatherEngine scatterer_gatherer_engine_screen;
@@ -51,6 +52,8 @@ void setup() {
   digitalWrite(15, HIGH);
   delay(20);  //AN4650 needed for reboot time of IMU --> later, put as part of boot-up sequence routine
 
+  // ----
+
   uint64_t start_us=time_us_64();
 
   //"Init Terminal..."
@@ -63,10 +66,10 @@ void setup() {
   Serial.println("Init Debug LEDs...");
   gpio_init(PIN_DEBUG_R);
   gpio_set_dir(PIN_DEBUG_R, GPIO_OUT);
-  gpio_put(PIN_DEBUG_R,HIGH);
+  gpio_put(PIN_DEBUG_R,LOW);
   gpio_init(PIN_DEBUG_G);
   gpio_set_dir(PIN_DEBUG_G, GPIO_OUT);
-  gpio_put(PIN_DEBUG_G,HIGH);
+  gpio_put(PIN_DEBUG_G,LOW);
 
   Serial.println("Init I2C...");
   if(0)
@@ -91,16 +94,21 @@ void setup() {
   gpio_init(SPI1_DC);//is needed for proper screen operation
   gpio_set_dir(SPI1_DC, GPIO_OUT);
   gpio_put(SPI1_DC,HIGH);
+
+  Serial.println("Init Scatterer Gatherer...");
+  scatterer_gatherer_engine_general.begin(true); //I2C needs aux channels to perform sync'd reads
+  scatterer_gatherer_engine_screen.begin(false); //limit to only 2 channels for screen
   
   Serial.println("Init LEDs...");
   led_upper.begin();
   led_lower.begin();
 
   Serial.println("Init Analog..."); //screw potentiometer, hall, internal temperature, spare - just measure all of the inputs
-  adc_gpio_init(PIN_SPARE);
+//  adc_gpio_init(PIN_V_REF);//is motor on prototype
   adc_gpio_init(PIN_HALL);
   adc_gpio_init(PIN_POTENTIOMETER);
   analog.begin();
+  scatterer_gatherer_engine_general.registerSource(&analog);
 
   Serial.println("Init Buzzer...");
 
@@ -126,57 +134,68 @@ void setup() {
   Serial.println("Init RFID...");
 
 
-  Serial.println("Init Scatterer Gatherer...");
-  scatterer_gatherer_engine_general.begin(true); //I2C needs aux channels to perform sync'd reads
-  scatterer_gatherer_engine_screen.begin(false); //limit to only 2 channels for screen
-  screen.begin();
+  Serial.println("Init Light Sensor...");
   light_sensor.begin();
-  imu.begin();
-
   scatterer_gatherer_engine_general.registerSource(&light_sensor);
-  scatterer_gatherer_engine_general.registerSource(&imu);
-  scatterer_gatherer_engine_general.registerSource(&scatterer_gatherer_engine_general);
 
+  Serial.println("Init Screen...");
+  screen.begin();
   scatterer_gatherer_engine_screen.registerSource(&screen);
+
+  Serial.println("Init IMU...");
+  imu.begin();
+  scatterer_gatherer_engine_general.registerSource(&imu);
+
+  Serial.println("Finish Init Scatterer Gatherer...");
+  scatterer_gatherer_engine_general.registerSource(&scatterer_gatherer_engine_general);
   scatterer_gatherer_engine_screen.registerSource(&scatterer_gatherer_engine_screen);//register self to perform end-of-cycle completion check
   
   Serial.printf("DONE setup, boot time (us): %d\n",(time_us_64()-start_us)/1'000'000);
 }
 
+uint64_t setup_us=0;
 void loop() {
-  gpio_put(PIN_DEBUG_R,millis()%400>200);
-
-  uint32_t brightness=light_sensor.getBrightness();
-
-  float imu_celsius=imu.get_celsius();
-  uint32_t fifo_count=imu.get_fifo_sample_count();
-  uint32_t sniff_ctrl=dma_hw->sniff_ctrl;
-  uint32_t sniff_data=dma_hw->sniff_data;
-
-  if(1)//frame_id%60==0)
-  {
-    Serial.printf("frame_id: %d, light: %d, ",frame_id,brightness);
-    Serial.printf("imu_c: %.2f, fifo: %d, ",imu_celsius,fifo_count);
-    Serial.printf("accel: %0.2f, %0.2f, %0.2f, gyro: %0.2f, %0.2f, %0.2f, ",imu.get_accel(0),imu.get_accel(1),imu.get_accel(2),imu.get_gyro(0),imu.get_gyro(1),imu.get_gyro(2));
-    Serial.println();
-  }
+  gpio_put(PIN_DEBUG_R,millis()%400<200);
 
   // setup and run next batch
-  uint32_t start_tms=millis();
-  uint64_t start_time = time_us_64();
-  bool is_imu_print_runtime=false;
+  uint64_t start_us = time_us_64();
   scatterer_gatherer_engine_general.compileAndRun(frame_id);
   scatterer_gatherer_engine_screen.compileAndRun(frame_id);
+  setup_us=time_us_64()-start_us;
 
   uint32_t core1_loop_count=0;//simulate core1 behavior
-  while(core1_loop_count==0 || (millis()<(start_tms+16)) )//16))
+  while(core1_loop_count==0 || (time_us_64()<(start_us+16666)) )//16))
   {//core1 contents
     if(core1_loop_count==0)  update_screen(); //fetch commands from shared memory, if any are present
     imu.update();
     if(core1_loop_count==0) update_led();//TODO: if flush from memory map, then pull data from shared memory to instant update LEDs
 
-
     core1_loop_count++;
+  }
+
+  if(1)//frame_id%60==0)
+  {
+    Serial.println(*target);
+    Serial.printf("frame_id: %4d, setup_us: %1d, light: %3d, ",frame_id,setup_us,light_sensor.getBrightness());
+    if(1)
+    {
+      float vcc=analog.get_vcc(PIN_V_REF,IDEAL_V_REF);
+      float hall=analog.get_hall(PIN_HALL);
+      float pot=analog.get_potentiometer(PIN_POTENTIOMETER);
+      float itemp=analog.get_internal_celsius(3.3);
+      Serial.printf("vcc: %7.2f, hall: %5.2f, pot: %5.2f, itemp_c: %4.2f, ",vcc,hall,pot,itemp);
+    }
+    if(1)
+    {
+      uint16_t vcc=analog.get_sample(PIN_V_REF);
+      uint16_t hall=analog.get_sample(PIN_HALL);
+      uint16_t pot=analog.get_sample(PIN_POTENTIOMETER);
+      uint16_t itemp=analog.get_sample(TEMP_SENSOR_PIN);
+      Serial.printf("vcc: 0x%04X, hall: 0x%04X, pot: 0x%04X, int_c: 0x%04X, ",vcc,hall,pot,itemp);
+    }
+    Serial.printf("imu_c: %.2f, fifo: %d, ",imu.get_celsius(),imu.get_fifo_sample_count());
+    Serial.printf("accel: %0.2f, %0.2f, %0.2f, gyro: %0.2f, %0.2f, %0.2f, ",imu.get_accel(0),imu.get_accel(1),imu.get_accel(2),imu.get_gyro(0),imu.get_gyro(1),imu.get_gyro(2));
+    Serial.println();
   }
 
   bool is_dma_success=scatterer_gatherer_engine_general.is_dma_success(frame_id);
@@ -194,6 +213,8 @@ void loop() {
 
   frame_id++;
 }
+
+
 
 float prev_accel=0.0;
 void update_led()

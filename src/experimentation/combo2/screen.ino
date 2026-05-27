@@ -12,7 +12,7 @@ int Screen::getRequiredDescriptorCount(uint64_t frame_id) {
 
     switch(_get_boot_state(frame_id))
     {
-      case 1: case 2:  return 0;
+      case 1: case 2:  return 2;
       case 3:  return 5;
       default: return 0;
     }

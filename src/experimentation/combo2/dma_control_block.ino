@@ -172,8 +172,62 @@ void ScatterGatherEngine::compileAndRun(uint64_t frame_id) {
             Serial.print("_global_pool["); Serial.print(iter); Serial.print("].transfer_count: "); Serial.println((uint32_t)_global_pool[iter].transfer_count,HEX);
             Serial.print("_global_pool["); Serial.print(iter); Serial.print("].config:         "); Serial.println((uint32_t)_global_pool[iter].config,HEX);
           }
+          if(_aux0_chan>=0) debug_adc_dma_registers(_data_chan,_aux0_chan);
         }
     }
+
+void debug_adc_dma_registers(int data_channel, int aux0_channel) {
+    // Read raw hardware registers
+    uint32_t adc_cs  = adc_hw->cs;
+    uint32_t adc_fcs = adc_hw->fcs;
+    
+    uint32_t aux0_ctrl  = dma_hw->ch[aux0_channel].ctrl_trig;
+    uint32_t aux0_count = dma_hw->ch[aux0_channel].transfer_count;
+    uint32_t data_ctrl  = dma_hw->ch[data_channel].ctrl_trig;
+
+    Serial.printf("\n=== 🔍 CRITICAL ADC-DMA STATE DUMP ===\n");
+    
+    // 1. ADC CONTROL REGISTERS
+    Serial.printf("ADC_CS  [0x%08lX]: START_MANY=%d | READY=%d | AINSEL=%ld | RROBIN=0x%02lX\n", 
+            adc_cs, (adc_cs & ADC_CS_START_MANY_BITS) ? 1 : 0, (adc_cs & ADC_CS_READY_BITS) ? 1 : 0,
+            (adc_cs & ADC_CS_AINSEL_BITS) >> ADC_CS_AINSEL_LSB, (adc_cs & ADC_CS_RROBIN_BITS) >> ADC_CS_RROBIN_LSB);
+            
+    Serial.printf("ADC_FCS [0x%08lX]: EN=%d | DREQ_EN=%d | LEVEL=%ld | THRESH=%ld | OVERFL=%d | UNDERFL=%d\n", 
+            adc_fcs, (adc_fcs & ADC_FCS_EN_BITS) ? 1 : 0, (adc_fcs & ADC_FCS_DREQ_EN_BITS) ? 1 : 0,
+            (adc_fcs & ADC_FCS_LEVEL_BITS) >> ADC_FCS_LEVEL_LSB, (adc_fcs & ADC_FCS_THRESH_BITS) >> ADC_FCS_THRESH_LSB,
+            (adc_fcs & ADC_FCS_OVER_BITS) ? 1 : 0, (adc_fcs & ADC_FCS_UNDER_BITS) ? 1 : 0);
+
+    // 2. DMA CHANNELS REGISTERS
+    Serial.printf("AUX0_CH (Data Recv)  CTRL: 0x%08lX | REMAINING_REQS: %ld | BUSY=%d\n", 
+            aux0_ctrl, aux0_count, (aux0_ctrl & DMA_CH0_CTRL_TRIG_BUSY_BITS) ? 1 : 0);
+    Serial.printf("DATA_CH (Script Eng) CTRL: 0x%08lX | BUSY=%d\n", 
+            data_ctrl, (data_ctrl & DMA_CH0_CTRL_TRIG_BUSY_BITS) ? 1 : 0);
+
+    // 3. ANALYSIS RULES (WHAT IS BLOCKING THE DATA?)
+    Serial.printf("\n===  LOGIC FAULT ISOLATION ===\n");
+    
+    if (!(adc_fcs & ADC_FCS_EN_BITS)) {
+        Serial.printf(" FAULT: ADC FIFO IS DISABLED (FCS.EN=0)! Data cannot drop into FIFO.\n");
+    }
+    if (!(adc_fcs & ADC_FCS_DREQ_EN_BITS)) {
+        Serial.printf(" FAULT: ADC DREQ HANDSHAKE IS DISABLED (FCS.DREQ_EN=0)! No DMA pacing signals will ever fire.\n");
+    }
+    if (adc_fcs & ADC_FCS_OVER_BITS) {
+        Serial.printf(" FAULT: ADC FIFO OVERFLOW! Samples backed up and locked the internal bus. DMA was too slow or not armed in time.\n");
+    }
+    if ((aux0_ctrl & DMA_CH0_CTRL_TRIG_TREQ_SEL_BITS) != (DREQ_ADC << DMA_CH0_CTRL_TRIG_TREQ_SEL_LSB)) {
+        Serial.printf(" FAULT: AUX0 is listening to wrong DREQ channel (Expected 0x%X, got 0x%LX)!\n", 
+                DREQ_ADC, (aux0_ctrl & DMA_CH0_CTRL_TRIG_TREQ_SEL_BITS) >> DMA_CH0_CTRL_TRIG_TREQ_SEL_LSB);
+    }
+    if (!(aux0_ctrl & DMA_CH0_CTRL_TRIG_BUSY_BITS) && aux0_count > 0) {
+        Serial.printf(" FAULT: AUX0 is NOT ACTIVE (BUSY=0) but has %ld transfers left! It was never triggered by your control script.\n", aux0_count);
+    }
+    if ((adc_fcs & ADC_FCS_LEVEL_BITS) > 0 && (aux0_ctrl & DMA_CH0_CTRL_TRIG_BUSY_BITS)) {
+        Serial.printf("⚠️ STATE: FIFO has %ld samples waiting, and AUX0 is active. Why isn't it clearing? Check if AUX0's READ_ADDR points to 0x%08lX.\n", 
+                (adc_fcs & ADC_FCS_LEVEL_BITS) >> ADC_FCS_LEVEL_LSB, (uintptr_t)&adc_hw->fifo);
+    }
+    Serial.printf("=======================================\n\n");
+}
 
 int ScatterGatherEngine::getRequiredDescriptorCount(uint64_t frame_id) {
   return 1;

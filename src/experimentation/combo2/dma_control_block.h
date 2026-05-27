@@ -56,6 +56,17 @@ private:
     // Master contiguous block pool shared by all peripherals.  +1 to allow for terminating DMA _ctrl command at completion
     DmaDescriptor _global_pool[MAX_DMA_CONTROL_ACTIONS + 1] __attribute__ ((aligned (16)));
 
+    //uint32_t *target=(uint32_t*)&timer_hw->timerawl;
+    //TODO: get DMA runtime:
+    //write 0xFFFFFF to scratch (make it a negative number by bit inverting it)
+    //XOR with timerawl
+    //store in local list uint32_t timestamps[2] at index [0]
+    //at end of dma operation:
+    //push timerawl to index [1]
+    //setup sniff (clear to 0x00) for add mode
+    //pass 2 element from list through it
+    //store output as runtime
+    //ignore roll-over adge case since that'd require aux0 and aux1 to kick off a simultaneous read of high and low uint32_t
 public:
     ScatterGatherEngine() {}
 
