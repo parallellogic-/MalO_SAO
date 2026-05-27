@@ -41,7 +41,6 @@ public:
     //virtual void update(); //hook that core1 will call when idle to allow periphreals to perform work as they have it available to do
 };
 
-
 class ScatterGatherEngine : public IMultiDmaTransactionSource{
 private:
     int _data_chan=-1;
