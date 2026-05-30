@@ -159,8 +159,8 @@ void loop() {
 
   // setup and run next batch
   uint64_t start_us = time_us_64();
-//  scatterer_gatherer_engine_general.compileAndRun(frame_id);
-//  scatterer_gatherer_engine_screen.compileAndRun(frame_id);
+  scatterer_gatherer_engine_general.compileAndRun(frame_id);
+  scatterer_gatherer_engine_screen.compileAndRun(frame_id);
   setup_us=time_us_64()-start_us;
 
   uint32_t core1_loop_count=0;//simulate core1 behavior

@@ -14,6 +14,7 @@
 #define REG_FIFO_STATUS2 0x3B
 #define REG_FIFO_DATA_OUT_L 0x3E
 #define REG_FIFO_DATA_OUT_H 0x3F
+#define REG_INT2_CTRL 0x0E
 
 // ----
 
@@ -90,7 +91,7 @@ private:
 
     // list of register-value pairs to write to i2c periphreal on boot
     // to make this more portable: would need to make this list varaible and populate in the constructor
-    static constexpr uint16_t _boot_cmd[7][2] __attribute__((aligned(4))) ={
+    static constexpr uint16_t _boot_cmd[8][2] __attribute__((aligned(4))) ={
         // 1. Reset device
       {REG_CTRL3_C            ,  0x01 },//reboot
       {REG_WHO_AM_I   | 0x0400,  0x0100 }, //reboot needs 50 us to clear, downstream code will insert a delay after this read operation
@@ -98,6 +99,9 @@ private:
       {REG_FIFO_CTRL3 | 0x0400,  0x09 }, //no FIFO decimation
       {REG_CTRL1_XL   | 0x0400, (HZ_CONFIG << 4) | (ACCEL_RANGE_CONFIG << 2) | ACCEL_LPF_CONFIG  }, //XL Hz, range, LPF
       {REG_CTRL2_G    | 0x0400, (HZ_CONFIG << 4) | (GYRO_RANGE_CONFIG  << 2)   }, //gyro Hz, range
+
+      {REG_INT2_CTRL  | 0x0400, 0xFF   }, // PROTOTYPE ONLY - set INT2 HIGH so it doesn't connect the GND/3V3 rails
+
       
         // 4. Set FIFO Mode to "Continuous Mode" (overwrites old data if full)
         // FIFO_CTRL5: FIFO_Mode[2:0] = 110 (Continuous Mode), 0x01 for FIFO mode. Stops collecting data when FIFO is full
