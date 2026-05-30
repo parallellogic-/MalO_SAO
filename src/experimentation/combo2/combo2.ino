@@ -12,8 +12,8 @@
 #include "hardware/resets.h"
 
 #include <Wire.h>
-#define HAULT_ON_GENERAL_DMA_FAULT 1
-#define HAULT_ON_SCREEN_DMA_FAULT 1
+#define HAULT_ON_GENERAL_DMA_FAULT 0
+#define HAULT_ON_SCREEN_DMA_FAULT 0
 
 #define I2C0_SDA 12
 #define I2C0_SCL 13
@@ -96,7 +96,7 @@ void setup() {
   gpio_put(SPI1_DC,HIGH);
 
   Serial.println("Init Scatterer Gatherer...");
-  scatterer_gatherer_engine_general.begin(true); //I2C needs aux channels to perform sync'd reads
+  scatterer_gatherer_engine_general.begin(true); //I2C needs aux channels to perform sync'd reads.  also uses sniff0 to compute the length of the imu fifo
   scatterer_gatherer_engine_screen.begin(false); //limit to only 2 channels for screen
   
   Serial.println("Init LEDs...");
@@ -108,7 +108,7 @@ void setup() {
   adc_gpio_init(PIN_HALL);
   adc_gpio_init(PIN_POTENTIOMETER);
   analog.begin();
-  scatterer_gatherer_engine_general.registerSource(&analog);
+  scatterer_gatherer_engine_general.registerSource(&analog); //could use sniff0 for oversampling to reduce noise... but not imlplemented
 
   Serial.println("Init Buzzer...");
 
@@ -140,7 +140,7 @@ void setup() {
 
   Serial.println("Init Screen...");
   screen.begin();
-  scatterer_gatherer_engine_screen.registerSource(&screen);
+  scatterer_gatherer_engine_screen.registerSource(&screen);//50mA@5V
 
   Serial.println("Init IMU...");
   imu.begin();
@@ -159,8 +159,8 @@ void loop() {
 
   // setup and run next batch
   uint64_t start_us = time_us_64();
-  scatterer_gatherer_engine_general.compileAndRun(frame_id);
-  scatterer_gatherer_engine_screen.compileAndRun(frame_id);
+//  scatterer_gatherer_engine_general.compileAndRun(frame_id);
+//  scatterer_gatherer_engine_screen.compileAndRun(frame_id);
   setup_us=time_us_64()-start_us;
 
   uint32_t core1_loop_count=0;//simulate core1 behavior
@@ -175,7 +175,8 @@ void loop() {
 
   if(1)//frame_id%60==0)
   {
-    Serial.println(*target);
+    //uint32_t *target=(uint32_t*)&timer_hw->timerawl;
+    //Serial.println(*target);
     Serial.printf("frame_id: %4d, setup_us: %1d, light: %3d, ",frame_id,setup_us,light_sensor.getBrightness());
     if(1)
     {
@@ -222,12 +223,25 @@ void update_led()
     led_upper.set_max_effective_led_count(CHARLIPLEX_LED_COUNT/2);
     led_lower.set_max_effective_led_count(14);
 
+    float hall=analog.get_hall(PIN_HALL);
+
     for(uint8_t iter=0;iter<CHARLIPLEX_LED_COUNT;iter++)
     {
       //slow fade
       uint16_t brightness_upper = (-millis()/8)+iter*32; 
       if(brightness_upper & 0x0100) brightness_upper=255-(uint8_t)brightness_upper;//fade fully off half the time
       led_upper.set_brightness(iter,(uint8_t)brightness_upper);
+      if(iter==(CHARLIPLEX_LED_COUNT/2-1))
+      {
+        brightness_upper=hall>0?0:(uint8_t)(-hall*255);
+        led_upper.set_brightness(iter,(uint8_t)brightness_upper);
+      }
+      
+      if(iter==(CHARLIPLEX_LED_COUNT-1))
+      {
+        brightness_upper=hall<=0?0:(uint8_t)(hall*255);
+        led_upper.set_brightness(iter,(uint8_t)brightness_upper);
+      }
 
       if(0)
       {

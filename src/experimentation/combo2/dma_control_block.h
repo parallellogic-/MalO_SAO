@@ -56,7 +56,7 @@ private:
     DmaDescriptor _global_pool[MAX_DMA_CONTROL_ACTIONS + 1] __attribute__ ((aligned (16)));
 
     //uint32_t *target=(uint32_t*)&timer_hw->timerawl;
-    //TODO: get DMA runtime:
+    //TODO: get DMA runtime: [FYI: This requires SNIFF]
     //write 0xFFFFFF to scratch (make it a negative number by bit inverting it)
     //XOR with timerawl
     //store in local list uint32_t timestamps[2] at index [0]

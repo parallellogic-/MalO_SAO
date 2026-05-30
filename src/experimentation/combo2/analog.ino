@@ -6,6 +6,22 @@ Analog::Analog() {
 }
 
 void Analog::begin() {
+      // 1. Explicitly stop the free-running clock/sequencer
+    adc_run(false);
+    
+    // 2. Disable round-robin pacing if you are sampling multiple pins
+    adc_set_round_robin(0);
+    
+    // 3. Forcefully pop entries directly from the register until empty
+    // This bypasses the blocking status checks in adc_fifo_drain()
+    while (adc_fifo_get_level() > 0) {
+        (void)adc_hw->fifo; // Directly read and discard from the hardware register
+    }
+    
+    // 4. Clear any lingering error or conversion flags
+    // (Overday/Underday flags inside the control register)
+    adc_hw->fcs |= (ADC_FCS_OVER_BITS | ADC_FCS_UNDER_BITS);
+
     // 3. Enable the internal temperature sensor line
     adc_init();
   //adc_set_temp_sensor_enabled(true); //just a map into adc_hw->cs
@@ -13,11 +29,11 @@ void Analog::begin() {
 // 4. Reset Round Robin Mask and select ALL active channels to sequence
     // A bitmask where each high bit commands the ADC to sequence that channel number
     
-    uint32_t channel_mask = 0;
+    /*uint32_t channel_mask = 0;
   for (int i = 0; i < ADC_CHANNEL_COUNT; i++) {
       channel_mask |= (1 << i);
   }
-  adc_set_round_robin(channel_mask);
+  adc_set_round_robin(channel_mask);*/
 
     // 5. Configure the hardware internal sample FIFO
   adc_fifo_setup(
@@ -36,7 +52,10 @@ uint16_t Analog::get_sample(uint8_t gpio_pin) const
 {
   uint8_t channel=gpio_pin-ADC_BASE_PIN;
   if(channel>=ADC_CHANNEL_COUNT) return 0;
-  return _raw_buffer[!_ping_pong][channel];
+  uint32_t out=0;
+  for(uint16_t iter=channel;iter<sizeof(_raw_buffer[0])/sizeof(_raw_buffer[0][0]);iter+=ADC_CHANNEL_COUNT) out+=_raw_buffer[!_ping_pong][iter];//sum the readings from the same channel each time it's collected from teh round-robin sampling
+  out>>=__builtin_ctz(ADC_OVERSAMPLE);//if oversample by a factor of 256, then shift right 8 bits
+  return (uint16_t)out;
 }
 
 float Analog::get_vcc(uint8_t gpio_pin,float ideal_v_ref) const//around 3.0~3.3V
@@ -67,6 +86,7 @@ float Analog::get_internal_celsius(float vcc) const
     return 27.0f - (voltage - 0.706f) / 0.001721f;
 }
 
+
 int Analog::getRequiredDescriptorCount(uint64_t frame_id) {
 
     //if(!_is_booted) return 1;
@@ -79,6 +99,8 @@ void Analog::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_start, i
     _ping_pong=frame_id%2;
     uint8_t dma_index=0;
 
+    begin();
+    
     /*if(!_is_booted)
     {
         static const uint32_t ADC_START_MASK = ADC_CS_START_MANY_BITS;
@@ -112,6 +134,9 @@ void Analog::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_start, i
       // Force hardware multiplexer register to begin at the lowest indexed active channel
       adc_select_input(0); // is just part of &adc_hw->cs
       */
+      //if(frame_id>10) adc_fifo_drain();
+
+      
 
         // STEP 2: parpare the command to kick the ADC 
         // into action right after the data channel is loaded and armed.

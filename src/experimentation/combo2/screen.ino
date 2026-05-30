@@ -185,3 +185,4 @@ void Screen::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_start, i
       Serial.print("DMA instruction size: "); Serial.println(dma_index); while(1);
     }
 }
+

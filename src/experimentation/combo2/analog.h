@@ -6,13 +6,15 @@
 #define TEMP_SENSOR_CHANNEL 8
 #define TEMP_SENSOR_PIN 48
 #define ADC_OVERSAMPLE 16 //collect extra readings and average them together to get a more stable reading
+//if doing a large factor like 256, this will eat up a lot of RAM for the simple purpose of averaging it later.  Would be better to refactor scatter-gatherer to use
+//sniff: ie. round-robin on one channel, route all samples through sniffer set to add, then extract the sum and write to ram before moving to the next channel to measure
 
 class Analog : public IMultiDmaTransactionSource {
 private:
     //bool _is_booted=0;
 
     bool _ping_pong=0;
-    volatile uint16_t _raw_buffer[2][ADC_CHANNEL_COUNT]={};
+    volatile uint16_t _raw_buffer[2][ADC_CHANNEL_COUNT*ADC_OVERSAMPLE]={};
     DmaDescriptor _aux0_read_adc_cmd; //command used to double/quadruple _rx_fifo_count to support i2c operations
     
 public:

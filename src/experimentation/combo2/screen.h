@@ -31,6 +31,45 @@
 
 #define SSD1327_BUFFER_SIZE 128*128/2
 
+/*typedef struct {
+    uint8_t transform;
+      //0: transpose/scale: sx*x+tx, sy*y+ty.  args[0], args[1] is tx, ty, args[2],args[3] is sx,sy
+      //1: rotation about origin: x'=rx+(x-rx)*cos(a)-(y-ry)*sin(a); y'=yr+(x-rx)*sin(s)+(y-yr)*cos(a)
+      //2: quaternion (via tx,ty,sx,sy) -> wxyz
+      float args[4]={};
+    //float tx, ty;//translation amount
+    //float sx, sy;//scale (mirror)
+    //float angle_degrees;
+    //float rx, ry;//center of rotation --> use a translation forward forward and back
+    //float qw,qx,qy,qz;//quaternion (replaces shear) - isn't AffineTransform -> ProjectiveTransform
+} AffineTransform;
+//if no quaternions, then do affine transform to save on compute (affine about 15x faster without divide operation)
+
+class Rectangle{
+  int16_t x;
+  int16_t y;
+  int16_t width;
+  int16_t height;
+}
+
+//active area defines the 0,0 point
+class SpriteTransform{
+  Sprite* sprite;
+  bool active_area_limit=false;//true - limits to arctive_area.  fills area outside active_area with null color
+  Rectangle active_area;//nullptr to .  defined in the sprite's coordinate frame (ex. using a subset of sprite sheet)
+  ProjectiveTransform* transform_list;
+  uint8_t transform_count;
+}
+
+//if sprite is nullptr on pixel_list, then will fill with null_color (ex. how to create a rectangle of single color)
+class Sprite{
+  uint8_t null_color;//when trying to access out-of-bounds during transform, what color to default to (ex. transparent, white, black, etc).  is defined in c48 format
+  uint16_t width_px; //number of pixels - c04 and c14 have half as many bytes as c48
+  uint16_t height_px; //used for ensuring queries points are in bounds
+  uint8_t pixel_format; //format of images: 0: c04 (4 bit color, no alpha), 1: c14 (0x00 means transparent, any other nibble is non-transparent color), 2: c48 (upper nibble is alpha channel), lower 4 bits is color
+  uint8_t* pixel_list; //for c04 and c14, there are half as many bytes as c48
+};*/
+
 class Screen : public IMultiDmaTransactionSource {
 private:
     static constexpr uint8_t init_128x128[] = {
@@ -102,5 +141,25 @@ public:
     // IMultiDmaTransactionSource Interface
     int getRequiredDescriptorCount(uint64_t frame_id) override;
     void populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) override;
+
+    //background, foreground, destination
+    //format of images: 0: c04 (4 bit color, no alpha), 1: c14 (0x00 means transparent, any other nibble is non-transparent color), 2: c48 (upper nibble is alpha channel), lower 4 bits is color
+    //if rect is nullptr, than permit entire image
+    //sampling: 0: pixel-perfect, 1: 
+    //sprite_list is a list of sprites, ordered from 
+    /*void blit(
+      SpriteTransform *st_list[],uint8_t st_count,
+      Sprite *output,Rectangle *output_retangle,
+    );*/
+
+    //behavior: define transform(s) applied to an image
+    //collect mulitple images, that each can have many transforms applied
+    //to build output image, iteratively go backward through image list
+
+    //start with forward pass to see where outer bounds of inputs intersect the output
+    //then 
+
+    //for each Sprite
+    //how to optionally use pixels... like for background when mixing...
 };
 
