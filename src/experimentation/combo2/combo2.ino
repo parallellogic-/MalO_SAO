@@ -100,8 +100,8 @@ void setup() {
   scatterer_gatherer_engine_screen.begin(false); //limit to only 2 channels for screen
   
   Serial.println("Init LEDs...");
-  led_upper.begin();
-  led_lower.begin();
+//  led_upper.begin();
+//  led_lower.begin();
 
   Serial.println("Init Analog..."); //screw potentiometer, hall, internal temperature, spare - just measure all of the inputs
 //  adc_gpio_init(PIN_V_REF);//is motor on prototype
@@ -155,7 +155,7 @@ void setup() {
 
 uint64_t setup_us=0;
 void loop() {
-  gpio_put(PIN_DEBUG_R,millis()%400<200);
+  gpio_put(PIN_DEBUG_R,millis()%5000<200);
 
   // setup and run next batch
   uint64_t start_us = time_us_64();
