@@ -1,10 +1,14 @@
 # Overview
 
-This page contains the code and design files used to create the SCP-1471-A MalO Simple Add-On (SAO).  These units will be sold online and handed out at DEFCON in August 2026.
+This page contains the code and design files used to create the SCP-1471-A MalO Shitty Add-On (SAO).  These units will be sold online and handed out at DEFCON34 in August 2026.
 
-As part of the standard DEFCON experience, each attendee receives a circuit board they wear around their neck that serves both as a multi-day ticket for the con and as a platform to show off hardware/software hacks.  These MalO SAOs plug into the expansion port on the official con badge to allow the user to customize their standard DEFCON badge.
+As part of the standard DEFCON experience, each attendee receives a circuit board they wear around their neck that serves both as a multi-day ticket for the conference and as a platform to show off hardware/software hacks.  These MalO SAOs plug into the expansion port on the official conference badge to allow the user to customize their standard DEFCON badge.
 
-Among other things, these MalO units will have a screen and buttons to allow the user to play games, unlock puzzles, display screen savers, view messages, etc.  The devices can communicate with one another over infrared.  There are dozens of LEDs.  The units have a USB port so users can hack them with Python.
+Among other things, these MalO units have a screen, LEDs and buttons to allow the user to play games, unlock puzzles, display screen savers, view messages, etc.  The devices can communicate with one another over infrared and Near Field Communication.  The units have a USB port where users can hack them with Python.
+
+- SCP-1471-A, MalO v1.0.0, Lore
+    - [Video](https://www.youtube.com/watch?v=Qe8of66Nkio)
+    - [Wiki](https://scp-wiki.wikidot.com/scp-1471)
 
 Work in progress render (not final artwork)
 ![Front](img/r1/front.png)
@@ -48,7 +52,7 @@ git submodule update --init --recursive
 - \[REDACTED\], [LTR-308ALS-01](Light_Sensor_LTR-308ALS-01_C492382.pdf), [C492382](https://jlcpcb.com/partdetail/LiteOn-LTR_308ALS01/C492382)
     - 0.01-157 klux
 - IMU, [LSM6DS3TR](doc/spec_sheets/), [C95230](https://jlcpcb.com/partdetail/STMicroelectronics-LSM6DS3TR/C95230)
-    - 6DOF: Accelerometer + Gyro
+    - 6DOF: Accelerometer + Gyroscope
     - Internal temperature sensor
 - Screen, [ER-OLED015-3W](doc/spec_sheets/Screen_ER-OLED015-3_Datasheet.pdf), [BuyDisplay](https://www.buydisplay.com/white-1-5-inch-grayscale-oled-display-panel-128x128-i2c-serial-spi)
     - SSD1327 driver interface
@@ -96,4 +100,11 @@ git submodule update --init --recursive
 - CCA schematic & layout
     - [ParallelLogic](https://github.com/parallellogic-)
 
+# License
 
+[![CC BY-SA 3.0][cc-by-sa-shield]][cc-by-sa]
+
+This work is licensed under a [Creative Commons Attribution-ShareAlike 3.0 Unported License][cc-by-sa].
+
+[cc-by-sa]: http://creativecommons.org
+[cc-by-sa-shield]: https://shields.io

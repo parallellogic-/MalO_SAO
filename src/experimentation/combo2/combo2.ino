@@ -63,7 +63,7 @@ void setup() {
   //"Init Terminal..."
   Serial.begin();
   long start_tms=millis();
-  while(!Serial && (millis()-start_tms)<7000);//wait for terminal to connect or timeout, whichever is first
+//  while(!Serial && (millis()-start_tms)<7000);//wait for terminal to connect or timeout, whichever is first
   //delay(2000);
   Serial.println("START");
 
