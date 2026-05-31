@@ -33,6 +33,10 @@
 #define PIN_HALL 41
 #define PIN_POTENTIOMETER 42
 
+#define PIN_TOUCH_PWM 26
+#define PIN_TOUCH_0 27
+#define PIN_TOUCH_9 36
+
 ScatterGatherEngine scatterer_gatherer_engine_general;
 ScatterGatherEngine scatterer_gatherer_engine_screen;
 LightSensor light_sensor(i2c0);
@@ -100,8 +104,8 @@ void setup() {
   scatterer_gatherer_engine_screen.begin(false); //limit to only 2 channels for screen
   
   Serial.println("Init LEDs...");
-//  led_upper.begin();
-//  led_lower.begin();
+  led_upper.begin();
+  led_lower.begin();
 
   Serial.println("Init Analog..."); //screw potentiometer, hall, internal temperature, spare - just measure all of the inputs
 //  adc_gpio_init(PIN_V_REF);//is motor on prototype
@@ -111,27 +115,33 @@ void setup() {
   scatterer_gatherer_engine_general.registerSource(&analog); //could use sniff0 for oversampling to reduce noise... but not imlplemented
 
   Serial.println("Init Buzzer...");
+  pinMode(25,OUTPUT);
+  tone(25,400,100);
+
+  Serial.println("Init Mic..."); //need PDM mic...
 
 
-  Serial.println("Init Mic...");
+  Serial.println("Init IR TxD..."); //state machine
 
 
-  Serial.println("Init IR TxD...");
-
-
-  Serial.println("Init IR RxD...");
+  Serial.println("Init IR RxD..."); //state machine
 
 
   Serial.println("Init Touch...");
+  for(uint8_t iter=PIN_TOUCH_0;iter<=PIN_TOUCH_9;iter++) pinMode(iter,INPUT);
+  pinMode(PIN_TOUCH_PWM,OUTPUT);
 
 
   Serial.println("Init Motor...");//pin GP40 on prototype
+  pinMode(40,OUTPUT);
+  //digitalWrite(40,HIGH);
+  //delay(100);
+  digitalWrite(40,LOW);
+
+  Serial.println("Init SAO I2C..."); //IRQ, 256 byte shared memory registers
 
 
-  Serial.println("Init SAO I2C...");
-
-
-  Serial.println("Init RFID...");
+  Serial.println("Init RFID..."); //need prototype rev2
 
 
   Serial.println("Init Light Sensor...");
@@ -155,6 +165,14 @@ void setup() {
 
 uint64_t setup_us=0;
 void loop() {
+  /*for(int iter=0;iter<3;iter++)
+  {
+    imu._gyro_accel_reading[0][  iter]=sin(3.1415*millis()/1000+iter)*100;
+    imu._gyro_accel_reading[0][3+iter]=sin(3.1415*millis()/1000-iter);
+    imu._gyro_accel_reading[1][  iter]=sin(3.1415*millis()/1000+iter)*100;
+    imu._gyro_accel_reading[1][3+iter]=sin(3.1415*millis()/1000-iter);
+  }*/
+
   gpio_put(PIN_DEBUG_R,millis()%5000<200);
 
   // setup and run next batch
@@ -162,6 +180,11 @@ void loop() {
   scatterer_gatherer_engine_general.compileAndRun(frame_id);
   scatterer_gatherer_engine_screen.compileAndRun(frame_id);
   setup_us=time_us_64()-start_us;
+
+  //ditialWrite(PIN_TOUCH_PWM,frame_id%2);
+  Serial.printf("S%d: ",frame_id%2);
+  for(uint8_t iter=PIN_TOUCH_0;iter<=PIN_TOUCH_9;iter++) Serial.print(digitalRead(iter));
+  Serial.print(", ");
 
   uint32_t core1_loop_count=0;//simulate core1 behavior
   while(core1_loop_count==0 || (time_us_64()<(start_us+16666)) )//16))
@@ -178,21 +201,21 @@ void loop() {
     //uint32_t *target=(uint32_t*)&timer_hw->timerawl;
     //Serial.println(*target);
     Serial.printf("frame_id: %4d, setup_us: %1d, light: %3d, ",frame_id,setup_us,light_sensor.getBrightness());
-    if(1)
-    {
-      float vcc=analog.get_vcc(PIN_V_REF,IDEAL_V_REF);
-      float hall=analog.get_hall(PIN_HALL);
-      float pot=analog.get_potentiometer(PIN_POTENTIOMETER);
-      float itemp=analog.get_internal_celsius(3.3);
-      Serial.printf("vcc: %7.2f, hall: %5.2f, pot: %5.2f, itemp_c: %4.2f, ",vcc,hall,pot,itemp);
-    }
-    if(1)
-    {
+    if(0)
+    {//print hex of analog readings
       uint16_t vcc=analog.get_sample(PIN_V_REF);
       uint16_t hall=analog.get_sample(PIN_HALL);
       uint16_t pot=analog.get_sample(PIN_POTENTIOMETER);
       uint16_t itemp=analog.get_sample(TEMP_SENSOR_PIN);
       Serial.printf("vcc: 0x%04X, hall: 0x%04X, pot: 0x%04X, int_c: 0x%04X, ",vcc,hall,pot,itemp);
+    }
+    if(1)
+    {//print eng uints
+      float vcc=analog.get_vcc(PIN_V_REF,IDEAL_V_REF);
+      float hall=analog.get_hall(PIN_HALL);
+      float pot=analog.get_potentiometer(PIN_POTENTIOMETER);
+      float itemp=analog.get_internal_celsius(3.3);
+      Serial.printf("vcc: %7.2f, hall: %5.2f, pot: %5.2f, itemp_c: %4.2f, ",vcc,hall,pot,itemp);
     }
     Serial.printf("imu_c: %.2f, fifo: %d, ",imu.get_celsius(),imu.get_fifo_sample_count());
     Serial.printf("accel: %0.2f, %0.2f, %0.2f, gyro: %0.2f, %0.2f, %0.2f, ",imu.get_accel(0),imu.get_accel(1),imu.get_accel(2),imu.get_gyro(0),imu.get_gyro(1),imu.get_gyro(2));
@@ -224,6 +247,7 @@ void update_led()
     led_lower.set_max_effective_led_count(14);
 
     float hall=analog.get_hall(PIN_HALL);
+    uint8_t sensor_brightness=(uint8_t)min(log2f(light_sensor.getBrightness())*255/12,255);
 
     for(uint8_t iter=0;iter<CHARLIPLEX_LED_COUNT;iter++)
     {
@@ -236,12 +260,14 @@ void update_led()
         brightness_upper=hall>0?0:(uint8_t)(-hall*255);
         led_upper.set_brightness(iter,(uint8_t)brightness_upper);
       }
-      
       if(iter==(CHARLIPLEX_LED_COUNT-1))
       {
         brightness_upper=hall<=0?0:(uint8_t)(hall*255);
         led_upper.set_brightness(iter,(uint8_t)brightness_upper);
       }
+      if(iter==(CHARLIPLEX_LED_COUNT-2) || iter==(CHARLIPLEX_LED_COUNT/2-2)) led_upper.set_brightness(iter,sensor_brightness);
+
+      
 
       if(0)
       {
@@ -575,6 +601,7 @@ void update_screen()
 
     }
   }
+  //for (int i = 0; i < SSD1327_BUFFER_SIZE; i++) { tx_buffer[i]=0x33; } //override to show white screen
   for(uint8_t xyz=0;xyz<3;xyz++)
   {
     for(uint8_t is_gyro=0;is_gyro<2;is_gyro++)
@@ -594,7 +621,7 @@ void update_screen()
         }else{
           if(col>=64 && col<reading) is_col_in_range=true;
         }
-        if(is_row_in_range && is_col_in_range) tx_buffer[pixel]=0;
+        if(is_row_in_range && is_col_in_range) tx_buffer[pixel]=0xFF;//black at 0x2 and below has ghosting, use white
       }
     }
   }

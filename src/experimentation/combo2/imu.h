@@ -143,6 +143,7 @@ private:
 
     volatile bool _is_data_ready=0;//flag from DMA to core1 to perform math for update()
 public:
+//    float _gyro_accel_reading[2][6]={};//gyro deg/sec, accel g's - lastest reading average (16 ms avg)
     IMU(i2c_inst_t* i2c_hardware = i2c0);
     
     void begin();

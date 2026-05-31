@@ -20,9 +20,9 @@ int Screen::getRequiredDescriptorCount(uint64_t frame_id) {
 
 uint8_t Screen::_get_boot_state(uint64_t frame_id) const
 {
-    if(frame_id==7) return 1;//initial boot, need >30ms for screen to boot up stable, otherwise comes up with inverted or offset colors (?)
-    if(frame_id==14) return 2;
-    if(frame_id<14) return 0;//gap between boot steps
+    if(frame_id==0) return 1;//initial boot, need >30ms for screen to boot up stable, otherwise comes up with inverted or offset colors (?).  WAS 7
+    if(frame_id==1) return 2;
+    if(frame_id<1) return 0;//gap between boot steps.  WAS 14, IS 8
     return 3; //normal operation
 }
 
