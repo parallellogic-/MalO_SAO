@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Link Page</title>
+    <title>MalO ver1.0.0 - Interface</title>
     <style>
         /* Reset and Base Styles */
         * {
@@ -13,95 +13,190 @@
         }
 
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background: linear-gradient(135deg, #74ebd5 0%, #9face6 100%);
+            font-family: 'Courier New', Courier, monospace;
+            /* Monochromatic void black and deep matted grey gradient */
+            background: radial-gradient(circle, #12161a 0%, #050709 100%);
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            color: #333;
+            color: #00ff66; /* Glowing anomalous green */
+            overflow-x: hidden;
+        }
+
+        /* Matrix/Digital Static Overlay */
+        body::before {
+            content: " ";
+            display: block;
+            position: fixed;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 10;
+            background-size: 100% 4px, 6px 100%;
+            pointer-events: none;
         }
 
         /* Container */
         .container {
             width: 100%;
             max-width: 500px;
-            padding: 2rem;
+            padding: 2.5rem 1.5rem;
             text-align: center;
+            z-index: 2;
         }
 
-        /* Profile Section */
+        /* MalO Profile Section */
         .profile {
             margin-bottom: 2.5rem;
+            position: relative;
+        }
+
+        /* Skull/Canid Inspired Avatar Frame */
+        .profile .avatar-frame {
+            width: 110px;
+            height: 110px;
+            border-radius: 50%;
+            margin: 0 auto 1.2rem;
+            background: #000;
+            border: 2px solid #00ff66;
+            box-shadow: 0 0 15px rgba(0, 255, 102, 0.4);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
         }
 
         .profile img {
-            width: 100px;
-            height: 100px;
+            width: 90%;
+            height: 90%;
             border-radius: 50%;
             object-fit: cover;
-            border: 3px solid white;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin-bottom: 1rem;
+            filter: grayscale(100%) contrast(150%);
         }
 
         .profile h1 {
-            color: white;
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
+            color: #ffffff;
+            font-size: 1.6rem;
+            letter-spacing: 2px;
+            margin-bottom: 0.3rem;
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
         }
 
         .profile p {
-            color: rgba(255, 255, 255, 0.9);
-            font-size: 1rem;
+            color: #8899a6;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .profile .warning {
+            color: #ff3333;
+            font-size: 0.75rem;
+            margin-top: 0.5rem;
+            animation: blink 2s infinite;
         }
 
         /* Links Section */
         .links {
             display: flex;
             flex-direction: column;
-            gap: 1rem; /* Space between rectangular links */
+            gap: 1.2rem; 
         }
 
+        /* Rectangular Carrd-style Buttons with Anomaly Styling */
         .link-btn {
             display: block;
-            background-color: white;
+            background-color: rgba(10, 14, 12, 0.85);
             padding: 1.2rem;
-            border-radius: 12px;
+            border: 1px solid #00ff66;
+            border-radius: 4px; /* Sharp, utilitarian rectangle shapes */
             text-decoration: none;
-            color: #333;
-            font-weight: 600;
-            font-size: 1.05rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.08);
-            transition: all 0.2s ease;
+            color: #00ff66;
+            font-weight: bold;
+            font-size: 1rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            box-shadow: inset 0 0 8px rgba(0, 255, 102, 0.1), 0 4px 10px rgba(0, 0, 0, 0.7);
+            transition: all 0.25s ease-in-out;
+            position: relative;
         }
 
+        /* Glitchy Hover Effects */
         .link-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
-            background-color: #f8f9fa;
+            background-color: #00ff66;
+            color: #050709;
+            box-shadow: 0 0 20px rgba(0, 255, 102, 0.6);
+            transform: scale(1.02);
+        }
+        
+        .link-btn:active {
+            transform: scale(0.99);
+        }
+
+        /* Metadata Subtext inside Buttons */
+        .link-btn span {
+            display: block;
+            font-size: 0.7rem;
+            color: #8899a6;
+            font-weight: normal;
+            margin-top: 0.3rem;
+            text-transform: none;
+        }
+
+        .link-btn:hover span {
+            color: #12161a;
+        }
+
+        /* Simple Animations */
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
         }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <!-- Profile -->
+        <!-- Profile Section -->
         <div class="profile">
-            <img src="https://placeholder.com" alt="Profile Picture">
-            <h1>Jane Doe</h1>
-            <p>Digital Creator & Developer</p>
+            <div class="avatar-frame">
+                <!-- Replace with an unhinged canid skull or MalO artwork URL -->
+                <img src="https://placeholder.com" alt="SCP-1471-A">
+            </div>
+            <h1>MalO ver1.0.0</h1>
+            <p>Object Class: Euclid</p>
+            <div class="warning">⚠️ EXPOSURE TIME: &gt; 90 HOURS STATUS: SUSTAINED</div>
         </div>
 
         <!-- Rectangular Links -->
         <div class="links">
-            <a href="https://example.com" class="link-btn">Visit My Portfolio</a>
-            <a href="https://example.com" class="link-btn">Read My Latest Blog</a>
-            <a href="https://example.com" class="link-btn">Follow on Twitter</a>
-            <a href="https://example.com" class="link-btn">Contact Me</a>
+            <a href="#" class="link-btn">
+                User Guide
+                <span>Application installation & operational parameters.</span>
+            </a>
+            
+            <a href="#" class="link-btn">
+                MalO / SCP-1471-A Lore
+                <span>Archived files from the SCP Foundation Database.</span>
+            </a>
+            
+            <a href="#" class="link-btn">
+                CCA Sticker Artwork
+                <span>Visual rendering by hotglwed.</span>
+            </a>
+            
+            <a href="#" class="link-btn">
+                Pixel Artwork
+                <span>System architecture visualization by bit assembly.</span>
+            </a>
+            
+            <a href="#" class="link-btn">
+                Schematic & Layout
+                <span>Anomalous hardware mapping by parallellogic.</span>
+            </a>
         </div>
     </div>
 
 </body>
 </html>
+

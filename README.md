@@ -79,8 +79,10 @@ git submodule update --init --recursive
 
 - Core0
     - User-configurable Python scripts
+    - File system
 - Core1
     - Compiled C library
+    - Low-level sensor interfaces
 
 # Resources
 
