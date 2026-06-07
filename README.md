@@ -15,8 +15,7 @@ Work in progress render (not final artwork)
 
 # User Guide
 
-- Thonny editor for hacking Python on Core0
-    - https://thonny.org/
+- [Thonny](https://thonny.org/) editor for hacking Python on Core0
     - File upload/download, .py file editing and IDE
 - git clone git@github.com:parallellogic-/MalO_SAO.git
 
@@ -86,12 +85,13 @@ git submodule update --init --recursive
 
 # Resources
 
-- Schematic
+- [Schematic]()
 - [DEFCON34 SAO MICD](https://www.reddit.com/r/Defcon/comments/1tj1jv3/def_con_34_badge_alert/)
     - Note: installed upside-down from standard
     - 100 mA maximum current draw
     - 3.0V power supply
 - [SAO generic standard](https://hackaday.io/project/175182-simple-add-ons-sao)
+- [QR Code Splash Page](https://parallellogic-.github.io/MalO_SAO/)
 
 # Credits
 
@@ -101,6 +101,14 @@ git submodule update --init --recursive
     - [BitAssembly](https://bitassembly.itch.io/)
 - CCA schematic & layout
     - [ParallelLogic](https://github.com/parallellogic-)
+- CCA Fabrication
+    - [JLCPCB](https://jlcpcb.com/)
+- CCA IDE
+    - [EasyEDA Pro](https://easyeda.com/page/download)
+- Stickers
+    - [StickerMule](https://www.stickermule.com/)
+- [RFID Antenna Calculator](https://antennagenerator.com/tool)
+- [QR Code Generator](https://www.qrcode-monkey.com/)
 
 # License
 

@@ -1,0 +1,6 @@
+Designator,Value,Package,Description,LCSC Part#,Quantity
+ANT1,13.56MHz NFC,PCB,NFC Antenna 10 turns,-,1
+Rq,6.2 Ohm,0402,Damping Resistor 1% 1/16W,C966749,1
+Cp,27 pF,0402,Parallel Tuning Capacitor C0G,C107002,1
+Cs,470 pF,0402,Series Matching Capacitor C0G,C106259,1
+U1,ST ST25DV,QFN/DFN,NFC Reader IC,-,1
