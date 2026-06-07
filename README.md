@@ -83,6 +83,7 @@ git submodule update --init --recursive
     - Compiled C library
     - Low-level sensor interfaces
 
+<<<<<<< HEAD
 # Resources
 
 - [Schematic]()
@@ -118,3 +119,6 @@ This work is licensed under a [Creative Commons Attribution-ShareAlike 3.0 Unpor
 
 [cc-by-sa]: http://creativecommons.org
 [cc-by-sa-shield]: https://shields.io
+=======
+- Credits
+>>>>>>> parent of d0bb0c5 (about to refactor photodiode on layout)
