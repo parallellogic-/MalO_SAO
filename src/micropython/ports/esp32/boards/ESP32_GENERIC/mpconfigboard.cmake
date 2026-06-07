@@ -1,1 +1,0 @@
-include(boards/mpconfigboard_esp32_common.cmake)
