@@ -83,7 +83,13 @@ git submodule update --init --recursive
     - Compiled C library
     - Low-level sensor interfaces
 
-<<<<<<< HEAD
+# Features
+
+## Hardware Settings
+
+- Can triple IR brightness with solder jumper
+- Can invert SAO header orientation with switch (and jumper)
+
 # Resources
 
 - [Schematic]()
@@ -121,4 +127,5 @@ This work is licensed under a [Creative Commons Attribution-ShareAlike 3.0 Unpor
 [cc-by-sa-shield]: https://shields.io
 =======
 - Credits
->>>>>>> parent of d0bb0c5 (about to refactor photodiode on layout)
+
+
