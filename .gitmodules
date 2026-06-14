@@ -4,3 +4,6 @@
 [submodule "lib/micropython"]
 	path = lib/micropython
 	url = https://github.com/micropython/micropython
+[submodule "lib/picotool"]
+	path = lib/picotool
+	url = https://github.com/raspberrypi/picotool.git

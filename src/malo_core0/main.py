@@ -1,13 +1,19 @@
-import malo  # This is your compiled C module
 import time
+from machine import Pin
+#import malo
 
-print("Core 0: MicroPython booted successfully!")
+# 1. Start the C library loop on Core 1
+print("Launching C code on Core 1...")
+#malo.init_core1()
 
-# Call your C function to launch your heavy C logic onto Core 1
-print("Core 0: Launching C code on Core 1...")
-malo_c.launch_core1() 
+# 2. Set up LED 0 for Core 0 (Python)
+led_core0 = Pin(0, Pin.OUT)
 
-# Core 0 is now free to do standard MicroPython tasks
+# 3. Infinite blink loop for Core 0
+print("Starting Python loop on Core 0...")
 while True:
-    print("Core 0: Running Python loop...")
-    time.sleep(2)
+    led_core0.value(1)
+    time.sleep(0.2)  # Blinks faster than Core 1
+    led_core0.value(0)
+    time.sleep(0.2)
+
