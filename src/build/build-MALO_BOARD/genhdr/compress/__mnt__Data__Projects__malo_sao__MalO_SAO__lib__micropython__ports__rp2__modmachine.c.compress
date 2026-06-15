@@ -1,0 +1,3 @@
+cannot change frequency
+peripheral freq must be 48_000_000 or the same as the MCU freq
+sleep too long

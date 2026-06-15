@@ -23,8 +23,8 @@ Work in progress render
 - [Thonny](https://thonny.org/) editor for hacking Python on Core0
     - File upload/download, .py file editing and IDE
 - git clone git@github.com:parallellogic-/MalO_SAO.git
-
-git submodule update --init --recursive
+- git submodule update --init --recursive
+TODO: supporting compiler library installs, Win/Linux...
 
 # Hardware
 

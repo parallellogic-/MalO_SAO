@@ -1,0 +1,2 @@
+MP_REGISTER_ROOT_POINTER(mp_obj_t machine_i2c_target_mem_obj[(2)]);
+MP_REGISTER_ROOT_POINTER(void *machine_i2c_target_irq_obj[(2)]);

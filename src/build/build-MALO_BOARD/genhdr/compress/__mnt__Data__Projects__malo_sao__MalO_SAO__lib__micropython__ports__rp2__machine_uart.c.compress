@@ -1,0 +1,11 @@
+bad TX pin
+bad RX pin
+bad CTS pin
+bad RTS pin
+bad inversion mask
+bad hardware flow control mask
+rxbuf too large
+txbuf too large
+UART(%d) doesn't exist
+handler must be None or callable
+trigger 0x%04x unsupported
