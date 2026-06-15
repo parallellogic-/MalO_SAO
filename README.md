@@ -10,8 +10,13 @@ Among other things, these MalO units have a screen, LEDs and buttons to allow th
     - [Video](https://www.youtube.com/watch?v=Qe8of66Nkio)
     - [Wiki](https://scp-wiki.wikidot.com/scp-1471)
 
-Work in progress render (not final artwork)
+Work in progress render
 ![Front](doc/r2/render_front.png)
+![Back](doc/r2/render_back.png)
+
+# Buy Now
+
+[Pre-order Online](https://uberflux.com/product/PL-1471)
 
 # User Guide
 
