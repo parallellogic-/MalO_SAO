@@ -1,4 +1,4 @@
-#define MICROPY_PY_MACHINE_PIN_CPU_NUM_ENTRIES (40)
+#define MICROPY_PY_MACHINE_PIN_CPU_NUM_ENTRIES (58)
 #define MICROPY_PY_MACHINE_PIN_BOARD_NUM_ENTRIES (28)
 
 #define pin_GPIO0 (&machine_pin_obj_table[0])
@@ -88,6 +88,42 @@
 #define pin_GP28 pin_GPIO28
 
 #define pin_GPIO29 (&machine_pin_obj_table[29])
+
+#define pin_GPIO30 (&machine_pin_obj_table[30])
+
+#define pin_GPIO31 (&machine_pin_obj_table[31])
+
+#define pin_GPIO32 (&machine_pin_obj_table[32])
+
+#define pin_GPIO33 (&machine_pin_obj_table[33])
+
+#define pin_GPIO34 (&machine_pin_obj_table[34])
+
+#define pin_GPIO35 (&machine_pin_obj_table[35])
+
+#define pin_GPIO36 (&machine_pin_obj_table[36])
+
+#define pin_GPIO37 (&machine_pin_obj_table[37])
+
+#define pin_GPIO38 (&machine_pin_obj_table[38])
+
+#define pin_GPIO39 (&machine_pin_obj_table[39])
+
+#define pin_GPIO40 (&machine_pin_obj_table[40])
+
+#define pin_GPIO41 (&machine_pin_obj_table[41])
+
+#define pin_GPIO42 (&machine_pin_obj_table[42])
+
+#define pin_GPIO43 (&machine_pin_obj_table[43])
+
+#define pin_GPIO44 (&machine_pin_obj_table[44])
+
+#define pin_GPIO45 (&machine_pin_obj_table[45])
+
+#define pin_GPIO46 (&machine_pin_obj_table[46])
+
+#define pin_GPIO47 (&machine_pin_obj_table[47])
 
 #if (MICROPY_HW_PIN_EXT_COUNT > 0)
 #define pin_EXT_GPIO0 (&pin_EXT_GPIO0_obj)

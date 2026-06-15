@@ -1,6 +1,7 @@
 Q(handler)
 Q(trigger)
 Q(hard)
+Q(gpio_base)
 Q(add_program)
 Q(remove_program)
 Q(state_machine)

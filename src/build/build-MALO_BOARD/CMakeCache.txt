@@ -268,10 +268,10 @@ MICROPY_BOARD:UNINITIALIZED=MALO_BOARD
 MICROPY_BOARD_DIR:UNINITIALIZED=/mnt/Data/Projects/malo_sao/MalO_SAO/src/boards/MALO_BOARD
 
 //PICO target board (e.g. pico, pico2)
-PICO_BOARD:STRING=pico2
+PICO_BOARD:STRING=malo_core
 
 //PICO board header directories
-PICO_BOARD_HEADER_DIRS:STRING=
+PICO_BOARD_HEADER_DIRS:STRING=/mnt/Data/Projects/malo_sao/MalO_SAO/src/boards/MALO_BOARD
 
 //Build HTML Doxygen docs
 PICO_BUILD_DOCS:BOOL=0
@@ -334,7 +334,7 @@ PIOASM_INSTALL_DIR:PATH=/mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MAL
 RTOS:STRING=noos
 
 //No help, variable specified on the command line.
-USER_C_MODULES:UNINITIALIZED=/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/
+USER_C_MODULES:UNINITIALIZED=../../../../src/malo_core1/
 
 //Value Computed by CMake
 firmware_BINARY_DIR:STATIC=/mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD

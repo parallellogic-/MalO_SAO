@@ -3,7 +3,7 @@ from machine import Pin
 import _thread,malo
 
 # 1. Start the C library loop on Core 1
-print("Launching C code on Core 1... r2")
+print("Launching C code on Core 1... r5")
 #malo.init_core1()
 new_thread=_thread.start_new_thread(malo.init_core1,())
 

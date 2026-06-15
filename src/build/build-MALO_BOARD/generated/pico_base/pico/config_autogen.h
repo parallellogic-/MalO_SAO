@@ -4,7 +4,7 @@
 
 // based on PICO_CONFIG_HEADER_FILES:
 
-#include "/mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/boards/include/boards/pico2.h"
+#include "/mnt/Data/Projects/malo_sao/MalO_SAO/src/boards/MALO_BOARD/malo_core.h"
 #include "/mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/rp2_common/cmsis/include/cmsis/rename_exceptions.h"
 
 // based on PICO_RP2350_ARM_S_CONFIG_HEADER_FILES:

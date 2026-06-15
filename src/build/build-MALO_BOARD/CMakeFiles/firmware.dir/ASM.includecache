@@ -6,8 +6,6 @@
 
 #IncludeRegexTransform: 
 
-/mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/boards/include/boards/pico2.h
-
 /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/common/boot_picobin_headers/include/boot/picobin.h
 pico/platform.h
 /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/common/boot_picobin_headers/include/boot/pico/platform.h
@@ -316,8 +314,10 @@ pico/runtime.h
 
 /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/shared/runtime/gchelper_thumb1.s
 
+/mnt/Data/Projects/malo_sao/MalO_SAO/src/boards/MALO_BOARD/malo_core.h
+
 generated/pico_base/pico/config_autogen.h
-/mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/boards/include/boards/pico2.h
+/mnt/Data/Projects/malo_sao/MalO_SAO/src/boards/MALO_BOARD/malo_core.h
 -
 /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/rp2_common/cmsis/include/cmsis/rename_exceptions.h
 -

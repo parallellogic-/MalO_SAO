@@ -186,13 +186,7 @@ static inline absolute_time_t from_us_since_boot(uint64_t us_since_boot) {
 
 
 
-# 1 "/mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/boards/include/boards/pico2.h" 1
-# 17 "/mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/boards/include/boards/pico2.h"
-
-# 78 "/mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/boards/include/boards/pico2.h"
-
-# 96 "/mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/boards/include/boards/pico2.h"
-
+# 1 "/mnt/Data/Projects/malo_sao/MalO_SAO/src/boards/MALO_BOARD/malo_core.h" 1
 # 8 "/mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/generated/pico_base/pico/config_autogen.h" 2
 # 1 "/mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/rp2_common/cmsis/include/cmsis/rename_exceptions.h" 1
 # 9 "/mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/generated/pico_base/pico/config_autogen.h" 2
@@ -4278,9 +4272,81 @@ Q(GPIO3)
 
 Q(GPIO3)
 
+Q(GPIO30)
+
+Q(GPIO30)
+
+Q(GPIO31)
+
+Q(GPIO31)
+
+Q(GPIO32)
+
+Q(GPIO32)
+
+Q(GPIO33)
+
+Q(GPIO33)
+
+Q(GPIO34)
+
+Q(GPIO34)
+
+Q(GPIO35)
+
+Q(GPIO35)
+
+Q(GPIO36)
+
+Q(GPIO36)
+
+Q(GPIO37)
+
+Q(GPIO37)
+
+Q(GPIO38)
+
+Q(GPIO38)
+
+Q(GPIO39)
+
+Q(GPIO39)
+
 Q(GPIO4)
 
 Q(GPIO4)
+
+Q(GPIO40)
+
+Q(GPIO40)
+
+Q(GPIO41)
+
+Q(GPIO41)
+
+Q(GPIO42)
+
+Q(GPIO42)
+
+Q(GPIO43)
+
+Q(GPIO43)
+
+Q(GPIO44)
+
+Q(GPIO44)
+
+Q(GPIO45)
+
+Q(GPIO45)
+
+Q(GPIO46)
+
+Q(GPIO46)
+
+Q(GPIO47)
+
+Q(GPIO47)
 
 Q(GPIO5)
 
@@ -4329,6 +4395,42 @@ Q(HSTX)
 Q(HSTX)
 
 Q(HSTX)
+
+Q(I2C)
+
+Q(I2C)
+
+Q(I2C)
+
+Q(I2C)
+
+Q(I2C)
+
+Q(I2C)
+
+Q(I2C)
+
+Q(I2C)
+
+Q(I2C)
+
+Q(I2C)
+
+Q(I2C)
+
+Q(I2C)
+
+Q(I2C)
+
+Q(I2C)
+
+Q(I2C)
+
+Q(I2C)
+
+Q(I2C)
+
+Q(I2C)
 
 Q(I2C)
 
@@ -4632,7 +4734,41 @@ Q(PIO0)
 
 Q(PIO0)
 
-Q(PIO1)
+Q(PIO0)
+
+Q(PIO0)
+
+Q(PIO0)
+
+Q(PIO0)
+
+Q(PIO0)
+
+Q(PIO0)
+
+Q(PIO0)
+
+Q(PIO0)
+
+Q(PIO0)
+
+Q(PIO0)
+
+Q(PIO0)
+
+Q(PIO0)
+
+Q(PIO0)
+
+Q(PIO0)
+
+Q(PIO0)
+
+Q(PIO0)
+
+Q(PIO0)
+
+Q(PIO0)
 
 Q(PIO1)
 
@@ -4691,6 +4827,80 @@ Q(PIO1)
 Q(PIO1)
 
 Q(PIO1)
+
+Q(PIO1)
+
+Q(PIO1)
+
+Q(PIO1)
+
+Q(PIO1)
+
+Q(PIO1)
+
+Q(PIO1)
+
+Q(PIO1)
+
+Q(PIO1)
+
+Q(PIO1)
+
+Q(PIO1)
+
+Q(PIO1)
+
+Q(PIO1)
+
+Q(PIO1)
+
+Q(PIO1)
+
+Q(PIO1)
+
+Q(PIO1)
+
+Q(PIO1)
+
+Q(PIO1)
+
+Q(PIO1)
+
+Q(PIO2)
+
+Q(PIO2)
+
+Q(PIO2)
+
+Q(PIO2)
+
+Q(PIO2)
+
+Q(PIO2)
+
+Q(PIO2)
+
+Q(PIO2)
+
+Q(PIO2)
+
+Q(PIO2)
+
+Q(PIO2)
+
+Q(PIO2)
+
+Q(PIO2)
+
+Q(PIO2)
+
+Q(PIO2)
+
+Q(PIO2)
+
+Q(PIO2)
+
+Q(PIO2)
 
 Q(PIO2)
 
@@ -4771,6 +4981,42 @@ Q(PULL_DOWN)
 Q(PULL_UP)
 
 Q(PULL_UP)
+
+Q(PWM)
+
+Q(PWM)
+
+Q(PWM)
+
+Q(PWM)
+
+Q(PWM)
+
+Q(PWM)
+
+Q(PWM)
+
+Q(PWM)
+
+Q(PWM)
+
+Q(PWM)
+
+Q(PWM)
+
+Q(PWM)
+
+Q(PWM)
+
+Q(PWM)
+
+Q(PWM)
+
+Q(PWM)
+
+Q(PWM)
+
+Q(PWM)
 
 Q(PWM)
 
@@ -4929,6 +5175,78 @@ Q(SIO)
 Q(SIO)
 
 Q(SIO)
+
+Q(SIO)
+
+Q(SIO)
+
+Q(SIO)
+
+Q(SIO)
+
+Q(SIO)
+
+Q(SIO)
+
+Q(SIO)
+
+Q(SIO)
+
+Q(SIO)
+
+Q(SIO)
+
+Q(SIO)
+
+Q(SIO)
+
+Q(SIO)
+
+Q(SIO)
+
+Q(SIO)
+
+Q(SIO)
+
+Q(SIO)
+
+Q(SIO)
+
+Q(SPI)
+
+Q(SPI)
+
+Q(SPI)
+
+Q(SPI)
+
+Q(SPI)
+
+Q(SPI)
+
+Q(SPI)
+
+Q(SPI)
+
+Q(SPI)
+
+Q(SPI)
+
+Q(SPI)
+
+Q(SPI)
+
+Q(SPI)
+
+Q(SPI)
+
+Q(SPI)
+
+Q(SPI)
+
+Q(SPI)
+
+Q(SPI)
 
 Q(SPI)
 
@@ -5122,6 +5440,62 @@ Q(UART)
 
 Q(UART)
 
+Q(UART)
+
+Q(UART)
+
+Q(UART)
+
+Q(UART)
+
+Q(UART)
+
+Q(UART)
+
+Q(UART)
+
+Q(UART)
+
+Q(UART)
+
+Q(UART)
+
+Q(UART)
+
+Q(UART)
+
+Q(UART)
+
+Q(UART)
+
+Q(UART)
+
+Q(UART)
+
+Q(UART)
+
+Q(UART)
+
+Q(UART_AUX)
+
+Q(UART_AUX)
+
+Q(UART_AUX)
+
+Q(UART_AUX)
+
+Q(UART_AUX)
+
+Q(UART_AUX)
+
+Q(UART_AUX)
+
+Q(UART_AUX)
+
+Q(UART_AUX)
+
+Q(UART_AUX)
+
 Q(UART_AUX)
 
 Q(UART_AUX)
@@ -5163,6 +5537,42 @@ Q(UINT8)
 Q(ULONG)
 
 Q(ULONGLONG)
+
+Q(USB)
+
+Q(USB)
+
+Q(USB)
+
+Q(USB)
+
+Q(USB)
+
+Q(USB)
+
+Q(USB)
+
+Q(USB)
+
+Q(USB)
+
+Q(USB)
+
+Q(USB)
+
+Q(USB)
+
+Q(USB)
+
+Q(USB)
+
+Q(USB)
+
+Q(USB)
+
+Q(USB)
+
+Q(USB)
 
 Q(USB)
 
@@ -5267,6 +5677,8 @@ Q(XFER_FAILED)
 Q(XFER_STALLED)
 
 Q(XFER_SUCCESS)
+
+Q(XIP_CS1)
 
 Q(XIP_CS1)
 
@@ -6457,6 +6869,8 @@ Q(getvalue)
 Q(globals)
 
 Q(gmtime)
+
+Q(gpio_base)
 
 Q(group)
 

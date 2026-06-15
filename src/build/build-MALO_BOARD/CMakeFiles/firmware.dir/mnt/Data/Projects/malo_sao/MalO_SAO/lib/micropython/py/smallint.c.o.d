@@ -18,7 +18,7 @@ CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/py/s
  /mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/generated/pico_base/pico/version.h \
  /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/common/pico_base_headers/include/pico/config.h \
  /mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/generated/pico_base/pico/config_autogen.h \
- /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/boards/include/boards/pico2.h \
+ /mnt/Data/Projects/malo_sao/MalO_SAO/src/boards/MALO_BOARD/malo_core.h \
  /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/rp2_common/cmsis/include/cmsis/rename_exceptions.h \
  /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/rp2350/pico_platform/include/pico/platform.h \
  /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/rp2_common/pico_platform_compiler/include/pico/platform/compiler.h \

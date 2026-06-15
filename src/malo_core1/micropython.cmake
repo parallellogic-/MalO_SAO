@@ -4,8 +4,8 @@ add_library(usermod_malo_module INTERFACE)
 
 # Add our source files to the lib
 target_sources(usermod_malo_module INTERFACE
+    ${CMAKE_CURRENT_LIST_DIR}/core1_api.c
     ${CMAKE_CURRENT_LIST_DIR}/core1_main.c
-    ${CMAKE_CURRENT_LIST_DIR}/led_blink.c
 )
 
 # Add the current directory as an include directory.
