@@ -10212,6 +10212,30 @@ mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/shared/tinyusb/mp_usbd_runti
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/firmware.dir/build.make CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/shared/tinyusb/mp_usbd_runtime.c.s
 .PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/shared/tinyusb/mp_usbd_runtime.c.s
 
+mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_api.o: mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_api.c.o
+.PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_api.o
+
+# target to build an object file
+mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_api.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/firmware.dir/build.make CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_api.c.o
+.PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_api.c.o
+
+mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_api.i: mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_api.c.i
+.PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_api.i
+
+# target to preprocess a source file
+mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_api.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/firmware.dir/build.make CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_api.c.i
+.PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_api.c.i
+
+mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_api.s: mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_api.c.s
+.PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_api.s
+
+# target to generate assembly for a file
+mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_api.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/firmware.dir/build.make CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_api.c.s
+.PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_api.c.s
+
 mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.o: mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.c.o
 .PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.o
 
@@ -10235,30 +10259,6 @@ mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.s: mnt/Data/Projec
 mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/firmware.dir/build.make CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.c.s
 .PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.c.s
-
-mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led_blink.o: mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led_blink.c.o
-.PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led_blink.o
-
-# target to build an object file
-mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led_blink.c.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/firmware.dir/build.make CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led_blink.c.o
-.PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led_blink.c.o
-
-mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led_blink.i: mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led_blink.c.i
-.PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led_blink.i
-
-# target to preprocess a source file
-mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led_blink.c.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/firmware.dir/build.make CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led_blink.c.i
-.PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led_blink.c.i
-
-mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led_blink.s: mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led_blink.c.s
-.PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led_blink.s
-
-# target to generate assembly for a file
-mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led_blink.c.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/firmware.dir/build.make CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led_blink.c.s
-.PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led_blink.c.s
 
 modrp2.o: modrp2.c.o
 .PHONY : modrp2.o
@@ -11861,12 +11861,12 @@ help:
 	@echo "... mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/shared/tinyusb/mp_usbd_runtime.o"
 	@echo "... mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/shared/tinyusb/mp_usbd_runtime.i"
 	@echo "... mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/shared/tinyusb/mp_usbd_runtime.s"
+	@echo "... mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_api.o"
+	@echo "... mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_api.i"
+	@echo "... mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_api.s"
 	@echo "... mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.o"
 	@echo "... mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.i"
 	@echo "... mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.s"
-	@echo "... mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led_blink.o"
-	@echo "... mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led_blink.i"
-	@echo "... mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led_blink.s"
 	@echo "... modrp2.o"
 	@echo "... modrp2.i"
 	@echo "... modrp2.s"
