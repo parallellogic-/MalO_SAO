@@ -1,0 +1,6 @@
+invalid pin
+pulls are not supported for external pins
+alternate functions are not supported for external pins
+invalid pin af: %d
+expecting a regular GPIO Pin
+expecting a regular GPIO Pin

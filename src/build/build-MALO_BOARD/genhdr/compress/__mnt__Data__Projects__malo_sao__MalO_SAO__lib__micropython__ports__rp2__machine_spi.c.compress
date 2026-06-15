@@ -1,0 +1,7 @@
+SPI(%d) doesn't exist
+bad SCK pin
+bad MOSI pin
+bad MISO pin
+LSB
+LSB
+expecting an SPI object

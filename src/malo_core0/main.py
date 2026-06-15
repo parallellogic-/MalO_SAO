@@ -3,7 +3,7 @@ from machine import Pin
 #import malo
 
 # 1. Start the C library loop on Core 1
-print("Launching C code on Core 1...")
+print("Launching C code on Core 1... r2")
 #malo.init_core1()
 
 # 2. Set up LED 0 for Core 0 (Python)
