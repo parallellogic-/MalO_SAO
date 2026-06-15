@@ -1,4 +1,5 @@
 #include "pico/stdlib.h"
+#include "pico/multicore.h"
 
 #define LED_CORE1_PIN 5
 
