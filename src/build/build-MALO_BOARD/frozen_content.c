@@ -42,9 +42,7 @@ typedef struct _mp_obj_complex_t {
 #endif
 
 enum {
-    MP_QSTR__dollar__paren_open_BOARD_DIR_paren_close__slash_manifest_dot_py = MP_QSTRnumber_of,
-    MP_QSTR__dot_,
-    MP_QSTR_0_dot_1_dot_0,
+    MP_QSTR_0_dot_1_dot_0 = MP_QSTRnumber_of,
     MP_QSTR_CRC_space_error,
     MP_QSTR_DHT11,
     MP_QSTR_DHT22,
@@ -152,7 +150,6 @@ enum {
     MP_QSTR_exception,
     MP_QSTR_f,
     MP_QSTR_fifo_join,
-    MP_QSTR_freeze,
     MP_QSTR_fs,
     MP_QSTR_funcs,
     MP_QSTR_future,
@@ -170,7 +167,6 @@ enum {
     MP_QSTR_ifempty,
     MP_QSTR_iffull,
     MP_QSTR_in_,
-    MP_QSTR_include,
     MP_QSTR_instr,
     MP_QSTR_invalid_space_bit_space_count_space__brace_open__brace_close_,
     MP_QSTR_is_set,
@@ -178,12 +174,9 @@ enum {
     MP_QSTR_jmp,
     MP_QSTR_l_rom,
     MP_QSTR_labels,
-    MP_QSTR_led_core0,
     MP_QSTR_listen,
     MP_QSTR_loop,
-    MP_QSTR_main_dot_py,
     MP_QSTR_main_task,
-    MP_QSTR_manifest_dot_py,
     MP_QSTR_measure,
     MP_QSTR_message,
     MP_QSTR_mod,
@@ -287,8 +280,6 @@ enum {
 };
 
 const qstr_hash_t mp_qstr_frozen_const_hashes[] = {
-    29,
-    139,
     20,
     79,
     93,
@@ -397,7 +388,6 @@ const qstr_hash_t mp_qstr_frozen_const_hashes[] = {
     210,
     195,
     30,
-    174,
     80,
     8,
     1,
@@ -415,7 +405,6 @@ const qstr_hash_t mp_qstr_frozen_const_hashes[] = {
     63,
     121,
     61,
-    25,
     151,
     14,
     194,
@@ -423,12 +412,9 @@ const qstr_hash_t mp_qstr_frozen_const_hashes[] = {
     114,
     38,
     208,
-    124,
     204,
     57,
-    169,
     252,
-    237,
     29,
     110,
     227,
@@ -532,8 +518,6 @@ const qstr_hash_t mp_qstr_frozen_const_hashes[] = {
 };
 
 const qstr_len_t mp_qstr_frozen_const_lengths[] = {
-    24,
-    1,
     5,
     9,
     5,
@@ -642,7 +626,6 @@ const qstr_len_t mp_qstr_frozen_const_lengths[] = {
     9,
     1,
     9,
-    6,
     2,
     5,
     6,
@@ -660,7 +643,6 @@ const qstr_len_t mp_qstr_frozen_const_lengths[] = {
     7,
     6,
     3,
-    7,
     5,
     20,
     6,
@@ -668,12 +650,9 @@ const qstr_len_t mp_qstr_frozen_const_lengths[] = {
     3,
     5,
     6,
-    9,
     6,
     4,
-    7,
     9,
-    11,
     7,
     7,
     3,
@@ -782,12 +761,10 @@ const qstr_pool_t mp_qstr_frozen_const_pool = {
     MP_QSTRnumber_of, // previous pool size
     true, // is_sorted
     10, // allocated entries
-    242, // used entries
+    235, // used entries
     (qstr_hash_t *)mp_qstr_frozen_const_hashes,
     (qstr_len_t *)mp_qstr_frozen_const_lengths,
     {
-        "$(BOARD_DIR)/manifest.py",
-        ".",
         "0.1.0",
         "CRC error",
         "DHT11",
@@ -896,7 +873,6 @@ const qstr_pool_t mp_qstr_frozen_const_pool = {
         "exception",
         "f",
         "fifo_join",
-        "freeze",
         "fs",
         "funcs",
         "future",
@@ -914,7 +890,6 @@ const qstr_pool_t mp_qstr_frozen_const_pool = {
         "ifempty",
         "iffull",
         "in_",
-        "include",
         "instr",
         "invalid bit count {}",
         "is_set",
@@ -922,12 +897,9 @@ const qstr_pool_t mp_qstr_frozen_const_pool = {
         "jmp",
         "l_rom",
         "labels",
-        "led_core0",
         "listen",
         "loop",
-        "main.py",
         "main_task",
-        "manifest.py",
         "measure",
         "message",
         "mod",
@@ -13463,221 +13435,6 @@ static const mp_frozen_module_t frozen_module_neopixel = {
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-// frozen module main
-// - original source file: /mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/frozen_mpy/main.mpy
-// - frozen file name: main.py
-// - .mpy header: 4d:06:00:1f
-
-// frozen bytecode for file main.py, scope main__lt_module_gt_
-static const byte fun_data_main__lt_module_gt_[95] = {
-    0x10,0x18, // prelude
-    0x01, // names: <module>
-    0x26,0x6c,0x20,0x67,0x20,0x6b,0x27,0x20,0x28,0x29,0x28, // code info
-    0x80, // LOAD_CONST_SMALL_INT 0
-    0x51, // LOAD_CONST_NONE
-    0x1b,0x02, // IMPORT_NAME 'time'
-    0x16,0x02, // STORE_NAME 'time'
-    0x80, // LOAD_CONST_SMALL_INT 0
-    0x10,0x03, // LOAD_CONST_STRING 'Pin'
-    0x2a,0x01, // BUILD_TUPLE 1
-    0x1b,0x04, // IMPORT_NAME 'machine'
-    0x1c,0x03, // IMPORT_FROM 'Pin'
-    0x16,0x03, // STORE_NAME 'Pin'
-    0x59, // POP_TOP
-    0x11,0x08, // LOAD_NAME 'print'
-    0x23,0x00, // LOAD_CONST_OBJ 0
-    0x34,0x01, // CALL_FUNCTION 1
-    0x59, // POP_TOP
-    0x11,0x03, // LOAD_NAME 'Pin'
-    0x80, // LOAD_CONST_SMALL_INT 0
-    0x11,0x03, // LOAD_NAME 'Pin'
-    0x13,0x05, // LOAD_ATTR 'OUT'
-    0x34,0x02, // CALL_FUNCTION 2
-    0x16,0x09, // STORE_NAME 'led_core0'
-    0x11,0x08, // LOAD_NAME 'print'
-    0x23,0x01, // LOAD_CONST_OBJ 1
-    0x34,0x01, // CALL_FUNCTION 1
-    0x59, // POP_TOP
-    0x11,0x09, // LOAD_NAME 'led_core0'
-    0x14,0x06, // LOAD_METHOD 'value'
-    0x81, // LOAD_CONST_SMALL_INT 1
-    0x36,0x01, // CALL_METHOD 1
-    0x59, // POP_TOP
-    0x11,0x02, // LOAD_NAME 'time'
-    0x14,0x07, // LOAD_METHOD 'sleep'
-    0x23,0x02, // LOAD_CONST_OBJ 2
-    0x36,0x01, // CALL_METHOD 1
-    0x59, // POP_TOP
-    0x11,0x09, // LOAD_NAME 'led_core0'
-    0x14,0x06, // LOAD_METHOD 'value'
-    0x80, // LOAD_CONST_SMALL_INT 0
-    0x36,0x01, // CALL_METHOD 1
-    0x59, // POP_TOP
-    0x11,0x02, // LOAD_NAME 'time'
-    0x14,0x07, // LOAD_METHOD 'sleep'
-    0x23,0x02, // LOAD_CONST_OBJ 2
-    0x36,0x01, // CALL_METHOD 1
-    0x59, // POP_TOP
-    0x42,0x1c, // JUMP -36
-    0x51, // LOAD_CONST_NONE
-    0x63, // RETURN_VALUE
-};
-#if MICROPY_PERSISTENT_CODE_SAVE
-static const mp_raw_code_truncated_t proto_fun_main__lt_module_gt_ = {
-    .proto_fun_indicator[0] = MP_PROTO_FUN_INDICATOR_RAW_CODE_0,
-    .proto_fun_indicator[1] = MP_PROTO_FUN_INDICATOR_RAW_CODE_1,
-    .kind = MP_CODE_BYTECODE,
-    .is_generator = 0,
-    .fun_data = fun_data_main__lt_module_gt_,
-    .children = NULL,
-    #if MICROPY_PERSISTENT_CODE_SAVE
-    .fun_data_len = 95,
-    .n_children = 0,
-    #if MICROPY_EMIT_MACHINE_CODE
-    .prelude_offset = 0,
-    #endif
-    #if MICROPY_PY_SYS_SETTRACE
-    .line_of_definition = 0,
-    .prelude = {
-        .n_state = 3,
-        .n_exc_stack = 0,
-        .scope_flags = 0,
-        .n_pos_args = 0,
-        .n_kwonly_args = 0,
-        .n_def_pos_args = 0,
-        .qstr_block_name_idx = 1,
-        .line_info = fun_data_main__lt_module_gt_ + 3,
-        .line_info_top = fun_data_main__lt_module_gt_ + 14,
-        .opcodes = fun_data_main__lt_module_gt_ + 14,
-    },
-    #endif
-    #endif
-};
-#else
-#define proto_fun_main__lt_module_gt_ fun_data_main__lt_module_gt_[0]
-#endif
-
-static const qstr_short_t const_qstr_table_data_main[10] = {
-    MP_QSTR_main_dot_py,
-    MP_QSTR__lt_module_gt_,
-    MP_QSTR_time,
-    MP_QSTR_Pin,
-    MP_QSTR_machine,
-    MP_QSTR_OUT,
-    MP_QSTR_value,
-    MP_QSTR_sleep,
-    MP_QSTR_print,
-    MP_QSTR_led_core0,
-};
-
-// constants
-static const mp_obj_str_t const_obj_main_0 = {{&mp_type_str}, 147, 32, (const byte*)"\x4c\x61\x75\x6e\x63\x68\x69\x6e\x67\x20\x43\x20\x63\x6f\x64\x65\x20\x6f\x6e\x20\x43\x6f\x72\x65\x20\x31\x2e\x2e\x2e\x20\x72\x32"};
-static const mp_obj_str_t const_obj_main_1 = {{&mp_type_str}, 9, 33, (const byte*)"\x53\x74\x61\x72\x74\x69\x6e\x67\x20\x50\x79\x74\x68\x6f\x6e\x20\x6c\x6f\x6f\x70\x20\x6f\x6e\x20\x43\x6f\x72\x65\x20\x30\x2e\x2e\x2e"};
-#if MICROPY_OBJ_REPR == MICROPY_OBJ_REPR_A || MICROPY_OBJ_REPR == MICROPY_OBJ_REPR_B
-static const mp_obj_float_t const_obj_main_2 = {{&mp_type_float}, (mp_float_t)0.2};
-#define const_obj_main_2_macro MP_ROM_PTR(&const_obj_main_2)
-#elif MICROPY_OBJ_REPR == MICROPY_OBJ_REPR_C
-#define const_obj_main_2_macro ((mp_rom_obj_t)(0xbeccccce))
-#elif MICROPY_OBJ_REPR == MICROPY_OBJ_REPR_D
-#define const_obj_main_2_macro ((mp_rom_obj_t)(0xbfcd99999999999a))
-#endif
-
-// constant table
-static const mp_rom_obj_t const_obj_table_data_main[3] = {
-    MP_ROM_PTR(&const_obj_main_0),
-    MP_ROM_PTR(&const_obj_main_1),
-    const_obj_main_2_macro,
-};
-
-static const mp_frozen_module_t frozen_module_main = {
-    .constants = {
-        .qstr_table = (qstr_short_t *)&const_qstr_table_data_main,
-        .obj_table = (mp_obj_t *)&const_obj_table_data_main,
-    },
-    .proto_fun = &proto_fun_main__lt_module_gt_,
-};
-
-////////////////////////////////////////////////////////////////////////////////
-// frozen module manifest
-// - original source file: /mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/frozen_mpy/manifest.mpy
-// - frozen file name: manifest.py
-// - .mpy header: 4d:06:00:1f
-
-// frozen bytecode for file manifest.py, scope manifest__lt_module_gt_
-static const byte fun_data_manifest__lt_module_gt_[21] = {
-    0x08,0x06, // prelude
-    0x01, // names: <module>
-    0x20,0x67, // code info
-    0x11,0x03, // LOAD_NAME 'include'
-    0x23,0x00, // LOAD_CONST_OBJ 0
-    0x34,0x01, // CALL_FUNCTION 1
-    0x59, // POP_TOP
-    0x11,0x04, // LOAD_NAME 'freeze'
-    0x10,0x02, // LOAD_CONST_STRING '.'
-    0x34,0x01, // CALL_FUNCTION 1
-    0x59, // POP_TOP
-    0x51, // LOAD_CONST_NONE
-    0x63, // RETURN_VALUE
-};
-#if MICROPY_PERSISTENT_CODE_SAVE
-static const mp_raw_code_truncated_t proto_fun_manifest__lt_module_gt_ = {
-    .proto_fun_indicator[0] = MP_PROTO_FUN_INDICATOR_RAW_CODE_0,
-    .proto_fun_indicator[1] = MP_PROTO_FUN_INDICATOR_RAW_CODE_1,
-    .kind = MP_CODE_BYTECODE,
-    .is_generator = 0,
-    .fun_data = fun_data_manifest__lt_module_gt_,
-    .children = NULL,
-    #if MICROPY_PERSISTENT_CODE_SAVE
-    .fun_data_len = 21,
-    .n_children = 0,
-    #if MICROPY_EMIT_MACHINE_CODE
-    .prelude_offset = 0,
-    #endif
-    #if MICROPY_PY_SYS_SETTRACE
-    .line_of_definition = 0,
-    .prelude = {
-        .n_state = 2,
-        .n_exc_stack = 0,
-        .scope_flags = 0,
-        .n_pos_args = 0,
-        .n_kwonly_args = 0,
-        .n_def_pos_args = 0,
-        .qstr_block_name_idx = 1,
-        .line_info = fun_data_manifest__lt_module_gt_ + 3,
-        .line_info_top = fun_data_manifest__lt_module_gt_ + 5,
-        .opcodes = fun_data_manifest__lt_module_gt_ + 5,
-    },
-    #endif
-    #endif
-};
-#else
-#define proto_fun_manifest__lt_module_gt_ fun_data_manifest__lt_module_gt_[0]
-#endif
-
-static const qstr_short_t const_qstr_table_data_manifest[5] = {
-    MP_QSTR_manifest_dot_py,
-    MP_QSTR__lt_module_gt_,
-    MP_QSTR__dot_,
-    MP_QSTR_include,
-    MP_QSTR_freeze,
-};
-
-// constants
-
-// constant table
-static const mp_rom_obj_t const_obj_table_data_manifest[1] = {
-    MP_ROM_QSTR(MP_QSTR__dollar__paren_open_BOARD_DIR_paren_close__slash_manifest_dot_py),
-};
-
-static const mp_frozen_module_t frozen_module_manifest = {
-    .constants = {
-        .qstr_table = (qstr_short_t *)&const_qstr_table_data_manifest,
-        .obj_table = (mp_obj_t *)&const_obj_table_data_manifest,
-    },
-    .proto_fun = &proto_fun_manifest__lt_module_gt_,
-};
-
-////////////////////////////////////////////////////////////////////////////////
 // collection of all frozen modules
 
 const char mp_frozen_names[] = {
@@ -13698,8 +13455,6 @@ const char mp_frozen_names[] = {
     "ds18x20.py\0"
     "dht.py\0"
     "neopixel.py\0"
-    "main.py\0"
-    "manifest.py\0"
     "\0"
 };
 
@@ -13718,8 +13473,6 @@ const mp_frozen_module_t *const mp_frozen_mpy_content[] = {
     &frozen_module_ds18x20,
     &frozen_module_dht,
     &frozen_module_neopixel,
-    &frozen_module_main,
-    &frozen_module_manifest,
 };
 
 #ifdef MICROPY_FROZEN_LIST_ITEM
@@ -13737,21 +13490,19 @@ MICROPY_FROZEN_LIST_ITEM("onewire", "onewire.py")
 MICROPY_FROZEN_LIST_ITEM("ds18x20", "ds18x20.py")
 MICROPY_FROZEN_LIST_ITEM("dht", "dht.py")
 MICROPY_FROZEN_LIST_ITEM("neopixel", "neopixel.py")
-MICROPY_FROZEN_LIST_ITEM("main", "main.py")
-MICROPY_FROZEN_LIST_ITEM("manifest", "manifest.py")
 #endif
 
 /*
 byte sizes:
-qstr content: 242 unique, 2730 bytes
-bc content: 7860
-const str content: 127
+qstr content: 235 unique, 2644 bytes
+bc content: 7744
+const str content: 62
 const int content: 4
-const obj content: 116
+const obj content: 72
 const table qstr content: 0 entries, 0 bytes
-const table ptr content: 35 entries, 140 bytes
-raw code content: 165 * 4 = 2640
-mp_frozen_mpy_names_content: 207
-mp_frozen_mpy_content_size: 64
-total: 13888
+const table ptr content: 31 entries, 124 bytes
+raw code content: 163 * 4 = 2608
+mp_frozen_mpy_names_content: 187
+mp_frozen_mpy_content_size: 56
+total: 13501
 */

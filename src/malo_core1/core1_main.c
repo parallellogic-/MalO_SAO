@@ -8,7 +8,8 @@
 // 1. Define the C function that MicroPython will call
 static mp_obj_t malo_init_core1(void) {
     // Pico SDK function to launch core1_entry() on Core 1
-    multicore_launch_core1(malo_core1_entry);
+    //multicore_launch_core1(malo_core1_entry);
+    malo_core1_entry();
     return mp_const_none;
 }
 // 2. Bind the C function to a MicroPython function object
