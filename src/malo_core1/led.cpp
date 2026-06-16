@@ -28,7 +28,7 @@ Charlieplex::Charlieplex(bool is_upper)
 void Charlieplex::begin(){
     if(_pio_index)
     {
-      for(int iter=16;iter<24;iter++){ gpio_init(iter);  gpio_set_dir(iter, GPIO_IN); }
+      for(int iter=16;iter<24;iter++){ gpio_init(iter);  gpio_set_dir(iter, GPIO_IN); gpio_disable_pulls(iter); }
     }else{
       for(int iter=0;iter<8;iter++){ gpio_init(iter);  gpio_set_dir(iter, GPIO_IN); gpio_disable_pulls(iter); }
     }
@@ -85,7 +85,7 @@ void Charlieplex::begin(){
     dma_channel_start(_ctrl_chan);//move to stand-alone method as sparation of concerns between init and run?
 }
 
-void Charlieplex::flush()
+bool Charlieplex::flush()
 {
     // Use a different index than the one currently being displayed by DMA
     uint8_t write_index = (_charlieplex_index + 1) % 2;
@@ -102,6 +102,7 @@ void Charlieplex::flush()
     _current_list_ptr = _charlieplex_list[write_index];
     _charlieplex_index = write_index;
     //dma_channel_set_read_addr(_data_chan, _current_list_ptr, true);
+    return true;
 }
 
 bool Charlieplex::set_brightness(uint8_t index,uint8_t brightness)

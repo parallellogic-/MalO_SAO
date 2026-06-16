@@ -4,10 +4,13 @@
 
 #define LED_CORE1_PIN 38
 
+Charlieplex led_lower(false);
+Charlieplex led_upper(true);
+
 void core1_begin(){
   //Serial.println("Init LEDs...");
-  //led_upper.begin();
-  //led_lower.begin();
+  led_upper.begin();
+  led_lower.begin();
   
   
 }
@@ -31,23 +34,27 @@ void malo_core1_entry(void) {
     }
 }
 
-/*bool set_charlieplex_led(uint8_t bank_index,uint8_t led_index,uint8_t brightness)
+extern "C" {
+
+bool set_charlieplex_led(uint8_t bank_index,uint8_t led_index,uint8_t brightness)
 {
   if(bank_index>=2) return false;
-  if(led_upper==1) return led_upper.set_charlieplex_led(led_index,brightness);
-  return led_lower.set_charlieplex_led(led_index,brightness);
+  if(bank_index==1) return led_upper.set_brightness(led_index,brightness);
+  return led_lower.set_brightness(led_index,brightness);
 }
 
 bool set_effective_led_count(uint8_t bank_index,uint8_t led_count)
 {
   if(bank_index>=2) return false;
-  if(led_upper==1) return led_upper.set_effective_led_count(led_count);
+  if(bank_index==1) return led_upper.set_effective_led_count(led_count);
   return led_lower.set_effective_led_count(led_count);
 }
 
-void flush(uint8_t bank_index)
+bool flush(uint8_t bank_index)
 {
   if(bank_index>=2) return false;
-  if(led_upper==1) led_upper.flush();
-  else led_lower.flush();
-}*/
+  if(bank_index==1) return led_upper.flush();
+  return led_lower.flush();
+}
+
+} // extern "C"

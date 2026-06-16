@@ -32,7 +32,7 @@ class Charlieplex {
   public:
     Charlieplex(bool is_upper);
     void begin();
-    void flush();
+    bool flush();
     bool set_brightness(uint8_t index, uint8_t brightness);
     bool set_effective_led_count(uint8_t count);
 };

@@ -6768,6 +6768,8 @@ Q(flush)
 
 Q(flush)
 
+Q(flush)
+
 Q(fmod)
 
 Q(format)
@@ -7845,6 +7847,10 @@ Q(set)
 Q(set)
 
 Q(set_base)
+
+Q(set_charlieplex_led)
+
+Q(set_effective_led_count)
 
 Q(setattr)
 
