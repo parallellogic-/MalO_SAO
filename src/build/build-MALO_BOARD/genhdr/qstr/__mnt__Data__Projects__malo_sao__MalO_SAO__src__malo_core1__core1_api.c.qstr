@@ -1,4 +1,7 @@
 Q(__name__)
 Q(malo)
 Q(init_core1)
+Q(set_charlieplex_led)
+Q(set_effective_led_count)
+Q(flush)
 Q(malo)
