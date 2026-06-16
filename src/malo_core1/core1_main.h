@@ -2,12 +2,14 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-//#include "led.h"
-
-//Charlieplex led_lower(0);
-//Charlieplex led_upper(1);
 
 #ifdef __cplusplus
+#include "led.h"
+
+// C++ objects must stay inside the __cplusplus guard
+extern Charlieplex led_lower;
+extern Charlieplex led_upper;
+
 extern "C" {
 #endif
 

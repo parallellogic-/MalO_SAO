@@ -73,4 +73,15 @@ CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1
  /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/rp2_common/hardware_sync_spin_lock/include/hardware/sync/spin_lock.h \
  /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/common/pico_sync/include/pico/mutex.h \
  /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/common/pico_sync/include/pico/critical_section.h \
- /mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.h
+ /mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.h \
+ /mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led.h \
+ /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/rp2_common/hardware_pio/include/hardware/pio.h \
+ /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/rp2350/hardware_structs/include/hardware/structs/pio.h \
+ /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/rp2350/hardware_regs/include/hardware/regs/pio.h \
+ /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/rp2_common/hardware_pio/include/hardware/pio_instructions.h \
+ /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/rp2_common/hardware_dma/include/hardware/dma.h \
+ /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/rp2350/hardware_structs/include/hardware/structs/dma.h \
+ /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/rp2350/hardware_regs/include/hardware/regs/dma.h \
+ /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/rp2350/hardware_structs/include/hardware/structs/dma_debug.h \
+ /mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/charlieplex.pio.h \
+ /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/rp2350/hardware_structs/include/hardware/structs/padsbank0.h

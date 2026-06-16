@@ -10260,6 +10260,30 @@ mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/firmware.dir/build.make CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.cpp.s
 .PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.cpp.s
 
+mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led.o: mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led.cpp.o
+.PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led.o
+
+# target to build an object file
+mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/firmware.dir/build.make CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led.cpp.o
+.PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led.cpp.o
+
+mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led.i: mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led.cpp.i
+.PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led.i
+
+# target to preprocess a source file
+mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/firmware.dir/build.make CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led.cpp.i
+.PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led.cpp.i
+
+mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led.s: mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led.cpp.s
+.PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led.s
+
+# target to generate assembly for a file
+mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/firmware.dir/build.make CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led.cpp.s
+.PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led.cpp.s
+
 modrp2.o: modrp2.c.o
 .PHONY : modrp2.o
 
@@ -11867,6 +11891,9 @@ help:
 	@echo "... mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.o"
 	@echo "... mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.i"
 	@echo "... mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.s"
+	@echo "... mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led.o"
+	@echo "... mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led.i"
+	@echo "... mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led.s"
 	@echo "... modrp2.o"
 	@echo "... modrp2.i"
 	@echo "... modrp2.s"

@@ -841,6 +841,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_api.c.o.d"
   "CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.cpp.o"
   "CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.cpp.o.d"
+  "CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led.cpp.o"
+  "CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/led.cpp.o.d"
   "CMakeFiles/firmware.dir/modrp2.c.o"
   "CMakeFiles/firmware.dir/modrp2.c.o.d"
   "CMakeFiles/firmware.dir/mphalport.c.o"
