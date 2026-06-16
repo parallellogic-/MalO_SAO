@@ -6,6 +6,7 @@ add_library(usermod_malo_module INTERFACE)
 target_sources(usermod_malo_module INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/core1_api.c
     ${CMAKE_CURRENT_LIST_DIR}/core1_main.c
+    #${CMAKE_CURRENT_LIST_DIR}/led.c
 )
 
 # Add the current directory as an include directory.
