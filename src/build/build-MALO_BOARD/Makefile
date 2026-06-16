@@ -10236,29 +10236,29 @@ mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_api.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/firmware.dir/build.make CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_api.c.s
 .PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_api.c.s
 
-mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.o: mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.c.o
+mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.o: mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.cpp.o
 .PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.o
 
 # target to build an object file
-mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.c.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/firmware.dir/build.make CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.c.o
-.PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.c.o
+mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/firmware.dir/build.make CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.cpp.o
+.PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.cpp.o
 
-mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.i: mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.c.i
+mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.i: mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.cpp.i
 .PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.i
 
 # target to preprocess a source file
-mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.c.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/firmware.dir/build.make CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.c.i
-.PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.c.i
+mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/firmware.dir/build.make CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.cpp.i
+.PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.cpp.i
 
-mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.s: mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.c.s
+mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.s: mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.cpp.s
 .PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.s
 
 # target to generate assembly for a file
-mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.c.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/firmware.dir/build.make CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.c.s
-.PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.c.s
+mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/firmware.dir/build.make CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.cpp.s
+.PHONY : mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.cpp.s
 
 modrp2.o: modrp2.c.o
 .PHONY : modrp2.o
