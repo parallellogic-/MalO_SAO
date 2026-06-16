@@ -1,0 +1,2 @@
+/mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/_deps/picotool-build/enc_bootloader/CMakeFiles/edit_cache.dir
+/mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/_deps/picotool-build/enc_bootloader/CMakeFiles/rebuild_cache.dir

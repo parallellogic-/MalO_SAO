@@ -261,6 +261,9 @@ FETCHCONTENT_QUIET:BOOL=ON
 //Enables UPDATE_DISCONNECTED behavior for all content population
 FETCHCONTENT_UPDATES_DISCONNECTED:BOOL=OFF
 
+//Git command line client
+GIT_EXECUTABLE:FILEPATH=/usr/bin/git
+
 //No help, variable specified on the command line.
 MICROPY_BOARD:UNINITIALIZED=MALO_BOARD
 
@@ -355,7 +358,10 @@ pico_sdk_IS_TOP_LEVEL:STATIC=OFF
 pico_sdk_SOURCE_DIR:STATIC=/mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk
 
 //The directory containing a CMake configuration file for picotool.
-picotool_DIR:PATH=/mnt/Data/Projects/malo_sao/MalO_SAO/lib/picotool/dist/picotool
+picotool_DIR:PATH=picotool_DIR-NOTFOUND
+
+//Directory where picotool has been installed
+picotool_INSTALL_DIR:PATH=/mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/_deps
 
 //The directory containing a CMake configuration file for pioasm.
 pioasm_DIR:PATH=pioasm_DIR-NOTFOUND
@@ -532,6 +538,8 @@ DOXYGEN_EXECUTABLE-ADVANCED:INTERNAL=1
 FAMILY_MCUS:INTERNAL=RP2040
 //Details about finding Python3
 FIND_PACKAGE_MESSAGE_DETAILS_Python3:INTERNAL=[/usr/bin/python3][cfound components: Interpreter ][v3.12.3()]
+//ADVANCED property for variable: GIT_EXECUTABLE
+GIT_EXECUTABLE-ADVANCED:INTERNAL=1
 PICO_32BIT:INTERNAL=1
 PICO_ARM:INTERNAL=1
 PICO_BOOT_STAGE2_DIR:INTERNAL=/mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/rp2350/boot_stage2
