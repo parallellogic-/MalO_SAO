@@ -55,7 +55,7 @@ static inline void charlieplex_dma_program_init(PIO pio, uint sm, uint offset, u
     //sm_config_set_set_pins(&c, first_pin, pin_count); //disable to get GP0 to work right (WAS open-drain, IS push-pull)
     // Ensure we are shifting RIGHT and autopull is OFF (we use 'pull block')
     sm_config_set_out_shift(&c, true, false, 32);
-    for(int i=0; i<pin_count; i++) {
+    for(uint i=0; i<pin_count; i++) {
         uint pin = (first_pin + i) % 32;
         pio_gpio_init(pio, pin);
         gpio_set_drive_strength(pin, GPIO_DRIVE_STRENGTH_12MA);

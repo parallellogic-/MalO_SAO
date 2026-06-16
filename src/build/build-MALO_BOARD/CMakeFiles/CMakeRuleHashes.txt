@@ -9,7 +9,7 @@ b770e39ef2030a397718bf60f3af5ca3 genhdr/moduledefs.collected
 6a438307e06b70fcff2f931766137e44 genhdr/moduledefs.h
 1bf611473a3cd2de9e231a0fdc92a695 genhdr/moduledefs.split
 5aca75a619e8861e2ef01497ba86a95b genhdr/pins.h
-5e850f2c9b2062624de80b8010033f75 genhdr/qstr.i.last
+6b6d9ad492d1aaa6decf3c6bf51e93c7 genhdr/qstr.i.last
 80bb1915caccecaccbc7e28be77da74a genhdr/qstr.split
 06ba2d818593c4a0533af71001e6ada0 genhdr/qstrdefs.collected.h
 d95fa736bd04405071e639e39fa751bc genhdr/qstrdefs.generated.h
