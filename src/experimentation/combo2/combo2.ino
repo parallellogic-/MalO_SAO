@@ -47,7 +47,7 @@ Charlieplex led_upper(1);
 Analog analog;
 
 uint32_t frame_id=0;
-int temp_spi_chan;
+//int temp_spi_chan;
 
 void setup() {
 
@@ -90,7 +90,7 @@ void setup() {
   }
 
   Serial.println("Init SPI...");
-  temp_spi_chan = dma_claim_unused_channel(true);
+  //temp_spi_chan = dma_claim_unused_channel(true);
   spi_init(spi1, SPI1_BAUD);
   gpio_set_function(SPI1_SCLK, GPIO_FUNC_SPI);
   gpio_set_function(SPI1_MOSI, GPIO_FUNC_SPI);

@@ -2,13 +2,20 @@ import time
 from machine import Pin
 import _thread,malo
 
+print("START");
+
+# Set pin 15 as an output and pull it HIGH immediately for r1 mistake on layout
+imu_power_pin = Pin(15, Pin.OUT, value=1)
+# AN4650 needed for reboot time of IMU --> later, put as part of boot-up sequence routine
+time.sleep_ms(20)
+
 # 1. Start the C library loop on Core 1
 print("Launching C code on Core 1... r5")
 #malo.init_core1()
 new_thread=_thread.start_new_thread(malo.init_core1,())
 
 # 2. Set up LED 0 for Core 0 (Python)
-led_core0 = Pin(0, Pin.OUT)
+led_core0 = Pin(37, Pin.OUT)
 
 # 3. Infinite blink loop for Core 0
 print("Starting Python loop on Core 0...")
