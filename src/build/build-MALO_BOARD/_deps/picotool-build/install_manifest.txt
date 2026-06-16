@@ -1,0 +1,6 @@
+/mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/_deps/picotool/picotool
+/mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/_deps/picotool/picotoolTargets.cmake
+/mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/_deps/picotool/picotoolTargets-release.cmake
+/mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/_deps/picotool/picotoolConfig.cmake
+/mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/_deps/picotool/picotoolConfigVersion.cmake
+/mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/_deps/picotool/enc_bootloader.elf

@@ -622,6 +622,8 @@ pico-sdk/src/rp2350/boot_stage2/preinstall:
 
 # Recursive "clean" directory target.
 pico-sdk/src/rp2350/boot_stage2/clean: pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default.dir/clean
+pico-sdk/src/rp2350/boot_stage2/clean: pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolForceReconfigure.dir/clean
+pico-sdk/src/rp2350/boot_stage2/clean: pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolBuild.dir/clean
 pico-sdk/src/rp2350/boot_stage2/clean: pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default_bin.dir/clean
 pico-sdk/src/rp2350/boot_stage2/clean: pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default_library.dir/clean
 .PHONY : pico-sdk/src/rp2350/boot_stage2/clean
@@ -1893,10 +1895,11 @@ pico-sdk/tools/clean:
 # All Build rule for target.
 CMakeFiles/firmware.dir/all: CMakeFiles/BUILD_VERSION_HEADER.dir/all
 CMakeFiles/firmware.dir/all: CMakeFiles/BUILD_FROZEN_CONTENT.dir/all
+CMakeFiles/firmware.dir/all: pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolBuild.dir/all
 CMakeFiles/firmware.dir/all: pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default_library.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/firmware.dir/build.make CMakeFiles/firmware.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/firmware.dir/build.make CMakeFiles/firmware.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/CMakeFiles --progress-num=4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98 "Built target firmware"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/CMakeFiles --progress-num=4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96 "Built target firmware"
 .PHONY : CMakeFiles/firmware.dir/all
 
 # Build rule for subdir invocation for target.
@@ -1971,7 +1974,7 @@ CMakeFiles/BUILD_FROZEN_CONTENT.dir/clean:
 # Target rules for target pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default.dir
 
 # All Build rule for target.
-pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default.dir/all:
+pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default.dir/all: pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolBuild.dir/all
 	$(MAKE) $(MAKESILENT) -f pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default.dir/build.make pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default.dir/depend
 	$(MAKE) $(MAKESILENT) -f pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default.dir/build.make pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/CMakeFiles --progress-num= "Built target bs2_default"
@@ -1979,7 +1982,7 @@ pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default.dir/all:
 
 # Build rule for subdir invocation for target.
 pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/CMakeFiles 2
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/CMakeFiles 0
 .PHONY : pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default.dir/rule
@@ -1994,6 +1997,58 @@ pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default.dir/clean:
 .PHONY : pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default.dir/clean
 
 #=============================================================================
+# Target rules for target pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolForceReconfigure.dir
+
+# All Build rule for target.
+pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolForceReconfigure.dir/all:
+	$(MAKE) $(MAKESILENT) -f pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolForceReconfigure.dir/build.make pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolForceReconfigure.dir/depend
+	$(MAKE) $(MAKESILENT) -f pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolForceReconfigure.dir/build.make pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolForceReconfigure.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/CMakeFiles --progress-num= "Built target picotoolForceReconfigure"
+.PHONY : pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolForceReconfigure.dir/all
+
+# Build rule for subdir invocation for target.
+pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolForceReconfigure.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/CMakeFiles 0
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolForceReconfigure.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/CMakeFiles 0
+.PHONY : pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolForceReconfigure.dir/rule
+
+# Convenience name for target.
+picotoolForceReconfigure: pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolForceReconfigure.dir/rule
+.PHONY : picotoolForceReconfigure
+
+# clean rule for target.
+pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolForceReconfigure.dir/clean:
+	$(MAKE) $(MAKESILENT) -f pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolForceReconfigure.dir/build.make pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolForceReconfigure.dir/clean
+.PHONY : pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolForceReconfigure.dir/clean
+
+#=============================================================================
+# Target rules for target pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolBuild.dir
+
+# All Build rule for target.
+pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolBuild.dir/all: pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolForceReconfigure.dir/all
+	$(MAKE) $(MAKESILENT) -f pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolBuild.dir/build.make pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolBuild.dir/depend
+	$(MAKE) $(MAKESILENT) -f pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolBuild.dir/build.make pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolBuild.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/CMakeFiles --progress-num=97,98 "Built target picotoolBuild"
+.PHONY : pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolBuild.dir/all
+
+# Build rule for subdir invocation for target.
+pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolBuild.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/CMakeFiles 2
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolBuild.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/CMakeFiles 0
+.PHONY : pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolBuild.dir/rule
+
+# Convenience name for target.
+picotoolBuild: pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolBuild.dir/rule
+.PHONY : picotoolBuild
+
+# clean rule for target.
+pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolBuild.dir/clean:
+	$(MAKE) $(MAKESILENT) -f pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolBuild.dir/build.make pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolBuild.dir/clean
+.PHONY : pico-sdk/src/rp2350/boot_stage2/CMakeFiles/picotoolBuild.dir/clean
+
+#=============================================================================
 # Target rules for target pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default_bin.dir
 
 # All Build rule for target.
@@ -2005,7 +2060,7 @@ pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default_bin.dir/all: pico-sdk/src
 
 # Build rule for subdir invocation for target.
 pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default_bin.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/CMakeFiles 2
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default_bin.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/CMakeFiles 0
 .PHONY : pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default_bin.dir/rule
@@ -2031,7 +2086,7 @@ pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default_library.dir/all: pico-sdk
 
 # Build rule for subdir invocation for target.
 pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default_library.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/CMakeFiles 1
+	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/CMakeFiles 3
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default_library.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/Data/Projects/malo_sao/MalO_SAO/src/build/build-MALO_BOARD/CMakeFiles 0
 .PHONY : pico-sdk/src/rp2350/boot_stage2/CMakeFiles/bs2_default_library.dir/rule
