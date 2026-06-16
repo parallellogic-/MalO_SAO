@@ -67,4 +67,5 @@ CMakeFiles/firmware.dir/mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1
  /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/rp2_common/hardware_sync/include/hardware/sync.h \
  /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/rp2_common/hardware_sync_spin_lock/include/hardware/sync/spin_lock.h \
  /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/common/pico_sync/include/pico/mutex.h \
- /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/common/pico_sync/include/pico/critical_section.h
+ /mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/lib/pico-sdk/src/common/pico_sync/include/pico/critical_section.h \
+ /mnt/Data/Projects/malo_sao/MalO_SAO/src/malo_core1/core1_main.h

@@ -1,0 +1,51 @@
+.pio_version 1          ; Tell the assembler to use the RP2350 features
+.program charlieplex_dma
+
+.wrap_target
+start:
+    mov pins, null   ; clear state at start
+    pull block          ; Pull 32-bit word from DMA FIFO into OSR
+
+    out x, 8            ; Extract lowest 8 bits into scratch X (Direction Mask)
+    jmp !x long_wait    ; If Direction Mask is 0, jump to long_wait
+
+    ; Normal Path: Process remaining fields from current OSR contents
+    out pindirs, 8      ; Extract next 8 bits and apply directly to pin states
+    out y, 16           ; Extract remaining 16 bits into scratch Y (Delay Amount)
+    jmp !y, start       ; if exactly 0, skip driving pins
+    mov pins, x         ; Apply the lowest 8 bits to pin directions
+    jmp run_delay       ; Proceed directly to the delay loop
+
+long_wait:
+    out y, 24           ; Pull the remaining 24 bits into Y for an extended delay
+
+run_delay:
+    jmp y-- run_delay   ; Loop decrementing Y until it reaches 0 (creates delay)
+.wrap
+
+
+
+
+% c-sdk {
+static inline void charlieplex_dma_program_init(PIO pio, uint sm, uint offset, uint first_pin, uint pin_count) {
+    pio_sm_config c = charlieplex_dma_program_get_default_config(offset);
+
+    sm_config_set_out_pins(&c, first_pin, pin_count);
+    //sm_config_set_set_pins(&c, first_pin, pin_count); //disable to get GP0 to work right (WAS open-drain, IS push-pull)
+    
+    // Ensure we are shifting RIGHT and autopull is OFF (we use 'pull block')
+    sm_config_set_out_shift(&c, true, false, 32);
+
+    for(int i=0; i<pin_count; i++) {
+        uint pin = (first_pin + i) % 32;
+        pio_gpio_init(pio, pin);
+        gpio_set_drive_strength(pin, GPIO_DRIVE_STRENGTH_12MA);
+    }
+    pio_sm_set_consecutive_pindirs(pio, sm, first_pin, pin_count, true); //needed to get GP0 to work right (WAS open-drain, IS push-pull)
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_set_enabled(pio, sm, true);
+}
+%}
+
+
+

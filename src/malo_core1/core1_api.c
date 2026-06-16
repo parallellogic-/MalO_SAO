@@ -1,9 +1,7 @@
 #include "py/runtime.h"
 #include "pico/multicore.h"
 #include "core1_main.h" //malo_core1_entry(void);
-
-// Forward declaration of the Core 1 entry function
-//void core1_entry(void);
+//#include "led.h"
 
 // 1. Define the C function that MicroPython will call
 static mp_obj_t malo_init_core1(void) {
