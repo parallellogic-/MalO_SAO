@@ -11,5 +11,12 @@
 //#define PICO_TYPE    PICO_TYPE_RP2350B
 //#define MICROPY_HW_NUM_PIN_INDEX (48)
 
+//#ifndef PICO_FLASH_SIZE_BYTES
+//#define PICO_FLASH_SIZE_BYTES                   (16 * 1024 * 1024)
+//#endif
+
 // Explicitly declare 15MB filesystem space matching the CMake file
-//#define MICROPY_HW_FLASH_STORAGE_BYTES (15 * 1024 * 1024)
+//#define MICROPY_HW_FLASH_STORAGE_BYTES (12 * 1024 * 1024)
+
+//#define MICROPY_HEAP_SIZE (192 * 1024) // Leaves safe room for TinyUSB and LVGL internals
+

@@ -1,6 +1,6 @@
 # Overview
 
-This page contains the code and design files used to create the SCP-1471-A MalO Shitty Add-On (SAO).  These units will be sold online and handed out at DEFCON34 in August 2026.
+This page contains the code and design files used to create the SCP-1471-A MalO Simple Add-On (SAO).  These units will be sold online and handed out at DEFCON34 in August 2026.
 
 As part of the standard DEFCON experience, each attendee receives a circuit board they wear around their neck that serves both as a multi-day ticket for the conference and as a platform to show off hardware/software hacks.  These MalO SAOs plug into the expansion port on the official conference badge to allow the user to customize their standard DEFCON badge.
 
@@ -29,8 +29,8 @@ TODO: supporting compiler library installs, Win/Linux...
 # Hardware
 
 - Processor, [RP2350B](doc/spec_sheets/Processor_RP2350B_C42415655.pdf), [C42415655](https://jlcpcb.com/partdetail/RaspberryPi-RP2350B/C42415655)
+    - Dual core, 150 MHz
     - A3/A4 revision resolves E9 current leakage, enabling capacitive touch
-    - 150 MHz
     - Unique ID (username)
     - Internal temperature sensor
 - Memory Flash, [W25Q128JVSIQ](doc/spec_sheets/Memory_Flash_W25Q128JVSIQ_C113767.pdf), [C113767](https://jlcpcb.com/partdetail/WinbondElec-W25Q128JVSIQ/C113767)
@@ -79,6 +79,11 @@ TODO: supporting compiler library installs, Win/Linux...
 - +15V Boost, [MT3540-F23](doc/spec_sheets/15V_Boost_MT3540-F23_C181783.pdf), [C181783](https://jlcpcb.com/partdetail/XI_AN_AerosemiTech-MT3540F23/C181783)
     - For screen
 
+## Hardware Settings
+
+- Can triple IR brightness with solder jumper
+- Can invert SAO header orientation with switch (and jumper)
+
 # Software
 
 - Core0
@@ -90,16 +95,11 @@ TODO: supporting compiler library installs, Win/Linux...
 
 # Features
 
-## Hardware Settings
-
-- Can triple IR brightness with solder jumper
-- Can invert SAO header orientation with switch (and jumper)
-
 # Resources
 
-- [Schematic]()
+- [Schematic](doc/r2/schematic.pdf)
 - [DEFCON34 SAO MICD](https://www.reddit.com/r/Defcon/comments/1tj1jv3/def_con_34_badge_alert/)
-    - Note: installed upside-down from standard
+    - Note: DEFCON34 badge installed SAO port upside-down from standard (GND pin is above 3V)
     - 100 mA maximum current draw
     - 3.0V power supply
 - [SAO generic standard](https://hackaday.io/project/175182-simple-add-ons-sao)

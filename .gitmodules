@@ -7,3 +7,6 @@
 [submodule "lib/picotool"]
 	path = lib/picotool
 	url = https://github.com/raspberrypi/picotool.git
+[submodule "lib/lv_micropython"]
+	path = lib/lv_micropython
+	url = https://github.com/lvgl/lv_micropython
