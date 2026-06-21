@@ -38,12 +38,9 @@ BOARD_DIR=../../../../src/boards/MALO_BOARD \
 BUILD=../../../../src/build/build-MALO_BOARD \
 USER_C_MODULES="$PROJECT_ROOT/lib/lv_micropython/user_modules/lv_binding_micropython/bindings.cmake\\;$PROJECT_ROOT/src/malo_core1/micropython.cmake" \
 EXTRA_CMAKE_ARGS="-DPICO_BOARD_CMAKE_DIRS=$PROJECT_ROOT/src/boards/MALO_BOARD -DPICO_BOARD_HEADER_DIRS=$PROJECT_ROOT/src/boards/MALO_BOARD"
-#BOARD=MALO_BOARD \
-#BOARD_DIR=../../../../src/boards/MALO_BOARD \
 #BOARD=RPI_PICO2 \
 #BOARD_DIR=/mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/ports/rp2/boards/RPI_PICO2 \
 #USER_C_MODULES=../../../../src/malo_core1/micropython.cmake \
-#USER_C_MODULES="$PROJECT_ROOT/lib/lv_micropython/user_modules/lv_binding_micropython/bindings.cmake\\;$PROJECT_ROOT/src/malo_core1/micropython.cmake" \
 
 BUILD_STATUS=$?
 
