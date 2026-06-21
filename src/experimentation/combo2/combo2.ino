@@ -3,6 +3,7 @@
 #include "imu.h"
 #include "screen.h"
 #include "led.h"
+#include "touch.h"
 #include "hardware/adc.h"
 #include "analog.h"
 #include <hardware/watchdog.h>
@@ -10,6 +11,8 @@
 #include "hardware/clocks.h"
 #include "hardware/pwm.h"
 #include "hardware/resets.h"
+#include "logic_analyzer.pio.h"
+#include "sigma_tracker.h" //debug stats on button presses cap touch
 
 #include <Wire.h>
 #define HAULT_ON_GENERAL_DMA_FAULT 0
@@ -33,9 +36,9 @@
 #define PIN_HALL 41
 #define PIN_POTENTIOMETER 42
 
-#define PIN_TOUCH_PWM 26
-#define PIN_TOUCH_0 27
-#define PIN_TOUCH_9 36
+//#define PIN_TOUCH_PWM 26
+//#define PIN_TOUCH_0 27
+//#define PIN_TOUCH_9 36
 
 ScatterGatherEngine scatterer_gatherer_engine_general;
 ScatterGatherEngine scatterer_gatherer_engine_screen;
@@ -45,6 +48,8 @@ Screen screen(spi1,SPI1_BAUD,SPI1_DC);
 Charlieplex led_lower(0);
 Charlieplex led_upper(1);
 Analog analog;
+Touch* touch = nullptr;
+SigmaTracker32 sigma_tracker(60*4);
 
 uint32_t frame_id=0;
 //int temp_spi_chan;
@@ -63,7 +68,7 @@ void setup() {
   //"Init Terminal..."
   Serial.begin();
   long start_tms=millis();
-//  while(!Serial && (millis()-start_tms)<7000);//wait for terminal to connect or timeout, whichever is first
+  while(!Serial && (millis()-start_tms)<7000);//wait for terminal to connect or timeout, whichever is first
   //delay(2000);
   Serial.println("START");
 
@@ -128,9 +133,11 @@ void setup() {
 
 
   Serial.println("Init Touch...");
-  for(uint8_t iter=PIN_TOUCH_0;iter<=PIN_TOUCH_9;iter++) pinMode(iter,INPUT);
-  pinMode(PIN_TOUCH_PWM,OUTPUT);
-
+  //for(uint8_t iter=PIN_TOUCH_0;iter<=PIN_TOUCH_9;iter++) pinMode(iter,INPUT);
+  //pinMode(PIN_TOUCH_PWM,OUTPUT);
+  uint logic_analyzer_pio1_offset=pio_add_program(pio1, &logic_analyzer_program);
+  touch=new Touch(pio1,logic_analyzer_pio1_offset);
+  touch->begin();
 
   Serial.println("Init Motor...");//pin GP40 on prototype
   pinMode(40,OUTPUT);
@@ -182,14 +189,19 @@ void loop() {
   setup_us=time_us_64()-start_us;
 
   //ditialWrite(PIN_TOUCH_PWM,frame_id%2);
-  Serial.printf("S%d: ",frame_id%2);
-  for(uint8_t iter=PIN_TOUCH_0;iter<=PIN_TOUCH_9;iter++) Serial.print(digitalRead(iter));
-  Serial.print(", ");
+  //Serial.printf("S%d: ",frame_id%2);
+  //for(uint8_t iter=PIN_TOUCH_0;iter<=PIN_TOUCH_9;iter++) Serial.print(digitalRead(iter));
+  //Serial.print(", ");
+  sigma_tracker.process_reading(touch->get_capacitive_touch(1));
+  Serial.printf("Cap touch: 0:%10d, 1:%10d, 10:%10d, mean1: %10d, sigma1: %10d\n",touch->get_capacitive_touch(0),touch->get_capacitive_touch(1),touch->get_capacitive_touch(10),sigma_tracker.get_mean(), sigma_tracker.get_std_dev());
+  gpio_put(PIN_DEBUG_G,(max(1274,touch->get_capacitive_touch(1))-1252)/13>3);
+
 
   uint32_t core1_loop_count=0;//simulate core1 behavior
   while(core1_loop_count==0 || (time_us_64()<(start_us+16666)) )//16))
   {//core1 contents
-    if(core1_loop_count==0)  update_screen(); //fetch commands from shared memory, if any are present
+    if(core1_loop_count==0) touch->update(); //update state machnie logic once per frame
+    if(core1_loop_count==0) update_screen(); //fetch commands from shared memory, if any are present
     imu.update();
     if(core1_loop_count==0) update_led();//TODO: if flush from memory map, then pull data from shared memory to instant update LEDs
 
