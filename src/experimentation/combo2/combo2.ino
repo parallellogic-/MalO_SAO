@@ -743,7 +743,7 @@ uint8_t test_image[SSD1327_BUFFER_SIZE]={
 static uint8_t canvas_buffer[SCREEN_WIDTH * SCREEN_HEIGHT] __attribute__((aligned(4)));
 // 2. Allocate your packed display output buffer
 // Two 4-bit pixels pack into one byte: (128 * 128) / 2 = 8,192 Bytes
-static uint8_t packed_display_buffer[(SCREEN_WIDTH * SCREEN_HEIGHT) / 2] __attribute__((aligned(4)));
+//static uint8_t packed_display_buffer[(SCREEN_WIDTH * SCREEN_HEIGHT) / 2] __attribute__((aligned(4)));
 // 2. LVGL V9 FIX: Pre-allocate the management structure header inside static memory
 // This completely bypasses dynamic malloc requirements inside the canvas setup
 static lv_draw_buf_t custom_canvas_draw_handle;
@@ -751,7 +751,7 @@ void dummy_display_flush_cb(lv_display_t* disp, const lv_area_t* area, uint8_t* 
     lv_display_flush_ready(disp); // Keep the pipeline cycling
 }
 // Simulated placeholder for your screen's flushing interface
-class MockScreen {
+/*class MockScreen {
 public:
     void flush(const uint8_t* buffer, uint32_t byte_count) {
         // Your physical SPI/DMA transport goes here
@@ -763,14 +763,14 @@ public:
         screen.flush();
     }
 };
-MockScreen ms_screen;
+MockScreen ms_screen;*/
 
 // Custom function to process the canvas buffer, pack upper nibbles, and transmit
 void process_and_flush_canvas() {
     uint32_t packed_idx = 0;
     
     // Process two adjacent horizontal pixels at a time
-    for (uint32_t i = 0; i < SCREEN_WIDTH * SCREEN_HEIGHT; i += 2) {
+    /*for (uint32_t i = 0; i < SCREEN_WIDTH * SCREEN_HEIGHT; i += 2) {
         // Extract the upper 4 bits (nibble) of pixel N
         uint8_t upper_nibble_left  = canvas_buffer[i]     & 0xF0;
         // Extract the upper 4 bits (nibble) of pixel N+1
@@ -778,10 +778,37 @@ void process_and_flush_canvas() {
         
         // Pack them into a single byte: Left pixel = High bits, Right pixel = Low bits
         packed_display_buffer[packed_idx++] = upper_nibble_left | (upper_nibble_right >> 4);
+    }*/
+    uint8_t* tx_buffer=screen.get_frame_buffer();
+    for (int32_t y = 0; y < SCREEN_HEIGHT; y++) {
+        for (int32_t x = 0; x < SCREEN_WIDTH; x += 2) {
+            
+            // --- 90-DEGREE CCW COORDINATE TRANSLATION ---
+            // Formula for 90 CCW: New_X = Old_Y, New_Y = (Width - 1) - Old_X
+            
+            // Calculate source coordinates for the Left output pixel (at column x)
+            int32_t src_x_left = (SCREEN_WIDTH - 1) - y;
+            int32_t src_y_left = x;
+            uint32_t pixel_left_idx = (src_y_left * SCREEN_WIDTH) + src_x_left;
+
+            // Calculate source coordinates for the Right output pixel (at column x + 1)
+            int32_t src_x_right = (SCREEN_WIDTH - 1) - y;
+            int32_t src_y_right = x + 1;
+            uint32_t pixel_right_idx = (src_y_right * SCREEN_WIDTH) + src_x_right;
+
+            // Extract the high-frequency luminosity bits (upper nibbles)
+            uint8_t left_nibble  = canvas_buffer[pixel_left_idx]  & 0xF0;
+            uint8_t right_nibble = canvas_buffer[pixel_right_idx] & 0xF0;
+
+            // Pack them perfectly: Left pixel high bits, Right pixel low bits
+            //packed_display_buffer[packed_idx++] = left_nibble | (right_nibble >> 4);
+            tx_buffer[packed_idx++] = left_nibble | (right_nibble >> 4);
+        }
     }
     
     // Transmit the fully optimized 4bpp block directly to your display controller
-    ms_screen.flush(packed_display_buffer, sizeof(packed_display_buffer));
+    //ms_screen.flush(packed_display_buffer, sizeof(packed_display_buffer));
+    screen.flush();
 }
 
 void graphics_init() {
@@ -858,6 +885,25 @@ void graphics_init() {
     // Execute the actual universal draw call onto your canvas layer context
     lv_draw_rect(&layer, &rect_dsc, &coords_rect);
     // Close and flush the canvas rendering context block back down to canvas_buffer
+    
+    // ----------------------------------------------------------------
+    // STEP B: DRAW THE TEXT ON TOP OF THE RECTANGLE
+    // ----------------------------------------------------------------
+    lv_draw_label_dsc_t label_dsc;
+    lv_draw_label_dsc_init(&label_dsc);
+    
+    // Configure text appearance parameters
+    label_dsc.text = "RP2350B";                    // The text string to display
+    label_dsc.color = lv_color_hex(000000);      // High luminosity white text
+    label_dsc.font = LV_FONT_DEFAULT;              // Fallback to built-in system font
+    label_dsc.align = LV_TEXT_ALIGN_CENTER;        // Horizontal alignment math
+
+    // Define the bounding coordinate box for the text placement
+    // Placing it squarely inside the boundaries of our background rectangle
+    lv_area_t coords_text = {20, 52, 108, 76};
+    lv_draw_label(&layer, &label_dsc, &coords_text);
+    //---------- end step B
+    
     lv_canvas_finish_layer(canvas, &layer);
 
     Serial.println("lv_refr_now");
