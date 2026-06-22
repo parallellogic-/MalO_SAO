@@ -21,6 +21,7 @@ public:
     Analog();
     
     void begin();
+    void end();
 
     //pointer to where application can upload the frame information (4-bits per pixel)
     //be aware of existing dirty frame contents present in buffer

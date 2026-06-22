@@ -70,6 +70,57 @@ void Charlieplex::begin(){
     dma_channel_start(_ctrl_chan);//move to stand-alone method as sparation of concerns between init and run?
 }
 
+void Charlieplex::end() {
+    // 1. CRITICAL STEP: Break the infinite DMA chaining sequence
+    // Abort the control re-armer first so it can't restart the data engine
+    if (_ctrl_chan >= 0) {
+        dma_channel_abort(_ctrl_chan);
+    }
+    
+    // Abort the data engine to instantly halt any mid-flight matrix updates
+    if (_data_chan >= 0) {
+        dma_channel_abort(_data_chan);
+    }
+
+    // 2. Halt the underlying PIO State Machine engine
+    if (_sm != (uint)-1) {
+        pio_sm_set_enabled(_pio, _sm, false);
+        
+        // Clear the PIO Tx FIFO to drain any lingering matrix transitions
+        pio_sm_clear_fifos(_pio, _sm);
+        
+        // Release the state machine resource back to the Pico SDK pool
+        pio_sm_unclaim(_pio, _sm);
+        _sm = (uint)-1; // Mark as unallocated
+    }
+
+    // 3. Unclaim the DMA channels to clear them from the system bus matrix
+    if (_ctrl_chan >= 0) {
+        dma_channel_unclaim(_ctrl_chan);
+        _ctrl_chan = -1;
+    }
+    if (_data_chan >= 0) {
+        dma_channel_unclaim(_data_chan);
+        _data_chan = -1;
+    }
+
+    // 4. Reset the instance's specific pins to a safe, high-impedance state
+    // This isolates the Charlieplex grid from hardware noise during flash writes
+    if (_pio_index) {
+        // Upper Instance Pins (Pins 16-23)
+        for (int iter = 16; iter < 24; iter++) {
+            gpio_init(iter);
+            gpio_set_dir(iter, GPIO_IN);
+        }
+    } else {
+        // Lower Instance Pins (Pins 0-7)
+        for (int iter = 0; iter < 8; iter++) {
+            gpio_init(iter);
+            gpio_set_dir(iter, GPIO_IN);
+        }
+    }
+}
+
 void Charlieplex::flush()
 {
     // Use a different index than the one currently being displayed by DMA

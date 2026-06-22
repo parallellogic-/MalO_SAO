@@ -17,6 +17,20 @@ void Buzzer::begin(uint8_t gpio_pin){
     set_off();
 }
 
+void Buzzer::end(uint8_t gpio_pin) {
+    // 1. Force the tone generation completely off
+    set_off();
+    
+    // 2. Disable the physical hardware PWM slice timer
+    uint slice_num = pwm_gpio_to_slice_num(gpio_pin);
+    pwm_set_enabled(slice_num, false);
+    
+    // 3. Disconnect the pin from the PWM engine and reset it to a standard input
+    // This removes the pin from the high-speed peripheral bus grid
+    gpio_init(gpio_pin);
+    gpio_set_dir(gpio_pin, GPIO_IN);
+}
+
 void Buzzer::set_off(){
   set_tone(1000.0,0);
 }

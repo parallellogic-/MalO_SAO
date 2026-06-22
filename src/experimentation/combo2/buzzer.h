@@ -10,6 +10,7 @@ public:
     Buzzer(int32_t timeout_ms = 3000);
     
     void begin(uint8_t pin);
+    void end(uint8_t pin);
 
     bool update();//eval against timeout
 
