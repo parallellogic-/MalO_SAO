@@ -13,7 +13,7 @@
 #include "hardware/resets.h"
 #include "logic_analyzer.pio.h"
 #include "sigma_tracker.h" //debug stats on button presses cap touch
-//#include <Adafruit_TinyUSB.h>
+#include <Adafruit_TinyUSB.h>
 #include "hardware/flash.h"
 #include "hardware/sync.h"
 #include "pico/multicore.h"
@@ -51,7 +51,7 @@
 //#define PIN_TOUCH_0 27
 //#define PIN_TOUCH_9 36
 
-//Adafruit_USBD_MSC usb_msc; //usb-flash file system interface
+Adafruit_USBD_MSC usb_msc; //usb-flash file system interface
 // Custom 16MB hardware layout boundaries
 const uint32_t FLASH_TARGET_OFFSET = 2 * 1024 * 1024; 
 const uint32_t DISK_SIZE_BYTES     = 14 * 1024 * 1024; 
@@ -196,12 +196,12 @@ void setup() {
 
   uint64_t start_us=time_us_64();
 
-  /*usb_msc.setID("RP2350B", "Flash Drive", "1.0");
+  usb_msc.setID("RP2350B", "Flash Drive", "1.0");
   usb_msc.setReadWriteCallback(msc_read_cb, msc_write_cb, msc_flush_cb); 
   usb_msc.setReadyCallback(msc_ready_cb);
   usb_msc.setCapacity(DISK_SIZE_BYTES / USB_BLOCK_SIZE, USB_BLOCK_SIZE);
   usb_msc.setUnitReady(true);
-  usb_msc.begin();*/
+  usb_msc.begin();
   
 
   //"Init Terminal..."
