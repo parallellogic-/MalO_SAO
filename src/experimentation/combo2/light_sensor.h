@@ -53,6 +53,7 @@ public:
     LightSensor(i2c_inst_t* i2c_hardware = i2c0);
     
     void begin();
+    void end();
 
     // Get the calculated brightness
     uint32_t getBrightness() const;

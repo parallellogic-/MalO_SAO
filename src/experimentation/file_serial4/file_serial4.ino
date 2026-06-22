@@ -19,28 +19,37 @@ static bool cache_is_dirty = false;
 // CRITICAL FIX: __no_inline_not_in_flash_func forces this code to run purely out of RAM 
 // This allows safe writing to the flash while the XIP cache mapping engine is disabled.
 void __no_inline_not_in_flash_func(flush_sector_cache)() {
-  if (cached_sector_id == -1 || !cache_is_dirty) return;
+  // Use one of the RP2350's hardware spinlock registers (Lock ID 31 is typically safe/free)
+  uint32_t spin_status = spin_lock_blocking(spin_lock_instance(31));
+
+  // Double-check variables inside the protected gateway
+  if (cached_sector_id == -1 || !cache_is_dirty) {
+    spin_unlock(spin_lock_instance(31), spin_status);
+    return;
+  }
 
   uint32_t sector_start = cached_sector_id * FLASH_SECTOR_SIZE;
   uint32_t physical_flash_addr = FLASH_TARGET_OFFSET + sector_start;
   
-  // Debug output BEFORE writing
   Serial.print("[FLASH RUNTIME] Erasing & Writing Sector ID: ");
   Serial.print(cached_sector_id);
   Serial.print(" at Real Addr: 0x");
   Serial.println(physical_flash_addr, HEX);
 
+  // Turn off internal core interrupts completely during the physical write block window
   uint32_t ints = save_and_disable_interrupts();
   flash_range_erase(physical_flash_addr, FLASH_SECTOR_SIZE);
   flash_range_program(physical_flash_addr, sector_cache, FLASH_SECTOR_SIZE);
   restore_interrupts(ints);
 
-  // Read back instantly from memory space to verify it updated in RAM
   uint32_t verification_addr = XIP_BASE + physical_flash_addr;
   Serial.print("[FLASH VERIFY] First byte in memory window: 0x");
   Serial.println(*(uint8_t*)verification_addr, HEX);
 
   cache_is_dirty = false;
+
+  // Release the hardware gate so the other core/thread can safely interact with flash again
+  spin_unlock(spin_lock_instance(31), spin_status);
 }
 
 
@@ -107,12 +116,18 @@ void setup() {
 }
 
 void loop() {
-  // Safe idle routine to make sure cache blocks get flushed
-  static uint32_t last_flush_check = 0;
-  if (millis() - last_flush_check > 500) {
-    last_flush_check = millis();
-    if(cache_is_dirty) {
-       flush_sector_cache();
-    }
+  static uint32_t last_write_time = 0;
+  
+  // Track if cache is dirty and record the timestamp
+  if (cache_is_dirty && last_write_time == 0) {
+    last_write_time = millis();
+  }
+
+  // If data has been sitting unwritten in our RAM cache for more than 2 seconds,
+  // force a physical hardware flush to the flash chip automatically.
+  if (cache_is_dirty && (millis() - last_write_time > 2000)) {
+    flush_sector_cache();
+    last_write_time = 0; // Reset timer
+    Serial.println("[AUTO-FLUSH] Idle timeout reached. Cache committed to flash!");
   }
 }

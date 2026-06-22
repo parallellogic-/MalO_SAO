@@ -70,6 +70,7 @@ public:
     ScatterGatherEngine() {}
 
     void begin(bool is_aux);
+    void end();
 
     bool registerSource(IMultiDmaTransactionSource* source);
 

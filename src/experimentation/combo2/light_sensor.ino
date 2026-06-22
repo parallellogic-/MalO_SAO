@@ -24,6 +24,8 @@ LightSensor::LightSensor(i2c_inst_t* i2c_hardware) : _i2c(i2c_hardware)
 
 void LightSensor::begin() {
 }
+void LightSensor::end() {
+}
 
 //24-bit reading
 uint32_t LightSensor::getBrightness() const {

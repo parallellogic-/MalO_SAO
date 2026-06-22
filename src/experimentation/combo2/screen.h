@@ -123,13 +123,14 @@ private:
 
     bool _is_flush=0; //application raises flag with flush()
     bool _screen_ping_pong=0; //internal varaible to track toggling between screen buffers
-    uint8_t _frame_buffer[2][SSD1327_BUFFER_SIZE]={};
+    uint8_t _frame_buffer[2][SSD1327_BUFFER_SIZE] __attribute__((aligned(4)))={};
 
     uint8_t _get_boot_state(uint64_t frame_id) const; //detemrine what stage of commands to send we're at
 public:
     Screen(spi_inst_t* spi_port = spi1, uint32_t baud = 8'000'000, uint8_t dc_pin = 9);
     
     void begin();
+    void end();
 
     //pointer to where application can upload the frame information (4-bits per pixel)
     //be aware of existing dirty frame contents present in buffer
@@ -141,25 +142,5 @@ public:
     // IMultiDmaTransactionSource Interface
     int getRequiredDescriptorCount(uint64_t frame_id) override;
     void populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) override;
-
-    //background, foreground, destination
-    //format of images: 0: c04 (4 bit color, no alpha), 1: c14 (0x00 means transparent, any other nibble is non-transparent color), 2: c48 (upper nibble is alpha channel), lower 4 bits is color
-    //if rect is nullptr, than permit entire image
-    //sampling: 0: pixel-perfect, 1: 
-    //sprite_list is a list of sprites, ordered from 
-    /*void blit(
-      SpriteTransform *st_list[],uint8_t st_count,
-      Sprite *output,Rectangle *output_retangle,
-    );*/
-
-    //behavior: define transform(s) applied to an image
-    //collect mulitple images, that each can have many transforms applied
-    //to build output image, iteratively go backward through image list
-
-    //start with forward pass to see where outer bounds of inputs intersect the output
-    //then 
-
-    //for each Sprite
-    //how to optionally use pixels... like for background when mixing...
 };
 

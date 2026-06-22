@@ -6,13 +6,24 @@
 #include "touch.h"
 #include "hardware/adc.h"
 #include "analog.h"
-#include <hardware/watchdog.h>
+//#include <hardware/watchdog.h>
 #include "hardware/pio.h"
 #include "hardware/clocks.h"
 #include "hardware/pwm.h"
 #include "hardware/resets.h"
 #include "logic_analyzer.pio.h"
 #include "sigma_tracker.h" //debug stats on button presses cap touch
+//#include <Adafruit_TinyUSB.h>
+#include "hardware/flash.h"
+#include "hardware/sync.h"
+#include "pico/multicore.h"
+
+//WAS ~/Arduino/libraries/lv_conf.h
+//IS ~/Arduino/libraries/lvgl/src/lv_conf.h
+#define LV_CONF_INCLUDE_SIMPLE
+#include <lvgl.h>
+
+#define USB_BLOCK_SIZE    512
 
 #include <Wire.h>
 #define HAULT_ON_GENERAL_DMA_FAULT 0
@@ -40,6 +51,15 @@
 //#define PIN_TOUCH_0 27
 //#define PIN_TOUCH_9 36
 
+//Adafruit_USBD_MSC usb_msc; //usb-flash file system interface
+// Custom 16MB hardware layout boundaries
+const uint32_t FLASH_TARGET_OFFSET = 2 * 1024 * 1024; 
+const uint32_t DISK_SIZE_BYTES     = 14 * 1024 * 1024; 
+// RAM cache staging layouts
+static uint8_t sector_cache[FLASH_SECTOR_SIZE] __attribute__((aligned(4)));
+static int32_t cached_sector_id = -1;
+static bool cache_is_dirty = false;
+
 ScatterGatherEngine scatterer_gatherer_engine_general;
 ScatterGatherEngine scatterer_gatherer_engine_screen;
 LightSensor light_sensor(i2c0);
@@ -54,6 +74,116 @@ SigmaTracker32 sigma_tracker(60*4);
 uint32_t frame_id=0;
 //int temp_spi_chan;
 
+
+// CRITICAL FIX: __no_inline_not_in_flash_func forces this code to run purely out of RAM 
+// This allows safe writing to the flash while the XIP cache mapping engine is disabled.
+void __no_inline_not_in_flash_func(flush_sector_cache)() {
+  // 1. Core Gate Lock using hardware spinlock 31
+  uint32_t spin_status = spin_lock_blocking(spin_lock_instance(31));
+
+  if (cached_sector_id == -1 || !cache_is_dirty) {
+    spin_unlock(spin_lock_instance(31), spin_status);
+    return;
+  }
+
+  uint32_t sector_start = cached_sector_id * FLASH_SECTOR_SIZE;
+  uint32_t physical_flash_addr = FLASH_TARGET_OFFSET + sector_start;
+  
+  // NOTE: All Serial.print statements have been removed from this RAM function 
+  // to prevent reading string literals from flash memory while XIP is offline.
+
+  // 2. LOCK DOWN CORE 0 / CORE 1 INTERACTION
+  // Uses the official Pico SDK blocking lockout methods to securely freeze the other core
+  bool hardware_is_multicore = multicore_fifo_wready();
+  if (hardware_is_multicore) {
+    multicore_lockout_start_blocking(); 
+  }
+
+  // 3. PAUSE ACTIVE DMA ENGINES
+  // Backup your ScatterGatherEngine and Screen DMA configuration channels
+  uint32_t active_dma_inte0 = dma_hw->inte0; 
+  dma_hw->inte0 = 0; // Temporarily kill all DMA completion interrupts
+  
+  // Wait until any active, mid-flight DMA loops finish writing their current transaction bursts
+  for (int ch = 0; ch < NUM_DMA_CHANNELS; ch++) {
+    while (dma_channel_is_busy(ch)) {
+      tight_loop_contents();
+    }
+  }
+
+  // 4. ATOMIC FLASH PROGRAMMING WINDOW
+  uint32_t ints = save_and_disable_interrupts();
+  
+  flash_range_erase(physical_flash_addr, FLASH_SECTOR_SIZE);
+  flash_range_program(physical_flash_addr, sector_cache, FLASH_SECTOR_SIZE);
+  
+  restore_interrupts(ints);
+
+  // 5. SYSTEM HARDWARE RECOVERY
+  // Restore your DMA channel configurations
+  dma_hw->inte0 = active_dma_inte0;
+
+  // Release the opposite processor core back to its execution thread
+  if (hardware_is_multicore) {
+    multicore_lockout_end_blocking();
+  }
+
+  cache_is_dirty = false;
+  spin_unlock(spin_lock_instance(31), spin_status);
+}
+
+
+
+int32_t msc_read_cb(uint32_t lba, void* buffer, uint32_t bufsize) {
+  uint32_t drive_offset = (lba * USB_BLOCK_SIZE);
+  uint32_t target_sector_id = drive_offset / FLASH_SECTOR_SIZE;
+  uint32_t block_offset_in_sector = drive_offset % FLASH_SECTOR_SIZE;
+
+  if (target_sector_id == cached_sector_id) {
+    memcpy(buffer, sector_cache + block_offset_in_sector, bufsize);
+  } else {
+    uint32_t flash_addr = XIP_BASE + FLASH_TARGET_OFFSET + drive_offset;
+    memcpy(buffer, (const void*)flash_addr, bufsize);
+  }
+  return bufsize;
+}
+
+int32_t msc_write_cb(uint32_t lba, uint8_t* buffer, uint32_t bufsize) {
+  uint32_t drive_offset = (lba * USB_BLOCK_SIZE);
+  uint32_t target_sector_id = drive_offset / FLASH_SECTOR_SIZE;
+  uint32_t block_offset_in_sector = drive_offset % FLASH_SECTOR_SIZE;
+
+  if (target_sector_id != cached_sector_id) {
+    // Commit the previous sector out of the RAM pipeline before reallocating layout space
+    if (cached_sector_id != -1 && cache_is_dirty) {
+       flush_sector_cache();
+    }
+    
+    cached_sector_id = target_sector_id;
+    uint32_t sector_start = cached_sector_id * FLASH_SECTOR_SIZE;
+    uint32_t physical_flash_read_addr = XIP_BASE + FLASH_TARGET_OFFSET + sector_start;
+    
+    // Read the unmodified structure layout securely into RAM
+    uint32_t ints = save_and_disable_interrupts();
+    memcpy(sector_cache, (const void*)physical_flash_read_addr, FLASH_SECTOR_SIZE);
+    restore_interrupts(ints);
+  }
+
+  // Inject the new bytes coming from Linux straight into the active RAM matrix
+  memcpy(sector_cache + block_offset_in_sector, buffer, bufsize);
+  cache_is_dirty = true;
+
+  return bufsize;
+}
+
+void msc_flush_cb(void) {
+  flush_sector_cache();
+}
+
+bool msc_ready_cb(void) {
+  return true; 
+}
+
 void setup() {
 
   //I2C patch for mis-routed pin to imu on prototype
@@ -61,12 +191,21 @@ void setup() {
   digitalWrite(15, HIGH);
   delay(20);  //AN4650 needed for reboot time of IMU --> later, put as part of boot-up sequence routine
 
+  
   // ----
 
   uint64_t start_us=time_us_64();
 
+  /*usb_msc.setID("RP2350B", "Flash Drive", "1.0");
+  usb_msc.setReadWriteCallback(msc_read_cb, msc_write_cb, msc_flush_cb); 
+  usb_msc.setReadyCallback(msc_ready_cb);
+  usb_msc.setCapacity(DISK_SIZE_BYTES / USB_BLOCK_SIZE, USB_BLOCK_SIZE);
+  usb_msc.setUnitReady(true);
+  usb_msc.begin();*/
+  
+
   //"Init Terminal..."
-  Serial.begin();
+  Serial.begin(1'000'000);
   long start_tms=millis();
   while(!Serial && (millis()-start_tms)<7000);//wait for terminal to connect or timeout, whichever is first
   //delay(2000);
@@ -94,7 +233,7 @@ void setup() {
     Wire.setClock(I2C0_BAUD);
   }
 
-  Serial.println("Init SPI...");
+  Serial.println("Init SPI OLED Screen...");
   //temp_spi_chan = dma_claim_unused_channel(true);
   spi_init(spi1, SPI1_BAUD);
   gpio_set_function(SPI1_SCLK, GPIO_FUNC_SPI);
@@ -103,6 +242,7 @@ void setup() {
   gpio_init(SPI1_DC);//is needed for proper screen operation
   gpio_set_dir(SPI1_DC, GPIO_OUT);
   gpio_put(SPI1_DC,HIGH);
+  graphics_init();
 
   Serial.println("Init Scatterer Gatherer...");
   scatterer_gatherer_engine_general.begin(true); //I2C needs aux channels to perform sync'd reads.  also uses sniff0 to compute the length of the imu fifo
@@ -172,6 +312,22 @@ void setup() {
 
 uint64_t setup_us=0;
 void loop() {
+
+  //flash-usb file system:
+  static uint32_t last_write_time = 0;
+  // Track if cache is dirty and record the timestamp
+  if (cache_is_dirty && last_write_time == 0) {
+    last_write_time = millis();
+  }
+  // If data has been sitting unwritten in our RAM cache for more than 2 seconds,
+  // force a physical hardware flush to the flash chip automatically.
+  if (cache_is_dirty && (millis() - last_write_time > 2000)) {
+    flush_sector_cache();
+    last_write_time = 0; // Reset timer
+    Serial.println("[AUTO-FLUSH] Idle timeout reached. Cache committed to flash!");
+  }
+
+
   /*for(int iter=0;iter<3;iter++)
   {
     imu._gyro_accel_reading[0][  iter]=sin(3.1415*millis()/1000+iter)*100;
@@ -193,7 +349,7 @@ void loop() {
   //for(uint8_t iter=PIN_TOUCH_0;iter<=PIN_TOUCH_9;iter++) Serial.print(digitalRead(iter));
   //Serial.print(", ");
   sigma_tracker.process_reading(touch->get_capacitive_touch(1));
-  Serial.printf("Cap touch: 0:%10d, 1:%10d, 10:%10d, mean1: %10d, sigma1: %10d\n",touch->get_capacitive_touch(0),touch->get_capacitive_touch(1),touch->get_capacitive_touch(10),sigma_tracker.get_mean(), sigma_tracker.get_std_dev());
+  //Serial.printf("Cap touch: 0:%10d, 1:%10d, 10:%10d, mean1: %10d, sigma1: %10d\n",touch->get_capacitive_touch(0),touch->get_capacitive_touch(1),touch->get_capacitive_touch(10),sigma_tracker.get_mean(), sigma_tracker.get_std_dev());
   gpio_put(PIN_DEBUG_G,(max(188,touch->get_capacitive_touch(1))-188)/2>3);
 
 
@@ -201,7 +357,7 @@ void loop() {
   while(core1_loop_count==0 || (time_us_64()<(start_us+16666)) )//16))
   {//core1 contents
     if(core1_loop_count==0) touch->update(); //update state machnie logic once per frame
-    if(core1_loop_count==0) update_screen(); //fetch commands from shared memory, if any are present
+    if(core1_loop_count==0) update_screen2(); //fetch commands from shared memory, if any are present
     imu.update();
     if(core1_loop_count==0) update_led();//TODO: if flush from memory map, then pull data from shared memory to instant update LEDs
 
@@ -578,6 +734,144 @@ uint8_t test_image[SSD1327_BUFFER_SIZE]={
 0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,
 0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,
 };
+
+//#define LV_CONF_INCLUDE_SIMPLE 1
+#define SCREEN_WIDTH  128
+#define SCREEN_HEIGHT 128
+// 1. Allocate your raw 8bpp canvas buffer in RAM
+// Dimensions: 128 * 128 * 1 byte per pixel = 16,384 Bytes
+static uint8_t canvas_buffer[SCREEN_WIDTH * SCREEN_HEIGHT] __attribute__((aligned(4)));
+// 2. Allocate your packed display output buffer
+// Two 4-bit pixels pack into one byte: (128 * 128) / 2 = 8,192 Bytes
+static uint8_t packed_display_buffer[(SCREEN_WIDTH * SCREEN_HEIGHT) / 2] __attribute__((aligned(4)));
+// 2. LVGL V9 FIX: Pre-allocate the management structure header inside static memory
+// This completely bypasses dynamic malloc requirements inside the canvas setup
+static lv_draw_buf_t custom_canvas_draw_handle;
+void dummy_display_flush_cb(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map) {
+    lv_display_flush_ready(disp); // Keep the pipeline cycling
+}
+// Simulated placeholder for your screen's flushing interface
+class MockScreen {
+public:
+    void flush(const uint8_t* buffer, uint32_t byte_count) {
+        // Your physical SPI/DMA transport goes here
+        // Transmission size: 8192 bytes
+        uint8_t* tx_buffer=screen.get_frame_buffer();
+        for (int i = 0; i < SSD1327_BUFFER_SIZE; i++) {
+          tx_buffer[i]=buffer[i]; 
+        }
+        screen.flush();
+    }
+};
+MockScreen ms_screen;
+
+// Custom function to process the canvas buffer, pack upper nibbles, and transmit
+void process_and_flush_canvas() {
+    uint32_t packed_idx = 0;
+    
+    // Process two adjacent horizontal pixels at a time
+    for (uint32_t i = 0; i < SCREEN_WIDTH * SCREEN_HEIGHT; i += 2) {
+        // Extract the upper 4 bits (nibble) of pixel N
+        uint8_t upper_nibble_left  = canvas_buffer[i]     & 0xF0;
+        // Extract the upper 4 bits (nibble) of pixel N+1
+        uint8_t upper_nibble_right = canvas_buffer[i + 1] & 0xF0;
+        
+        // Pack them into a single byte: Left pixel = High bits, Right pixel = Low bits
+        packed_display_buffer[packed_idx++] = upper_nibble_left | (upper_nibble_right >> 4);
+    }
+    
+    // Transmit the fully optimized 4bpp block directly to your display controller
+    ms_screen.flush(packed_display_buffer, sizeof(packed_display_buffer));
+}
+
+void graphics_init() {
+    
+    Serial.println("graphics_init");
+    // Initialize the LVGL core framework
+    lv_init();
+
+    // ====================================================================
+    // CRITICAL CORE FIX: Instantiate a Minimal Virtual Display Driver
+    // This provides the fallback environment required for widgets to validate layout shifts
+    Serial.println("Registering virtual fallback display...");
+    lv_display_t* dummy_disp = lv_display_create(SCREEN_WIDTH, SCREEN_HEIGHT);
+    lv_display_set_color_format(dummy_disp, LV_COLOR_FORMAT_L8);
+    lv_display_set_flush_cb(dummy_disp, dummy_display_flush_cb);
+    // -----------
+
+    Serial.println("lv_canvas_create");
+    // 3. Instantiate the LVGL Canvas UI object
+    lv_obj_t* canvas = lv_canvas_create(lv_screen_active());
+    
+
+    //Serial.println("lv_canvas_set_buffer");
+    // Assign our raw 8bpp RAM buffer and dimensions to the canvas object
+    //lv_canvas_set_buffer(canvas, canvas_buffer, SCREEN_WIDTH, SCREEN_HEIGHT, LV_COLOR_FORMAT_L8);
+        
+    Serial.println("Manually configuring draw buffer structure...");
+    // 3. Directly populate the properties of our static draw handle
+    // Format options: Handle, Width, Height, Color Format, Stride (Width * BytesPerPixel)
+    lv_draw_buf_init(
+        &custom_canvas_draw_handle, 
+        SCREEN_WIDTH, 
+        SCREEN_HEIGHT, 
+        LV_COLOR_FORMAT_L8, 
+        SCREEN_WIDTH, 
+        canvas_buffer, 
+        sizeof(canvas_buffer)
+    );
+
+    Serial.println("lv_canvas_set_draw_buf 2");
+    // 4. Bind our static handle directly to the Canvas UI element
+    // This function sets properties directly and does not call malloc()
+    lv_canvas_set_draw_buf(canvas, &custom_canvas_draw_handle);
+
+    Serial.println("Success! Canvas attached safely without malloc.");
+
+
+    Serial.println("lv_obj_center");
+    lv_obj_center(canvas);
+
+    Serial.println("lv_canvas_fill_bg");
+    // 4. Fill the background of the canvas with a baseline color value (e.g., 0x30)
+    lv_canvas_fill_bg(canvas, lv_color_hex(0x333333), LV_OPA_COVER);
+
+    // 5. Configure drawing styles for your rectangle
+    lv_draw_rect_dsc_t rect_dsc;
+    lv_draw_rect_dsc_init(&rect_dsc);
+    
+    // Map colors to the 8-bit index space
+    rect_dsc.bg_color = lv_color_hex(0xCCCCCC); // Target bright pixels (~0xCC grayscale value)
+    rect_dsc.bg_opa = LV_OPA_COVER;
+    
+    // Define an optional border outline for the rectangle
+    rect_dsc.border_color = lv_color_hex(0xFFFFFF); // White outline border (~0xFF grayscale value)
+    rect_dsc.border_width = 2;
+
+    Serial.println("lv_canvas_init_layer");
+    lv_layer_t layer;
+    lv_canvas_init_layer(canvas, &layer);
+    // 6. Execute the geometric vector coordinate draw operation onto the canvas
+    // Draws a centered 64x64 rectangle inside our 128x128 bounding window
+    lv_area_t coords_rect = {32, 32, 32 + 64 - 1, 32 + 64 - 1};
+
+    // Execute the actual universal draw call onto your canvas layer context
+    lv_draw_rect(&layer, &rect_dsc, &coords_rect);
+    // Close and flush the canvas rendering context block back down to canvas_buffer
+    lv_canvas_finish_layer(canvas, &layer);
+
+    Serial.println("lv_refr_now");
+    // Force an internal update pass so changes are immediately rasterized into canvas_buffer
+    lv_refr_now(NULL);
+
+    // 7. Extract the data layers, pack the nibbles, and flash the screen
+    process_and_flush_canvas();
+}
+
+void update_screen2() {
+    // Standard LVGL tick runtime handler execution loops
+    lv_timer_handler();
+}
 
 void update_screen()
 {

@@ -17,6 +17,7 @@ class Touch{
   public:
     Touch(PIO pio,uint sm_offset);
     void begin(); //claim PIO, start DMA
+    void end(); //claim PIO, start DMA
     void update(); //60 Hz state update, toggles ping_pong
     uint32_t get_capacitive_touch(uint8_t index);//low values means button is unpressed, high value means button is pressed
 };

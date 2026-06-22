@@ -48,6 +48,32 @@ void Analog::begin() {
   //adc_run(false); 
 }
 
+void Analog::end() {
+    // 1. Forcefully stop the free-running clock/sequencer
+    adc_run(false);
+    
+    // 2. Clear the round-robin mask so no channels are selected for sequencing
+    adc_set_round_robin(0);
+    
+    // 3. Disable the hardware FIFO and its DMA request generation
+    // This turns off the DREQ signals that drive your ScatterGatherEngine
+    adc_fifo_setup(
+        false,   // Disable writing converted samples to the FIFO
+        false,   // Disable DMA request signals (DREQ)
+        1,       // Threshold (ignored when disabled)
+        false,   // Error bits (ignored when disabled)
+        false    // 8-bit truncation (ignored when disabled)
+    );
+    
+    // 4. Forcefully pop any trailing data out of the hardware register
+    while (adc_fifo_get_level() > 0) {
+        (void)adc_hw->fifo; 
+    }
+    
+    // 5. Clear lingering error flags (Overflow/Underflow bits)
+    adc_hw->fcs |= (ADC_FCS_OVER_BITS | ADC_FCS_UNDER_BITS);
+}
+
 uint16_t Analog::get_sample(uint8_t gpio_pin) const
 {
   uint8_t channel=gpio_pin-ADC_BASE_PIN;

@@ -147,6 +147,7 @@ public:
     IMU(i2c_inst_t* i2c_hardware = i2c0);
     
     void begin();
+    void end();
 
     uint16_t get_fifo_sample_count() const; //number of samples (axes) the imu periphreal reports in its memory
     float get_accel(uint8_t xyz) const; //m/s, xyz: 0=x, 1=y, 2=z

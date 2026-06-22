@@ -74,6 +74,35 @@ void Touch::begin(){
   dma_channel_configure(_dma_chan, &dma_c, _capture_buffer, &_pio->rxf[_sm], 0xFFFFFFFF, true);
 }
 
+void Touch::end() {
+    // 1. CRITICAL STEP: Abort the high-speed DMA ring buffer transfer first
+    // This instantly cuts off active background writes to your _capture_buffer
+    if (_dma_chan >= 0) {
+        dma_channel_abort(_dma_chan);
+        dma_channel_unclaim(_dma_chan);
+        _dma_chan = -1; // Reset to uninitialized state
+    }
+
+    // 2. Turn off and release the PIO logic analyzer listener state machine
+    if (_sm != (uint)-1) {
+        pio_sm_set_enabled(_pio, _sm, false);
+        pio_sm_clear_fifos(_pio, _sm); // Purge any remaining burst samples
+        pio_sm_unclaim(_pio, _sm);
+        _sm = (uint)-1;
+    }
+
+    // 3. Stop the hardware PWM charging clock slice
+    uint slice_num = pwm_gpio_to_slice_num(FIRST_PIN_CAPTOUCH);
+    pwm_set_enabled(slice_num, false);
+
+    // 4. Return all touch and PWM stimulus pins back to a safe, quiet state
+    for (uint8_t pin = FIRST_PIN_CAPTOUCH; pin < (FIRST_PIN_CAPTOUCH + CAPACITIVE_TOUCH_COUNT); pin++) {
+        gpio_init(pin);
+        gpio_set_dir(pin, GPIO_IN); // High-impedance input mode
+        gpio_disable_pulls(pin);    // Ensure internal resistors don't leak current
+    }
+}
+
 void Touch::update()
 {
   //starting at capture_buffer_index, step forward until a transition on the PWM ((capture_buffer[index] ^ capture_buffer[index+1])&0x00000001) is found, where index wraps around CAPACITIVE_TOUCH_RING_BUFFER_SIZE

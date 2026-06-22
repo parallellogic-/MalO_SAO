@@ -7,6 +7,8 @@ Screen::Screen(spi_inst_t* spi_port,uint32_t baud,uint8_t dc_pin) : _spi(spi_por
 
 void Screen::begin() {
 }
+void Screen::end() {
+}
 
 int Screen::getRequiredDescriptorCount(uint64_t frame_id) {
 

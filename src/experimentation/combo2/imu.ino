@@ -8,6 +8,8 @@ IMU::IMU(i2c_inst_t* i2c_hardware) : _i2c(i2c_hardware)  {
 
 void IMU::begin() {
 }
+void IMU::end() {
+}
 
 uint16_t IMU::get_fifo_sample_count() const{
   return _rx_fifo_count;

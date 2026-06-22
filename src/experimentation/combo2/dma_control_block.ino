@@ -70,6 +70,49 @@ void ScatterGatherEngine::begin(bool is_aux) {
         }
     }
 
+void ScatterGatherEngine::end() {
+    // 1. CRITICAL STEP: Kill the control channel first
+    // This stops the engine from launching any new data transfer descriptors
+    if (_ctrl_chan >= 0) {
+        dma_channel_abort(_ctrl_chan);
+    }
+
+    // 2. Abort all dependent data and aux channels to freeze data movement
+    if (_data_chan >= 0) {
+        dma_channel_abort(_data_chan);
+    }
+    if (_aux0_chan >= 0) {
+        dma_channel_abort(_aux0_chan);
+    }
+    if (_aux1_chan >= 0) {
+        dma_channel_abort(_aux1_chan);
+    }
+
+    // 3. Unclaim the channels to completely release them from the Pico SDK hardware allocation tables
+    // This clears any lingering interrupts, DREQ triggers, or error state latch flags
+    if (_ctrl_chan >= 0) {
+        dma_channel_unclaim(_ctrl_chan);
+        _ctrl_chan = -1; // Reset to safe uninitialized state
+    }
+    if (_data_chan >= 0) {
+        dma_channel_unclaim(_data_chan);
+        _data_chan = -1;
+    }
+    if (_aux0_chan >= 0) {
+        dma_channel_unclaim(_aux0_chan);
+        _aux0_chan = -1;
+    }
+    if (_aux1_chan >= 0) {
+        dma_channel_unclaim(_aux1_chan);
+        _aux1_chan = -1;
+    }
+
+    // 4. Clear out the registrant count tracking indices
+    // This ensures that when begin() is called again, your peripherals can safely register clean slates
+    _registrant_count = 0;
+}
+
+
 bool ScatterGatherEngine::registerSource(IMultiDmaTransactionSource* source) {
         if (_registrant_count >= MAX_DMA_CONTROL_REGISTRANTS) return false;
         _registrants[_registrant_count++] = source;
