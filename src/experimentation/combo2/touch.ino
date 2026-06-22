@@ -41,7 +41,7 @@ void Touch::begin(){
   uint slice_num = pwm_gpio_to_slice_num(FIRST_PIN_CAPTOUCH);
   uint channel = pwm_gpio_to_channel(FIRST_PIN_CAPTOUCH);
   
-  // Set the clock divider to scale 150MHz down to 4kHz with a 255 wrap
+  // Set the clock divider to scale 150MHz down to 4kHz with a 255 wrap.  /4.0f makes this 16kHz
   pwm_set_clkdiv(slice_num, 146.484f/4.0f);
 
   pwm_set_wrap(slice_num, 256-1);                 // Set frequency period
@@ -85,13 +85,14 @@ void Touch::update()
   uint32_t latest_capture_buffer_index=(dma_hw->ch[_dma_chan].write_addr - (uint32_t)_capture_buffer)/sizeof(_capture_buffer[0]); //where data is currently being written to, don't try to access beyond this point (ring buffer) - fetch once at start to avoid inifintie while loop
   uint32_t pwm_toggle_count=0;//skip over the first few indexes until the first pwm toggle is found
   uint32_t running_pwm_time=0;//how far into a pwm pulse this is (number of cycles of a 25 Mhz clock)
+  uint32_t rc_decay_prep[CAPACITIVE_TOUCH_COUNT]={};//only flush the readings at the end of a collect on 0->1 pwm transition to avoid shearing of a fractional update at the end of a collect
   while(1)
   {
     _capture_buffer_index=_capture_buffer_index%(sizeof(_capture_buffer)/sizeof(_capture_buffer[0]));//state previous
     uint32_t next_capture_buffer_index=(_capture_buffer_index+1)%(sizeof(_capture_buffer)/sizeof(_capture_buffer[0]));//state current (leas significnat 11 bits) and time between last state and current state (most signficiant 21 bits)
     if(latest_capture_buffer_index==_capture_buffer_index || latest_capture_buffer_index==next_capture_buffer_index) break;//stop when trying to look at area of memory that is currently being written into
     uint32_t xor_pin_state=_capture_buffer[_capture_buffer_index]^_capture_buffer[next_capture_buffer_index];//inspect the pins that changed state
-    
+
     /*uint32_t pin_mask = _capture_buffer[next_capture_buffer_index] & 0x000007FF;
     String bin_str = "";
     for (int i = 10; i >= 0; i--) {
@@ -100,23 +101,32 @@ void Touch::update()
     Serial.printf("curr: %08X, next: %08X, idx: %6d, pins: %s, delay: %d\n",_capture_buffer[_capture_buffer_index],_capture_buffer[next_capture_buffer_index],_capture_buffer_index,bin_str.c_str(),_capture_buffer[next_capture_buffer_index]>>11);*/
 
     bool is_pwm_toggle=xor_pin_state&0x0000'0001;
-    if(is_pwm_toggle)
+    if(is_pwm_toggle && (_capture_buffer[next_capture_buffer_index]&0x0000'0001 || pwm_toggle_count>0))// && a 0->1 pwm transition as the starting point
     {//start of a pwm toggle
-      pwm_toggle_count++;
+      //pwm_toggle_count++;
       running_pwm_time=0;
+      if(_capture_buffer[next_capture_buffer_index]&0x0000'0001)//if 0->1 transition
+      {
+        pwm_toggle_count+=2;//at the 0->1 transition, there have been two toggles
+        for(uint8_t iter=0;iter<CAPACITIVE_TOUCH_COUNT;iter++)
+        {
+          _rc_decay[_is_ping_pong][iter]+=rc_decay_prep[iter];
+          rc_decay_prep[iter]=0;
+        }
+      }
     }else if(pwm_toggle_count>0){//within a pwm pulse
-      running_pwm_time+=(1<<(32-CAPACITIVE_TOUCH_COUNT))-_capture_buffer[next_capture_buffer_index]>>CAPACITIVE_TOUCH_COUNT; //don't forget, the PIO is a cout-down timer, so need to subtract the reading from max value of 1<<21
+      running_pwm_time+=(1<<(32-CAPACITIVE_TOUCH_COUNT)) - (_capture_buffer[next_capture_buffer_index]>>CAPACITIVE_TOUCH_COUNT); //don't forget, the PIO is a cout-down timer, so need to subtract the reading from max value of 1<<21
       for(uint8_t iter=0;iter<CAPACITIVE_TOUCH_COUNT;iter++)
       {
         bool is_toggle=xor_pin_state&0x0000'0001;
-        if(is_toggle) _rc_decay[_is_ping_pong][iter]+=running_pwm_time;//precon: a single-clean toggle occurs within each pwm pulse - assume schmitt-trigger cleans off any de-bouncing issues at the 1+ kHz level
+        if(is_toggle) rc_decay_prep[iter]+=running_pwm_time;//precon: a single-clean toggle occurs within each pwm pulse - assume schmitt-trigger cleans off any de-bouncing issues at the 1+ kHz level
         xor_pin_state=xor_pin_state>>1;//look at the next pin
       }
     }
     _capture_buffer_index++;
   }
   //this is a little dirty where the logic doesn't check if an entire pwm pulse has completed, so may end up taking the sum across 65 or 66 pulses, dpeending on how long it takes for the pin to settle, before dividing by 66.  so this assumes edge effects are negligable (typically looking for a factor of >2x kind of difference, so presumably a few percent jitter is insignficiant)
-  for(uint8_t iter=0;iter<CAPACITIVE_TOUCH_COUNT;iter++) _rc_decay[_is_ping_pong][iter]/=pwm_toggle_count;//take an average, precon: non-zero number of pwm toggles transpaired
+  for(uint8_t iter=0;iter<CAPACITIVE_TOUCH_COUNT;iter++) _rc_decay[_is_ping_pong][iter]/=pwm_toggle_count-2;//take an average, precon: non-zero number of pwm toggles transpaired.  -2 to account for varaible being init'd at 2 on first use
   _is_ping_pong^=1;
 }
 

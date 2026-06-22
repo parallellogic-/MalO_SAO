@@ -13,6 +13,9 @@ extern Charlieplex led_upper;
 extern "C" {
 #endif
 
+extern volatile uint32_t is_core1_halt;
+extern volatile uint32_t frame_id;
+
 // This function runs exclusively on Core 1 and is safe for both C and C++ files
 void malo_core1_entry(void);
 

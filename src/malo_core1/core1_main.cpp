@@ -2,12 +2,18 @@
 #include "pico/multicore.h"
 #include "core1_main.h"
 
-#define LED_CORE1_PIN 38
+#define LED_CORE1_PIN 38 //debug green
 
 Charlieplex led_lower(false);
 Charlieplex led_upper(true);
 
+volatile uint32_t is_core1_halt = 0;
+volatile uint32_t frame_id = 0;
+
 void core1_begin(){
+  is_core1_halt = 0;
+  frame_id = 0;
+
   //Serial.println("Init LEDs...");
   led_upper.begin();
   led_lower.begin();
@@ -17,19 +23,14 @@ void core1_begin(){
 
 // This function runs exclusively on Core 1
 void malo_core1_entry(void) {
-//void __no_inline_not_in_flash_func(malo_core1_entry)(void) {
-    // Initialize GPIO 5
     core1_begin();
     
     gpio_init(LED_CORE1_PIN);
     gpio_set_dir(LED_CORE1_PIN, GPIO_OUT);
 
+    //uint32_t previous_frame_id=0;
     // Infinite blink loop for Core 1
-    while (true) {
-        /*gpio_put(LED_CORE1_PIN, 1);
-        mp_hal_delay_ms(500);//sleep_ms(500);
-        gpio_put(LED_CORE1_PIN, 0);
-        mp_hal_delay_ms(500);*///sleep_ms(500);
+    while (!is_core1_halt) {
         gpio_put(LED_CORE1_PIN, (to_ms_since_boot(get_absolute_time()) % 1000) < 500);
     }
 }
