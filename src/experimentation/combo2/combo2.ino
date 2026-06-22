@@ -194,7 +194,7 @@ void loop() {
   //Serial.print(", ");
   sigma_tracker.process_reading(touch->get_capacitive_touch(1));
   Serial.printf("Cap touch: 0:%10d, 1:%10d, 10:%10d, mean1: %10d, sigma1: %10d\n",touch->get_capacitive_touch(0),touch->get_capacitive_touch(1),touch->get_capacitive_touch(10),sigma_tracker.get_mean(), sigma_tracker.get_std_dev());
-  gpio_put(PIN_DEBUG_G,(max(1274,touch->get_capacitive_touch(1))-1252)/13>3);
+  gpio_put(PIN_DEBUG_G,(max(188,touch->get_capacitive_touch(1))-188)/2>3);
 
 
   uint32_t core1_loop_count=0;//simulate core1 behavior

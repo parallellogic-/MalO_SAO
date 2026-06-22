@@ -10,42 +10,71 @@ PROJECT_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 echo "Starting build process..."
 echo "Project root: $PROJECT_ROOT"
 
-# 3. Clean up the old build directory from the project root baseline
-TARGET_BUILD_DIR="$PROJECT_ROOT/src/build/build-MALO_BOARD"
-rm -rf "$TARGET_BUILD_DIR"
-mkdir -p "$TARGET_BUILD_DIR"
+SKIP_COMPILE=0
+if [ "$1" = "--skip-compile" ]; then
+    SKIP_COMPILE=1
+    echo "Flag detected: Skipping compilation stage. Proceeding directly to deployment."
+fi
 
-# 4. Navigate into the MicroPython port directory (patch to add in lvgl)
-cd "$PROJECT_ROOT/lib/micropython/ports/rp2/" || exit 1
+if [ ! -f "$PROJECT_ROOT/src/build/build-MALO_BOARD/firmware.uf2" ]; then
+	echo "Error: Cannot skip compilation because no existing firmware.uf2 was found at:"
+	echo "$PROJECT_ROOT/src/build/build-MALO_BOARD/firmware.uf2"
+    SKIP_COMPILE=0
+fi
 
-# Initialize missing build dependencies seamlessly without altering tracked code files
-echo "Ensuring MicroPython build submodules are initialized..."
-(cd ../.. && git submodule update --init --recursive)
+# Track whether we can proceed to flash/deploy
+PROCEED_TO_DEPLOY=0
 
-# === INSERTED STEP: Fetch submodules specifically for MALO_BOARD ===
-echo "Initializing target board submodules..."
-make -C . BOARD=MALO_BOARD BOARD_DIR=../../../../src/boards/MALO_BOARD picotool_DIR="$PROJECT_ROOT/lib/picotool/dist" submodules
+if [ $SKIP_COMPILE -eq 0 ]; then
 
-echo "Building mpy-cross companion engine..."
-make -C ../../mpy-cross BUILD="$TARGET_BUILD_DIR/mpy-cross-host"
+	# 3. Clean up the old build directory from the project root baseline
+	TARGET_BUILD_DIR="$PROJECT_ROOT/src/build/build-MALO_BOARD"
+	rm -rf "$TARGET_BUILD_DIR"
+	mkdir -p "$TARGET_BUILD_DIR"
 
-# 5. Clean and run the build with paths relative to the current port directory
-make clean && \
-picotool_DIR="$PROJECT_ROOT/lib/picotool/dist" \
-make -j \
-BOARD=MALO_BOARD \
-BOARD_DIR=../../../../src/boards/MALO_BOARD \
-BUILD=../../../../src/build/build-MALO_BOARD \
-USER_C_MODULES="$PROJECT_ROOT/lib/lv_micropython/user_modules/lv_binding_micropython/bindings.cmake\\;$PROJECT_ROOT/src/malo_core1/micropython.cmake" \
-EXTRA_CMAKE_ARGS="-DPICO_BOARD_CMAKE_DIRS=$PROJECT_ROOT/src/boards/MALO_BOARD -DPICO_BOARD_HEADER_DIRS=$PROJECT_ROOT/src/boards/MALO_BOARD"
-#BOARD=RPI_PICO2 \
-#BOARD_DIR=/mnt/Data/Projects/malo_sao/MalO_SAO/lib/micropython/ports/rp2/boards/RPI_PICO2 \
-#USER_C_MODULES=../../../../src/malo_core1/micropython.cmake \
+	# 4. Navigate into the MicroPython port directory (patch to add in lvgl)
+	cd "$PROJECT_ROOT/lib/micropython/ports/rp2/" || exit 1
 
-BUILD_STATUS=$?
+	# Initialize missing build dependencies seamlessly without altering tracked code files
+	echo "Ensuring MicroPython build submodules are initialized..."
+	(cd ../.. && git submodule update --init --recursive)
+
+	# === INSERTED STEP: Fetch submodules specifically for MALO_BOARD ===
+	echo "Initializing target board submodules..."
+	make -C . BOARD=MALO_BOARD BOARD_DIR=../../../../src/boards/MALO_BOARD picotool_DIR="$PROJECT_ROOT/lib/picotool/dist" submodules
+
+	echo "Building mpy-cross companion engine..."
+	make -C ../../mpy-cross BUILD="$TARGET_BUILD_DIR/mpy-cross-host"
+
+	# 5. Clean and run the build with paths relative to the current port directory
+	make clean && \
+	picotool_DIR="$PROJECT_ROOT/lib/picotool/dist" \
+	make -j \
+	BOARD=MALO_BOARD \
+	BOARD_DIR=../../../../src/boards/MALO_BOARD \
+	BUILD=../../../../src/build/build-MALO_BOARD \
+	USER_C_MODULES="$PROJECT_ROOT/lib/lv_micropython/user_modules/lv_binding_micropython/bindings.cmake\\;$PROJECT_ROOT/src/malo_core1/micropython.cmake" \
+	EXTRA_CMAKE_ARGS="-DPICO_BOARD_CMAKE_DIRS=$PROJECT_ROOT/src/boards/MALO_BOARD -DPICO_BOARD_HEADER_DIRS=$PROJECT_ROOT/src/boards/MALO_BOARD"
+
+	BUILD_STATUS=$?
+	if [ $BUILD_STATUS -eq 0 ]; then
+        	PROCEED_TO_DEPLOY=1
+    	else
+        	echo "Build failed."
+    	fi
+else
+    # Verify the compiled binary actually exists before attempting to flash it
+    if [ -f "$PROJECT_ROOT/src/build/build-MALO_BOARD/firmware.uf2" ]; then
+        PROCEED_TO_DEPLOY=1
+    else
+        echo "Error: Cannot skip compilation because no existing firmware.uf2 was found at:"
+        echo "$PROJECT_ROOT/src/build/build-MALO_BOARD/firmware.uf2"
+    fi
+fi
 
 # 6. Copy the firmware and sync Python files if the build succeeded
-if [ $BUILD_STATUS -eq 0 ]; then
+if [ $PROCEED_TO_DEPLOY -eq 1 ]; then
+#if [ $BUILD_STATUS -eq 0 ]; then
     echo "Searching for RP2350 / Pico bootloader drive..."
     
     # Dynamically locate the mount point (matches RP2350, RP2, RPI-RP2, etc. under /media/ or /run/media/)
