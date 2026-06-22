@@ -6,6 +6,8 @@ target_sources(usermod_malo_module INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/core1_api.c
     ${CMAKE_CURRENT_LIST_DIR}/core1_main.cpp
     ${CMAKE_CURRENT_LIST_DIR}/led.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/screen.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/dma_control_block.cpp
 )
 
 # 3. Handle include track path configurations

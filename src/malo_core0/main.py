@@ -32,6 +32,7 @@ try:
         #time.sleep(0.1)
         #malo.set_charlieplex_led(0,charlie,255);
         #malo.set_charlieplex_led(1,charlie,255);
+        malo.set_frame_id(charlie)
         charlie+=1
         #charlie=charlie%(24*2);
         AnimationFade.set_leds(charlie)

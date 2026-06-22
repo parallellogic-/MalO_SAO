@@ -22,6 +22,8 @@ void malo_core1_entry(void);
 bool set_charlieplex_led(uint8_t bank_index,uint8_t led_index,uint8_t brightness);
 bool set_effective_led_count(uint8_t bank_index,uint8_t led_count);
 bool flush(uint8_t bank_index);
+uint8_t* get_screen_buffer();
+void screen_flush();
 
 #ifdef __cplusplus
 }
