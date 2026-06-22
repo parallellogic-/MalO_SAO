@@ -70,6 +70,25 @@ static mp_obj_t malo_flush(size_t n_args, const mp_obj_t *args) {
 // MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN allows a minimum of 0 and maximum of 1 argument
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(malo_flush_obj, 0, 1, malo_flush);
 
+// ADDED: screen_flush()
+static mp_obj_t malo_screen_flush(void) {
+    // Assuming 'screen' is globally visible via 'core1_main.h'
+    screen_flush(); 
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(malo_screen_flush_obj, malo_screen_flush);
+
+// ADDED: get_screen_buffer() -> Returns raw uint8_t pointer address to Python
+static mp_obj_t malo_get_screen_buffer(void) {
+    // Call your Screen method to fetch the active buffer address
+    uint8_t* ptr = get_screen_buffer();
+    
+    // Cast the C pointer memory address to a MicroPython integer object
+    return mp_obj_new_int_from_uint((uintptr_t)ptr);
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(malo_get_screen_buffer_obj, malo_get_screen_buffer);
+
+
 // 3. Map the Python function name string to the object
 static const mp_rom_map_elem_t malo_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__),                MP_ROM_QSTR(MP_QSTR_malo) },
@@ -79,6 +98,9 @@ static const mp_rom_map_elem_t malo_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_flush),                   MP_ROM_PTR(&malo_flush_obj) },
     { MP_ROM_QSTR(MP_QSTR_set_halt_core1),          MP_ROM_PTR(&malo_set_halt_core1_obj) },
     { MP_ROM_QSTR(MP_QSTR_set_frame_id),             MP_ROM_PTR(&malo_set_frame_id_obj) },
+    { MP_ROM_QSTR(MP_QSTR_screen_flush),            MP_ROM_PTR(&malo_screen_flush_obj) },
+    { MP_ROM_QSTR(MP_QSTR_get_screen_buffer),       MP_ROM_PTR(&malo_get_screen_buffer_obj) },
+
 };
 static MP_DEFINE_CONST_DICT(malo_module_globals, malo_module_globals_table);
 
