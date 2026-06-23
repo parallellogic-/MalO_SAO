@@ -20,10 +20,10 @@ Work in progress render
 
 # User Guide
 
-- [Thonny](https://thonny.org/) editor for hacking Python on Core0
-    - File upload/download, .py file editing and IDE
+- [Arduino IDE](https://www.arduino.cc/en/software/)
+    - [earlephilhower library](https://github.com/earlephilhower/arduino-pico) for RP2350B
+    - [kisvegabor lvgl library](https://github.com/lvgl/lvgl)
 - git clone git@github.com:parallellogic-/MalO_SAO.git
-- git submodule update --init --recursive
 TODO: supporting compiler library installs, Win/Linux...
 
 # Hardware
@@ -86,11 +86,11 @@ TODO: supporting compiler library installs, Win/Linux...
 
 # Software
 
+- Compiled C library
 - Core0
-    - User-configurable Python scripts
     - File system
+    - Graphics
 - Core1
-    - Compiled C library
     - Low-level sensor interfaces
 
 # Features
