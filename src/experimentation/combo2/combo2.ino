@@ -202,7 +202,6 @@ void setup() {
   usb_msc.setCapacity(DISK_SIZE_BYTES / USB_BLOCK_SIZE, USB_BLOCK_SIZE);
   usb_msc.setUnitReady(true);
   usb_msc.begin();
-  
 
   //"Init Terminal..."
   Serial.begin(1'000'000);
@@ -310,21 +309,27 @@ void setup() {
   Serial.printf("DONE setup, boot time (us): %d\n",(time_us_64()-start_us)/1'000'000);
 }
 
+bool is_touch=false;
 uint64_t setup_us=0;
 void loop() {
+  gpio_put(PIN_DEBUG_R,millis()%400<200);
 
-  //flash-usb file system:
-  static uint32_t last_write_time = 0;
-  // Track if cache is dirty and record the timestamp
-  if (cache_is_dirty && last_write_time == 0) {
-    last_write_time = millis();
-  }
-  // If data has been sitting unwritten in our RAM cache for more than 2 seconds,
-  // force a physical hardware flush to the flash chip automatically.
-  if (cache_is_dirty && (millis() - last_write_time > 2000)) {
-    flush_sector_cache();
-    last_write_time = 0; // Reset timer
-    Serial.println("[AUTO-FLUSH] Idle timeout reached. Cache committed to flash!");
+  if(is_touch)
+  {
+    //flash-usb file system:
+    static uint32_t last_write_time = 0;
+    // Track if cache is dirty and record the timestamp
+    if (cache_is_dirty && last_write_time == 0) {
+      last_write_time = millis();
+    }
+    // If data has been sitting unwritten in our RAM cache for more than 2 seconds,
+    // force a physical hardware flush to the flash chip automatically.
+    if (cache_is_dirty && (millis() - last_write_time > 2000)) {
+      flush_sector_cache();
+      last_write_time = 0; // Reset timer
+      Serial.println("[AUTO-FLUSH] Idle timeout reached. Cache committed to flash!");
+    }
+    return;
   }
 
 
@@ -336,7 +341,6 @@ void loop() {
     imu._gyro_accel_reading[1][3+iter]=sin(3.1415*millis()/1000-iter);
   }*/
 
-  gpio_put(PIN_DEBUG_R,millis()%5000<200);
 
   // setup and run next batch
   uint64_t start_us = time_us_64();
@@ -350,7 +354,25 @@ void loop() {
   //Serial.print(", ");
   sigma_tracker.process_reading(touch->get_capacitive_touch(1));
   //Serial.printf("Cap touch: 0:%10d, 1:%10d, 10:%10d, mean1: %10d, sigma1: %10d\n",touch->get_capacitive_touch(0),touch->get_capacitive_touch(1),touch->get_capacitive_touch(10),sigma_tracker.get_mean(), sigma_tracker.get_std_dev());
-  gpio_put(PIN_DEBUG_G,(max(188,touch->get_capacitive_touch(1))-188)/2>3);
+  if((max(188,touch->get_capacitive_touch(1))-188)/2>3 && frame_id>60)
+  {
+    if(!is_touch)
+    {
+      Serial.println("Debug: shut down all...");
+      scatterer_gatherer_engine_general.end();
+      scatterer_gatherer_engine_screen.end();
+      analog.end();
+      imu.end();
+      led_lower.end();
+      led_upper.end();
+      light_sensor.end();
+      screen.end();
+      touch->end();
+      gpio_put(PIN_DEBUG_G,is_touch);
+      is_touch=true;
+      return;
+    }
+  }
 
 
   uint32_t core1_loop_count=0;//simulate core1 behavior
