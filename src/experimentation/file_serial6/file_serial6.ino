@@ -338,13 +338,13 @@ void graphics_init() {
     
     // Choose file: Use "film.cmp" (Row 0, Col 0) or "film2.cmp" (Row 0, Col 0)
     // To grab the first 128x128 pixels of film2.cmp, pass row 0 and column 0.
-    const char* target_file = "film2.cmp"; 
+    const char* target_file = "film4.cmp"; 
     int target_row = 0;
     int target_col = 0;
 
 
     Serial.printf("start_load: %d\n",time_us_64());
-    if (load_sprite_to_lvgl_dsc(target_file, target_row, target_col)) {
+    if (load_sprite_to_lvgl_dsc2(target_file, target_row, target_col)) {
         Serial.printf("end_load: %d\n",time_us_64());
         lv_draw_image_dsc_t img_draw_dsc;
         lv_draw_image_dsc_init(&img_draw_dsc);
@@ -382,7 +382,6 @@ void setup() {
 
   Serial.begin(1000000); 
   long start_tms=millis();
-  while(!Serial && (millis()-start_tms)<7000);
 
 
   usb_msc.setID("RP2350B", "Flash Drive", "1.0");
@@ -392,6 +391,8 @@ void setup() {
   usb_msc.setUnitReady(true);
   
   usb_msc.begin();
+  while(!Serial && (millis()-start_tms)<7000); //messes up usb_msc is before usb_msc.begin
+  //delay(1000);
 
   Serial.println("Init SPI OLED Screen...");
   //temp_spi_chan = dma_claim_unused_channel(true);
@@ -410,7 +411,7 @@ void setup() {
   Serial.println("Init Scatterer Gatherer...");
   scatterer_gatherer_engine_screen.begin(false); //limit to only 2 channels for screen
 
-  delay(1000); // Allow system registers to settle safely
+  //delay(1000); // Allow system registers to settle safely
 
   // Mount the FAT library safely over your custom driver logic
   Serial.println("Mounting FatVolume library framework layer...");
@@ -420,7 +421,7 @@ void setup() {
       Serial.println("SdFat File System successfully initialized!");
   }
 
-  graphics_init(); //PRECON: must be after fat_fs.
+  graphics_init(); //PRECON: must be after fat_fs.begin 
 }
 
 
@@ -532,6 +533,7 @@ bool load_sprite_to_lvgl_dsc(const char* filename, int row, int col) {
     int start_y = row * sprite_h;
 
     // Extract exactly a 128x128 footprint box out of the file
+    Serial.printf("A start: %d\n",time_us_64());
     for (int y = 0; y < 128; y++) {
         uint32_t file_offset = file_header_offset + (((start_y + y) * sheet_pitch) + start_x);
         
@@ -543,6 +545,73 @@ bool load_sprite_to_lvgl_dsc(const char* filename, int row, int col) {
         // Read directly into our dedicated 16KB LVGL image container array
         local_file.read(&lvgl_sprite_buffer[y * 128], 128);
     }
+    Serial.printf("A end: %d\n",time_us_64());
+
+    local_file.close();
+
+    // --- POPULATE STANDARD LVGL V9 IMAGE DESCRIPTOR ---
+    sprite_img_dsc.header.magic = LV_IMAGE_HEADER_MAGIC; 
+    sprite_img_dsc.header.cf = LV_COLOR_FORMAT_L8;       // 8bpp format matrix
+    sprite_img_dsc.header.w = 128;                       // Force bounds to 128px wide
+    sprite_img_dsc.header.h = 128;                       // Force bounds to 128px high
+    sprite_img_dsc.header.stride = 128;                  // Bytes per line inside buffer
+    sprite_img_dsc.data_size = sizeof(lvgl_sprite_buffer);
+    sprite_img_dsc.data = lvgl_sprite_buffer;            // Bind payload data pointer
+
+    return true;
+}
+
+bool load_sprite_to_lvgl_dsc2(const char* filename, int row, int col) {
+    fat_fs.chvol(); 
+    
+    File32 local_file;
+    int retry_count = 0;
+    const int max_retries = 5;
+
+    // GATEWAY RETRY LOOP: Fight USB block collisions safely
+    while (retry_count < max_retries) {
+        local_file = fat_fs.open(filename, O_RDONLY);
+        if (local_file) break; // Success! Break out of the loop
+
+        retry_count++;
+        Serial.print("[RETRY LOG] USB sector contention detected. Retrying open count: ");
+        Serial.println(retry_count);
+        delay(5); // Give the background USB engine 5ms to clear its lock
+    }
+
+    if (!local_file) {
+        Serial.print("SdFat CRITICAL ERROR: File handle refused after maximum retries: ");
+        Serial.println(filename);
+        return false;
+    }
+
+    // Default configuration metrics for film.cmp (12 columns of 128x128 sprites)
+    int sheet_cols = 12;
+
+    // Detect if we are parsing film2.cmp (2 rows and 2 columns of 128x128 sprites)
+    if (strstr(filename, "film2") != nullptr) {
+        sheet_cols = 2; 
+    }
+
+    const uint32_t file_header_offset = 12;        // Verified 12-byte metadata skip
+    const uint32_t sprite_size_bytes = 128 * 128;  // Exactly 16,384 bytes per sprite
+
+    // Calculate sequential sprite index and final file position
+    int sprite_index = (row * sheet_cols) + col;
+    uint32_t file_offset = file_header_offset + (sprite_index * sprite_size_bytes);
+
+    // Extract the entire contiguous 128x128 box in one operation
+    Serial.printf("A start: %d\n", time_us_64());
+    
+    if (!local_file.seek(file_offset)) {
+        local_file.close();
+        return false;
+    }
+    
+    // Massive 16KB burst read directly into the LVGL image container array
+    local_file.read(lvgl_sprite_buffer, sprite_size_bytes);
+    
+    Serial.printf("A end: %d\n", time_us_64());
 
     local_file.close();
 

@@ -1,0 +1,11 @@
+irq claimed by external resource
+%s_base not within gpio_base range
+invalid PIO
+prog not in instruction memory
+invalid StateMachine
+invalid GPIO base
+invalid StateMachine
+StateMachine claimed by external resource
+freq out of range
+unsupported buffer type
+unsupported buffer type

@@ -1,0 +1,9 @@
+no free state machines
+not enough PIO program space
+cannot claim 2 DMA channels
+invalid ws (must be sck+1)
+invalid mode
+invalid bits
+invalid format
+invalid ibuf
+invalid id

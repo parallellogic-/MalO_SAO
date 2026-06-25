@@ -1,0 +1,33 @@
+; =============================================================================
+; Custom PDM2PCM PIO Program for RP2350B
+; =============================================================================
+; Clock: GP15 (Driven externally by PWM)
+; Data:  GP14 (Sampled on falling edge, pull-downs disabled)
+; Math:  X tracks bit density, Y tracks loop iterations (256 times)
+; =============================================================================
+
+.program pdm2pcm
+
+pio_start:
+    ; --- Step 1: Initialize X and Y to 255 (0xFF) ---
+    set x, 0            ; Load 0 into X
+    mov osr, !x         ; Invert X into OSR (OSR = 0xFFFFFFFF)
+    out x, 8            ; Shift 8 ones into X -> X becomes exactly 0x000000FF (255)
+    mov y, x            ; Copy 255 directly into Y loop counter
+
+data_collect:
+    ; --- Step 2: Synchronize with Falling Clock Edge ---
+    wait 1 gpio 15      ; Block until GP15 clock goes HIGH
+    wait 0 gpio 15      ; Block until GP15 clock goes LOW (Falling Edge)
+
+    ; --- Step 3: Branch directly on the GP14 Data Pin state ---
+    jmp pin post_dec    ; If GP14 is 1, bypass decrement and jump straight to post_dec
+    jmp x-- post_dec    ; If GP14 is 0, decrement X by 1, then continue
+
+post_dec:
+    ; --- Step 4: Check loop counter and output to FIFO via Autopush ---
+    jmp y-- data_collect ; Decrement loop counter. If Y != 0, repeat loop
+    
+    in x, 8             ; Shift X byte into ISR. Autopush (threshold 8) fires instantly!
+    jmp pio_start       ; Loop back to the start to process the next audio frame
+

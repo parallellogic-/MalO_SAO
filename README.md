@@ -4,7 +4,7 @@ This page contains the code and design files used to create the SCP-1471-A MalO 
 
 As part of the standard DEFCON experience, each attendee receives a circuit board they wear around their neck that serves both as a multi-day ticket for the conference and as a platform to show off hardware/software hacks.  These MalO SAOs plug into the expansion port on the official conference badge to allow the user to customize their standard DEFCON badge.
 
-Among other things, these MalO units have a screen, LEDs and buttons to allow the user to play games, unlock puzzles, display screen savers, view messages, etc.  The devices can communicate with one another over infrared and Near Field Communication.  The units have a USB port where users can hack them with Python.
+Among other things, these MalO units have a screen, LEDs and buttons to allow the user to play games, unlock puzzles, display screen savers, view messages, etc.  The devices can communicate with one another over infrared and Near Field Communication.  The units have a USB port where users can hack them with the Arduino IDE.
 
 - SCP-1471-A, MalO v1.0.0, Lore
     - [Video](https://www.youtube.com/watch?v=Qe8of66Nkio)

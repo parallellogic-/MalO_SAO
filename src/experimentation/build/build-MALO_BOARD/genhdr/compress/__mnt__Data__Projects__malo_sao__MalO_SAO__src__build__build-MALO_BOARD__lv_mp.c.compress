@@ -1,0 +1,13 @@
+Can't convert %s to %s!
+Referenced object was deleted!
+'user_data' argument must be either a dict or None!
+Expected Struct object!
+Argument is not a struct type!
+Subscript index must be an integer!
+Cannot set field %s on struct %s!
+Cannot convert '%s' to pointer!
+Cannot convert %s to pointer! (buffer does not represent a pointer)
+Cast argument must be a type!
+Subscript index must be an integer!
+Value '%s' must be an integer!
+Value '%s' must be an integer!

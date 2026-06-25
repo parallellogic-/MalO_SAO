@@ -1,0 +1,4 @@
+MP_REGISTER_ROOT_POINTER(void *mp_lv_roots);
+MP_REGISTER_ROOT_POINTER(void *mp_lv_user_data);
+MP_REGISTER_ROOT_POINTER(int mp_lv_roots_initialized);
+MP_REGISTER_ROOT_POINTER(int lvgl_mod_initialized);
