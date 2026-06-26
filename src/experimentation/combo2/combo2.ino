@@ -938,7 +938,8 @@ void graphics_init() {
 
 void update_screen2() {
     // Standard LVGL tick runtime handler execution loops
-    lv_timer_handler();
+    //lv_timer_handler();
+    update_screen();
 }
 
 void update_screen()

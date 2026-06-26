@@ -6,6 +6,8 @@
 // Hardware Pin Configuration
 #define PDM_DATA_PIN 14
 #define PDM_CLK_PIN  15
+#define PIN_DEBUG_R 37
+#define PIN_DEBUG_G 38
 
 // Global Audio DSP Metrics Accumulators
 unsigned long lastReportTime = 0;
@@ -122,10 +124,29 @@ void setup() {
 
   Serial.println("PIO Core active and listening to GP15...");
   lastReportTime = millis();
+
+  //feedback led:
+    // 1. Tell the RP2350 to hand control of this GPIO pin over to the PWM hardware
+  gpio_set_function(PIN_DEBUG_R, GPIO_FUNC_PWM);
+
+  // 2. Find out which native PWM slice and channel map to your chosen GPIO pin
+  slice_num = pwm_gpio_to_slice_num(PIN_DEBUG_R);
+  uint chan = pwm_gpio_to_channel(PIN_DEBUG_R);
+
+  // 3. Set the maximum counter limit (Wrap value) to establish the scale
+  // A value of 999 creates a range from 0 to 999 (1000 total clock cycles)
+  pwm_set_wrap(slice_num, 999);
+
+  // 4. Set the native Duty Cycle level for the channel
+  // 500 out of 999 wraps equates exactly to a 50% duty cycle
+  pwm_set_chan_level(slice_num, chan, 500);
+
+  // 5. Fire up the PWM slice hardware to begin broadcasting the wave
+  pwm_set_enabled(slice_num, true);
 }
 
 void loop() {
-  bool report_now = (millis() - lastReportTime >= 100);
+  bool report_now = (millis() - lastReportTime >= 16);
   uint32_t current_pc = 0;
   
   if (report_now) {
@@ -136,12 +157,14 @@ void loop() {
   while (!pio_sm_is_rx_fifo_empty(pio_hw, pio_sm)) {
     uint32_t fifoValue = pio_sm_get(pio_hw, pio_sm);
     //Serial.printf("%08X\n",fifoValue);
-    uint8_t xByteValue = (uint8_t)(fifoValue & 0xFF);
+    int8_t xByteValue = (uint8_t)(fifoValue & 0xFF);
 
-    int16_t rawSample = (int16_t)(((xByteValue * 65535) / 255) - 32768);
-
-    double filteredSample = rawSample - dcFilterState;
-    dcFilterState = dcFilterState + 0.005 * filteredSample;
+    //int16_t rawSample = (int16_t)(((xByteValue * 65535) / 255) - 32768);
+    xByteValue+=128;
+    //erial.println(xByteValue);
+    dcFilterState=0;
+    double filteredSample = (int16_t)xByteValue;// - dcFilterState;
+    dcFilterState = dcFilterState + 0.0005 * filteredSample;
 
     squaredSum += filteredSample * filteredSample;
     totalSamplesCount++;
@@ -157,6 +180,10 @@ void loop() {
       Serial.print(rms, 2);
       Serial.print(" | Current PIO Instruction: ");
       Serial.println(relative_instruction);
+      
+  uint slice_num = pwm_gpio_to_slice_num(PIN_DEBUG_R);
+  uint chan = pwm_gpio_to_channel(PIN_DEBUG_R);
+  pwm_set_chan_level(slice_num, chan, (uint16_t)(rms*rms*10));
     } else {
       Serial.print("Waiting for clock transitions... | Stuck at PIO Instruction: ");
       Serial.println(relative_instruction);

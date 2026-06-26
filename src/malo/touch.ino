@@ -6,22 +6,29 @@
 //api: at 60 hz, report the "analog" (RC delay constant) reading for each button.  core0 can figure out how to thresehold/schmitt_trigger that
 //actually, expose as an accessor method for one button, and update method (60 hz poll)
 
+#include "touch.h"
 #include "hardware/pio.h"
 #include "hardware/dma.h"
 #include "hardware/pwm.h"
 #include "hardware/clocks.h"
 #include "hardware/regs/sysinfo.h"
 #include "hardware/regs/addressmap.h"
+#include "logic_analyzer.pio.h"
 #include <stdio.h>
 #include "pico/stdlib.h"
+
+// -- class methods --
 
 Touch::Touch(PIO pio){
   _pio=pio;
   //_sm_offset=sm_offset; //_sm_offset = pio_add_program(_pio, &logic_analyzer_program);
 }
 
-void Touch::begin(uint sm_offset){
-  _sm_offset=sm_offset;
+void Touch::begin(){
+  pio_set_gpio_base(_pio, 16);//need to use >pin 32 for this pio
+
+  if(_sm_offset<0) _sm_offset=pio_add_program(pio1, &logic_analyzer_program);
+
   _sm=pio_claim_unused_sm(_pio, true); 
   for(uint8_t pin=FIRST_PIN_CAPTOUCH;pin<(FIRST_PIN_CAPTOUCH+CAPACITIVE_TOUCH_COUNT);pin++)
   {//init the pins
@@ -31,7 +38,7 @@ void Touch::begin(uint sm_offset){
     gpio_disable_pulls(pin);
   }
 
-    // 1. Configure the Pin Mux for PWM Output
+  // 1. Configure the Pin Mux for PWM Output
   gpio_set_function(FIRST_PIN_CAPTOUCH, GPIO_FUNC_PWM);
   
   // 2. Force the input buffer ON so PIO can "see" the pin state
@@ -104,7 +111,7 @@ void Touch::end() {
     }
 }
 
-void Touch::update()
+void Touch::update(uint32_t frame_id)
 {
   //starting at capture_buffer_index, step forward until a transition on the PWM ((capture_buffer[index] ^ capture_buffer[index+1])&0x00000001) is found, where index wraps around CAPACITIVE_TOUCH_RING_BUFFER_SIZE
   //start working from (index+1) as the beginning of a PWM toggle
@@ -158,11 +165,64 @@ void Touch::update()
   //this is a little dirty where the logic doesn't check if an entire pwm pulse has completed, so may end up taking the sum across 65 or 66 pulses, dpeending on how long it takes for the pin to settle, before dividing by 66.  so this assumes edge effects are negligable (typically looking for a factor of >2x kind of difference, so presumably a few percent jitter is insignficiant)
   for(uint8_t iter=0;iter<CAPACITIVE_TOUCH_COUNT;iter++) _rc_decay[_is_ping_pong][iter]/=pwm_toggle_count-2;//take an average, precon: non-zero number of pwm toggles transpaired.  -2 to account for varaible being init'd at 2 on first use
   _is_ping_pong^=1;
+  
+  //now that _rc_decay has been updated with the intantaneous value, also update the _dc_offset accordingly
+  for(uint8_t iter=0;iter<CAPACITIVE_TOUCH_COUNT;iter++)
+  {//update max and min values...
+    uint32_t rc_decay=_rc_decay[!_is_ping_pong][iter]; //read (!_ping_pong) the latest decay, update the dc_offset with that new info
+    uint32_t old_min=_dc_offset[_is_ping_pong_dc][0][iter];//using the write index as a state machine (is_ping_pong)
+    uint32_t old_max=_dc_offset[_is_ping_pong_dc][1][iter];
+    uint32_t new_min=old_min==0?rc_decay:min(rc_decay,old_min);//if the running value started at zero, use the first sample as the base value
+    uint32_t new_max=old_max==0?rc_decay:max(rc_decay,old_max);
+    _dc_offset[_is_ping_pong_dc][0][iter]=new_min;
+    _dc_offset[_is_ping_pong_dc][1][iter]=new_max;
+  }
+  if(frame_id%60==0)
+  {//check if several conditions are met, and if so, update the dc_offset for all pins together (ping_pong update)
+    bool is_valid_swap=true;
+    for(uint8_t iter=1;iter<CAPACITIVE_TOUCH_COUNT;iter++) //0th index is the pwm strobe itself, so ignore that
+    {
+      is_valid_swap&=_dc_offset[_is_ping_pong_dc][0][iter]>=CAPACITIVE_TOUCH_MIN_IDLE_DECAY;
+      is_valid_swap&=_dc_offset[_is_ping_pong_dc][1][iter]<=CAPACITIVE_TOUCH_MAX_IDLE_DECAY;
+      is_valid_swap&=(_dc_offset[_is_ping_pong_dc][1][iter]-_dc_offset[_is_ping_pong_dc][0][iter])<=CAPACITIVE_TOUCH_MAX_IDLE_RANGE; //ensure max-min isn't too wide (indicates user activity somewhere on screen)
+    }
+    if(is_valid_swap) _is_ping_pong_dc^=1;//if all conditions met for an idle state, then update the min/max definition
+    for(uint8_t iter=0;iter<CAPACITIVE_TOUCH_COUNT;iter++)
+    {//clear the opposing pin_pong buffer to restart min/max comutation on next update()
+      _dc_offset[_is_ping_pong_dc][0][iter]=0;
+      _dc_offset[_is_ping_pong_dc][1][iter]=0;
+    }
+  }
+}
+
+//make a hard determiantion of which button is down and assume the rest ofare not
+uint8_t Touch::get_down_button()
+{
+  uint32_t reading=0;
+  uint8_t out_id=0;
+  for(int iter=1;iter<CAPACITIVE_TOUCH_COUNT;iter++)
+  {
+    uint32_t this_reading=get_capacitive_touch(iter);
+    if(this_reading>=sensitivity && (reading==0 || this_reading>reading) )
+    {//if the capacitance is sufficient to equal a finger, and the reading is better than before, consider this the touched button
+      reading=this_reading;//PRECON: assuming varaible dc-offset between buttons, but equal gain once a finger is present, so ignore gain correction here
+      out_id=iter;
+    }
+  }
+  return out_id;
 }
 
 //index 0 is pwm pin, cap touch are indexes 1-10
+//gets "analog" reading of each pin, dc-bias-corrected
 uint32_t Touch::get_capacitive_touch(uint8_t index)
 {
   if(index>CAPACITIVE_TOUCH_COUNT) return 0;
-  return _rc_decay[!_is_ping_pong][index];
+  return max(_rc_decay[!_is_ping_pong][index],_dc_offset[!_is_ping_pong_dc][0][index])-_dc_offset[!_is_ping_pong_dc][0][index];
+}
+
+void Touch::debug()
+{
+  Serial.print("Touch: ");
+  for(int iter=1;iter<11;iter++) Serial.printf("%d=%4d, ",iter,touch.get_capacitive_touch(iter));
+  Serial.printf("down_id: %d\n",touch.get_down_button());
 }
