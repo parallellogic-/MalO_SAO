@@ -2,3 +2,4 @@ pcb/*.eprj2
 pcb/*.eprj_backup
 pcb/MalO_SAO_EasyEDA_backup/
 src/build/build-MALO_BOARD/*/
+src/experimentation/build/build-MALO_BOARD/*/
