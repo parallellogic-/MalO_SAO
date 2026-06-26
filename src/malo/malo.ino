@@ -269,9 +269,16 @@ void loop1(){ //core 1
       uint8_t pressed_id=touch.get_down_button();
       for (int i = 0; i < SSD1327_BUFFER_SIZE; i++) {
           tx_buffer[i]=pressed_id==0?test_image2[i]:pressed_id<5?0x00:0xFF;
+          if(pressed_id==1)
+          {
+            uint8_t val=(i/2)*0x10/(SSD1327_BUFFER_SIZE/2);
+            tx_buffer[i]=val<<4|val;
+            uint8_t row=i/64;
+            uint8_t col=i%64;
+            if(row/8==col/4) tx_buffer[i]=0;
+          }
       }
       screen.flush();
-      //Serial.println((uint32_t)&tx_buffer);
 
 
       scatterer_gatherer_engine_screen.compileAndRun(frame_id0);
