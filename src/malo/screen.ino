@@ -6,6 +6,13 @@ Screen::Screen(spi_inst_t* spi_port,uint32_t baud,uint8_t dc_pin) : _spi(spi_por
 }
 
 void Screen::begin() {
+  spi_init(spi1, SSD1327_SPI1_BAUD);
+  gpio_set_function(SSD1327_SPI1_SCLK, GPIO_FUNC_SPI);
+  gpio_set_function(SSD1327_SPI1_MOSI, GPIO_FUNC_SPI);
+  gpio_set_function(SSD1327_SPI1_CS,   GPIO_FUNC_SPI);
+  gpio_init(SSD1327_SPI1_DC);//is needed for proper screen operation
+  gpio_set_dir(SSD1327_SPI1_DC, GPIO_OUT);
+  gpio_put(SSD1327_SPI1_DC,HIGH);
 }
 void Screen::end() {
 }
@@ -22,9 +29,9 @@ int Screen::getRequiredDescriptorCount(uint64_t frame_id) {
 
 uint8_t Screen::_get_boot_state(uint64_t frame_id) const
 {
-    if(frame_id==13) return 1;//initial boot, need >30ms for screen to boot up stable, otherwise comes up with inverted or offset colors (?).  WAS 7
-    if(frame_id==13*2) return 2;
-    if(frame_id<13*3) return 0;//gap between boot steps.  WAS 14, IS 8
+    if(frame_id==0) return 1;//initial boot, need >30ms for screen to boot up stable, otherwise comes up with inverted or offset colors (?).  WAS 7
+    if(frame_id==1) return 2;
+    if(frame_id<2) return 0;//gap between boot steps.  WAS 14, IS 8
     return 3; //normal operation
 }
 

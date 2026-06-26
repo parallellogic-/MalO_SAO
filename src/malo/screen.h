@@ -31,6 +31,12 @@
 
 #define SSD1327_BUFFER_SIZE 128*128/2
 
+#define SSD1327_SPI1_CS 9 //TODO: move to screen
+#define SSD1327_SPI1_DC 8
+#define SSD1327_SPI1_MOSI 11
+#define SSD1327_SPI1_SCLK 10
+#define SSD1327_SPI1_BAUD 8'000'000
+
 /*typedef struct {
     uint8_t transform;
       //0: transpose/scale: sx*x+tx, sy*y+ty.  args[0], args[1] is tx, ty, args[2],args[3] is sx,sy
@@ -130,7 +136,7 @@ private:
 
     uint8_t _get_boot_state(uint64_t frame_id) const; //detemrine what stage of commands to send we're at
 public:
-    Screen(spi_inst_t* spi_port = spi1, uint32_t baud = 8'000'000, uint8_t dc_pin = 9);
+    Screen(spi_inst_t* spi_port = spi1, uint32_t baud = SSD1327_SPI1_BAUD, uint8_t dc_pin = SSD1327_SPI1_DC);
     
     void begin();
     void end();

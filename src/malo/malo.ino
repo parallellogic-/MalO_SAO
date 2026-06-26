@@ -41,18 +41,13 @@
 #include "universal_serial_bus.h"
 #include "dma_control_block.h"
 #include "screen.h"
+#include "led.h"
 
 
 // -- define --
 
 #define PIN_DEBUG_R 37
 #define PIN_DEBUG_G 38
-
-#define SPI1_CS 9 //TODO: move to screen
-#define SPI1_DC 8
-#define SPI1_MOSI 11
-#define SPI1_SCLK 10
-#define SPI1_BAUD 8'000'000
 
 #define SSD1327_BUFFER_SIZE 128*128/2 //TODO del
 const uint8_t test_image2[SSD1327_BUFFER_SIZE]={ //TODO del
@@ -189,30 +184,47 @@ const uint8_t test_image2[SSD1327_BUFFER_SIZE]={ //TODO del
 // -- objects --
 
 ScatterGatherEngine scatterer_gatherer_engine_screen;
-Screen screen(spi1,SPI1_BAUD,SPI1_DC);
+Screen screen;
 Touch touch(pio1);
+Charlieplex led_lower(0);
+Charlieplex led_upper(1);
+
+// -- debug --
+
+
+void update_led()
+{
+    led_upper.set_max_effective_led_count(CHARLIPLEX_LED_COUNT/2);
+    led_lower.set_max_effective_led_count(CHARLIPLEX_LED_COUNT/2);
+
+    for(uint8_t iter=0;iter<CHARLIPLEX_LED_COUNT;iter++)
+    {
+      //slow fade
+      uint16_t brightness_upper = (-millis()/8)+iter*32; 
+      if(brightness_upper & 0x0100) brightness_upper=255-(uint8_t)brightness_upper;//fade fully off half the time
+      led_upper.set_brightness(iter,(uint8_t)brightness_upper);
+      led_lower.set_brightness(iter,(uint8_t)brightness_upper);
+    }
+    led_upper.flush();
+    led_lower.flush();
+}
 
 
 // -- variables --
 
-
 volatile bool setup0_complete=false;
 void setup() {//core 0
-  delay(200);//allow screen to boot
+  //delay(200);//allow screen to boot
 
   UniversalSerialBus::begin();
   pinMode(PIN_DEBUG_R,OUTPUT);//if unset, then ir rxd/txd will default to putting out pwm signals here to show ir status
   pinMode(PIN_DEBUG_G,OUTPUT);
   
+  led_upper.begin();
+  led_lower.begin();
+
   scatterer_gatherer_engine_screen.begin(false); //limit to only 2 channels for screen
 
-  spi_init(spi1, SPI1_BAUD);
-  gpio_set_function(SPI1_SCLK, GPIO_FUNC_SPI);
-  gpio_set_function(SPI1_MOSI, GPIO_FUNC_SPI);
-  gpio_set_function(SPI1_CS,   GPIO_FUNC_SPI);
-  gpio_init(SPI1_DC);//is needed for proper screen operation
-  gpio_set_dir(SPI1_DC, GPIO_OUT);
-  gpio_put(SPI1_DC,HIGH);
   screen.begin();
   scatterer_gatherer_engine_screen.registerSource(&screen);
 
@@ -265,6 +277,7 @@ void loop1(){ //core 1
   {
     if(!is_core1_shutdown_request)
     {
+      // -- temp debug screen --
       uint8_t* tx_buffer=screen.get_frame_buffer();
       uint8_t pressed_id=touch.get_down_button();
       for (int i = 0; i < SSD1327_BUFFER_SIZE; i++) {
@@ -279,6 +292,9 @@ void loop1(){ //core 1
           }
       }
       screen.flush();
+
+      // -- temp debug led --
+      update_led();
 
 
       scatterer_gatherer_engine_screen.compileAndRun(frame_id0);
