@@ -193,11 +193,8 @@ void Touch::update(uint32_t frame_id)
       _dc_offset[_is_ping_pong_dc][1][iter]=0;
     }
   }
-}
 
-//make a hard determiantion of which button is down and assume the rest ofare not
-uint8_t Touch::get_down_button()
-{
+  //update which button is considered down right now (single-touch support)
   uint32_t reading=0;
   uint8_t out_id=0;
   for(int iter=1;iter<CAPACITIVE_TOUCH_COUNT;iter++)
@@ -209,8 +206,11 @@ uint8_t Touch::get_down_button()
       out_id=iter;
     }
   }
-  return out_id;
+  _button_down=out_id;
 }
+
+//make a hard determiantion of which button is down and assume the rest ofare not
+uint8_t Touch::get_down_button(){ return _button_down; }
 
 //index 0 is pwm pin, cap touch are indexes 1-10
 //gets "analog" reading of each pin, dc-bias-corrected
@@ -223,6 +223,6 @@ uint32_t Touch::get_capacitive_touch(uint8_t index)
 void Touch::debug()
 {
   Serial.print("Touch: ");
-  for(int iter=1;iter<11;iter++) Serial.printf("%d=%4d, ",iter,touch.get_capacitive_touch(iter));
-  Serial.printf("down_id: %d\n",touch.get_down_button());
+  for(int iter=1;iter<11;iter++) Serial.printf("%d=%4d, ",iter,get_capacitive_touch(iter));
+  Serial.printf("down_id: %d\n",get_down_button());
 }

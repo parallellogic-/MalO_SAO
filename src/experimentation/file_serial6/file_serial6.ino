@@ -363,8 +363,6 @@ void graphics_init() {
     }
     //end step c------------------
 
-
-    
     lv_canvas_finish_layer(canvas, &layer);
 
     Serial.println("lv_refr_now");

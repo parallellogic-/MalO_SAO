@@ -20,6 +20,7 @@ class Touch{
     uint _sm;
     inline static int _sm_offset=-1;//only upload the PIO program once
     int _dma_chan;//dma for moving out data from PIO into Flash
+    uint8_t _button_down=0;//which button is currently pressed down, update once in update() so other callers can have quick access
   public:
     Touch(PIO pio);
     uint8_t sensitivity=8;//lower is more sensitive and prone to false alarms - beware setting this in gui may make buttons too hard to press to revert setting...

@@ -145,5 +145,6 @@ void Charlieplex::set_brightness(uint8_t index,uint8_t brightness)
 
 void Charlieplex::set_max_effective_led_count(uint8_t count)
 {//used to calculate the blanking interval at the end of a frame to keep the brightness stable while minimizing flickering
+  count=max(count,1);
   _max_effective_led_count=count;
 }
