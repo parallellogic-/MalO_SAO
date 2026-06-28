@@ -59,28 +59,26 @@ void Graphics::button_read_cb(lv_indev_t * indev, lv_indev_data_t * data) {
 // --- Menu Event Handler ---
 void Graphics::menu_event_cb(lv_event_t * e) {
     lv_event_code_t code = lv_event_get_code(e);
-    lv_obj_t * obj = (lv_obj_t*)lv_event_get_target(e); // Cast added here!
+    lv_obj_t * obj = (lv_obj_t*)lv_event_get_target(e); 
 
     if (code == LV_EVENT_CLICKED) {
-        // Extract the 'this' Graphics instance from the active menu list object
-        //Graphics* instance = (Graphics*)lv_obj_get_user_data(obj);
-        lv_obj_t * parent_list = lv_obj_get_parent(obj);
-        Graphics* instance = (Graphics*)lv_obj_get_user_data(parent_list);
+        // Walk up to the main container to grab the 'this' context pointer
+        lv_obj_t * menu_container = lv_obj_get_parent(obj);
+        Graphics* instance = (Graphics*)lv_obj_get_user_data(menu_container);
         if (!instance) return;
 
-        // Safe usage with LVGL v9 string-fetching methods
-//        const char * text = lv_list_get_button_text(instance->_menu_list, obj);
-//        Serial.printf("Menu Option Clicked: %s\n", text);
+        // Fetch text directly from the label widget safely
+        const char * text = lv_label_get_text(obj);
+        // Serial.printf("Label Menu Option Clicked: %s\n", text);
 
-        // Use 'instance->' to route to your state machines
-        // instance->initialize_level_subsystem(1);
+        // Map text selection to your application states
+        // if(strcmp(text, "Animations") == 0) instance->run_animations();
     }
 }
 
 void Graphics::begin(SensorSuite &sensor_suite)
 {
-  _sensor_suite=&sensor_suite;
-
+    _sensor_suite = &sensor_suite;
     lv_init();
 
     // Create and configure the LVGL display
@@ -88,6 +86,7 @@ void Graphics::begin(SensorSuite &sensor_suite)
     lv_display_set_buffers(disp, _canvas_buffer, NULL, sizeof(_canvas_buffer), LV_DISPLAY_RENDER_MODE_PARTIAL);
     lv_display_set_user_data(disp, this); 
     lv_display_set_flush_cb(disp, display_flush_cb);
+    
     lv_obj_set_style_bg_color(lv_screen_active(), lv_color_black(), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(lv_screen_active(), LV_OPA_COVER, LV_PART_MAIN);
 
@@ -97,75 +96,75 @@ void Graphics::begin(SensorSuite &sensor_suite)
     lv_indev_set_user_data(indev, this);
     lv_indev_set_read_cb(indev, button_read_cb);
 
-    // Create an input group for keyboard navigation
     lv_group_t * g = lv_group_create();
     lv_group_set_default(g);
     lv_indev_set_group(indev, g);
 
-    // -- debug application specific parts --
+    // ==========================================
+    // FIXED CORNERSTONE STATIC STYLE CONTAINERS
+    // ==========================================
+    static lv_style_t style_menu_item_main;
+    lv_style_init(&style_menu_item_main);
+    lv_style_set_bg_opa(&style_menu_item_main, LV_OPA_TRANSP); // No state parameter here
+    lv_style_set_text_color(&style_menu_item_main, lv_color_white());
+    lv_style_set_pad_ver(&style_menu_item_main, 4);
+    lv_style_set_pad_hor(&style_menu_item_main, 6);
+    
+    static lv_style_t style_menu_item_focused;
+    lv_style_init(&style_menu_item_focused);
+    lv_style_set_bg_opa(&style_menu_item_focused, LV_OPA_COVER);
+    lv_style_set_bg_color(&style_menu_item_focused, lv_color_white());
+    lv_style_set_text_color(&style_menu_item_focused, lv_color_black());
 
-
-    static lv_style_t style_menu_item;
-    lv_style_init(&style_menu_item);
-    lv_style_set_bg_color(&style_menu_item, lv_color_black());
-    lv_style_set_text_color(&style_menu_item, lv_color_white());
-    lv_style_set_border_width(&style_menu_item, 0);
-    lv_style_set_pad_all(&style_menu_item, 0);
-
-    // --- UI Layout: Three-Option Menu ---
-    _menu_list = lv_list_create(lv_screen_active());
+    // ==========================================
+    // ULTRA-LIGHT OBJECT CREATION
+    // ==========================================
+    _menu_list = lv_obj_create(lv_screen_active());
+    lv_obj_set_user_data(_menu_list, this); 
     lv_obj_set_size(_menu_list, 128, 128);
-    lv_obj_add_style(_menu_list, &style_menu_item, LV_PART_MAIN); // Reused pointer!
-//    lv_obj_center(_menu_list);
+    lv_obj_set_flex_flow(_menu_list, LV_FLEX_FLOW_COLUMN);
+    
+    lv_obj_set_style_bg_color(_menu_list, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(_menu_list, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(_menu_list, 0, LV_PART_MAIN);
 
-    // FIX 2: Turn the list container body completely black and strip default styling
-    //lv_obj_set_style_bg_color(_menu_list, lv_color_black(), LV_PART_MAIN);
-    //lv_obj_set_style_border_width(_menu_list, 0, LV_PART_MAIN);      // Remove default border
-    //lv_obj_set_style_pad_all(_menu_list, 0, LV_PART_MAIN);          // Remove padding gaps
-    //lv_obj_set_style_shadow_width(_menu_list, 0, LV_PART_MAIN);     // Strip hidden shadow blooms
+    // --- Create Menu Item 1 ---
+    lv_obj_t * lbl1 = lv_label_create(_menu_list);
+    lv_label_set_text(lbl1, "Animations");
+    lv_obj_set_width(lbl1, LV_PCT(100));
+    
+    // Fixed type safety compilation error: Add flags independently
+    lv_obj_add_flag(lbl1, LV_OBJ_FLAG_CLICKABLE); 
+    lv_obj_add_flag(lbl1, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+    
+    // Bind main style for default view, and bind focus style exclusively for LV_STATE_FOCUSED
+    lv_obj_add_style(lbl1, &style_menu_item_main, LV_STATE_DEFAULT);
+    lv_obj_add_style(lbl1, &style_menu_item_focused, LV_STATE_FOCUSED);
+    
+    lv_obj_add_event_cb(lbl1, menu_event_cb, LV_EVENT_CLICKED, NULL);
+    lv_group_add_obj(g, lbl1);
 
-    // Add list items and associate them with the event handler
-    lv_obj_t * btn1 = lv_list_add_button(_menu_list, NULL, "Animations");
-    lv_obj_add_event_cb(btn1, menu_event_cb, LV_EVENT_CLICKED, NULL);
-    //lv_obj_set_user_data(btn1, this); // Binds "this" instance for menu clicks
-    lv_group_add_obj(g, btn1); // Add to navigation group
-    lv_obj_add_style(btn1, &style_menu_item, LV_PART_MAIN);
+    // --- Create Menu Item 2 ---
+    lv_obj_t * lbl2 = lv_label_create(_menu_list);
+    lv_label_set_text(lbl2, "Messages");
+    lv_obj_set_width(lbl2, LV_PCT(100));
+    lv_obj_add_flag(lbl2, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(lbl2, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+    lv_obj_add_style(lbl2, &style_menu_item_main, LV_STATE_DEFAULT);
+    lv_obj_add_style(lbl2, &style_menu_item_focused, LV_STATE_FOCUSED);
+    lv_obj_add_event_cb(lbl2, menu_event_cb, LV_EVENT_CLICKED, NULL);
+    lv_group_add_obj(g, lbl2);
 
-    lv_obj_t * btn2 = lv_list_add_button(_menu_list, NULL, "Messages");
-    lv_obj_add_event_cb(btn2, menu_event_cb, LV_EVENT_CLICKED, NULL);
-    //lv_obj_set_user_data(btn2, this); // Binds "this" instance for menu clicks
-    lv_group_add_obj(g, btn2);
-    lv_obj_add_style(btn2, &style_menu_item, LV_PART_MAIN);
-
-    lv_obj_t * btn3 = lv_list_add_button(_menu_list, NULL, "Settings");
-    lv_obj_add_event_cb(btn3, menu_event_cb, LV_EVENT_CLICKED, NULL);
-    //lv_obj_set_user_data(btn3, this); // Binds "this" instance for menu clicks
-    lv_group_add_obj(g, btn3);
-    lv_obj_add_style(btn3, &style_menu_item, LV_PART_MAIN);
-
-    /*uint32_t child_count = lv_obj_get_child_count(_menu_list);
-    for(uint32_t i = 0; i < child_count; i++) {
-        lv_obj_t * child = lv_obj_get_child(_menu_list, i);
-        
-        // 1. Set Button Background to Black (Default state)
-        lv_obj_set_style_bg_color(child, lv_color_black(), LV_STATE_DEFAULT); //sets inactive buttons to black background
-        
-        // 2. Set Text & Symbol colors to White (Default state)
-        lv_obj_set_style_text_color(child, lv_color_white(), LV_STATE_DEFAULT);
-        //lv_obj_set_style_image_recolor(child, lv_color_black(), LV_STATE_DEFAULT); // Icons/Symbols
-        //lv_obj_set_style_image_recolor_opa(child, LV_OPA_COVER, LV_STATE_DEFAULT);
-
-        // 3. Define Focus State: What happens when the button is highlighted/focused?
-        // Let's make the focused item invert back (White background, Black text) so it stands out.
-        //lv_obj_set_style_bg_color(child, lv_color_black(), LV_STATE_FOCUS_KEY);
-        //lv_obj_set_style_text_color(child, lv_color_white(), LV_STATE_FOCUS_KEY);
-        //lv_obj_set_style_image_recolor(child, lv_color_black(), LV_STATE_FOCUS_KEY);
-        
-        // Ensure standard keypad focus matches the focus style rules
-        //lv_obj_set_style_bg_color(child, lv_color_black(), LV_STATE_FOCUSED);
-        //lv_obj_set_style_text_color(child, lv_color_white(), LV_STATE_FOCUSED);
-        //lv_obj_set_style_image_recolor(child, lv_color_black(), LV_STATE_FOCUSED);
-    }*/
+    // --- Create Menu Item 3 ---
+    lv_obj_t * lbl3 = lv_label_create(_menu_list);
+    lv_label_set_text(lbl3, "Settings");
+    lv_obj_set_width(lbl3, LV_PCT(100));
+    lv_obj_add_flag(lbl3, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(lbl3, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+    lv_obj_add_style(lbl3, &style_menu_item_main, LV_STATE_DEFAULT);
+    lv_obj_add_style(lbl3, &style_menu_item_focused, LV_STATE_FOCUSED);
+    lv_obj_add_event_cb(lbl3, menu_event_cb, LV_EVENT_CLICKED, NULL);
+    lv_group_add_obj(g, lbl3);
 }
 
 
