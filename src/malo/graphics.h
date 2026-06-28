@@ -17,6 +17,7 @@ class Graphics{
 //    MenuState _previous_state = MenuState::MAIN_MENU;
     SensorSuite* _sensor_suite = nullptr;
     uint32_t _last_update_ms=0;
+    uint8_t _last_raw_button=0;
 
     // Core Layout Pointers
     lv_obj_t* _main_canvas = nullptr;

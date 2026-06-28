@@ -16,47 +16,53 @@ void Graphics::display_flush_cb(lv_display_t * disp, const lv_area_t * area, uin
 
 // --- Custom LVGL Input Device Driver ---
 void Graphics::button_read_cb(lv_indev_t * indev, lv_indev_data_t * data) {
-  Graphics* instance = (Graphics*)lv_indev_get_user_data(indev);
-  if (!instance || !instance->_sensor_suite) return;
+    Graphics* instance = (Graphics*)lv_indev_get_user_data(indev);
+    if (!instance || !instance->_sensor_suite) return;
 
-  uint8_t down_button=instance->_sensor_suite->touch.get_down_button();
-  //Serial.printf("\nButton: %d\n\n",down_button);
-    if (down_button==1) {
-        data->key = LV_KEY_NEXT;
-        data->state = LV_INDEV_STATE_PRESSED;
-    } else if (down_button==2) {
-        data->key = LV_KEY_ESC;
-        data->state = LV_INDEV_STATE_PRESSED;
-    } else if (down_button==3) {
-        data->key = LV_KEY_ESC;
-        data->state = LV_INDEV_STATE_PRESSED;
-    } else if (down_button==4) {
-        data->key = LV_KEY_ENTER;
-        data->state = LV_INDEV_STATE_PRESSED;
-    } else if (down_button==5) {
-        data->key = LV_KEY_PREV;
-        data->state = LV_INDEV_STATE_PRESSED;
-    } else if (down_button==6) {
-        data->key = LV_KEY_UP;
-        data->state = LV_INDEV_STATE_PRESSED;
-    } else if (down_button==7) {
-        data->key = LV_KEY_NEXT;
-        data->state = LV_INDEV_STATE_PRESSED;
-    } else if (down_button==8) {
-        data->key = LV_KEY_LEFT;
-        data->state = LV_INDEV_STATE_PRESSED;
-    } else if (down_button==9) {
-        data->key = LV_KEY_DOWN;
-        data->state = LV_INDEV_STATE_PRESSED;
-    } else if (down_button==10) {
-        data->key = LV_KEY_RIGHT;
-        data->state = LV_INDEV_STATE_PRESSED;
-    } else {
+    // Fetch the raw hardware button code
+    uint8_t current_button = instance->_sensor_suite->touch.get_down_button();
+
+    if (current_button == 0) {
+        // Clear tracking state memory when no physical button is pressed
+        instance->_last_raw_button = 0; 
         data->state = LV_INDEV_STATE_RELEASED;
+        return;
     }
-    if(!data->state==LV_INDEV_STATE_RELEASED)
-        lv_obj_invalidate(lv_screen_active());
+
+    // The hardware detects a button press
+    data->state = LV_INDEV_STATE_PRESSED;
+
+    // =================================================================
+    // NATIVE ENHANCEMENT: Lock key assignments to the initial transition frame
+    // =================================================================
+    if (current_button == instance->_last_raw_button) {
+        // The button is still being held down. We leave data->key completely untouched 
+        // on this frame. This allows LVGL's native state machine to calculate long presses
+        // and repeat intervals cleanly without breaking menu scrolling animations.
+        return; 
+    }
+
+    // Capture the button ID to lock out subsequent frames
+    instance->_last_raw_button = current_button;
+
+    // This block only runs ONCE per physical button press event
+    switch (current_button) {
+        case 1:  data->key = LV_KEY_NEXT;  break;
+        case 2:  data->key = LV_KEY_ESC;   break;
+        case 3:  data->key = LV_KEY_ESC;   break;
+        case 4:  data->key = LV_KEY_ENTER; break;
+        case 5:  data->key = LV_KEY_PREV;  break;
+        case 6:  data->key = LV_KEY_PREV;  break; 
+        case 7:  data->key = LV_KEY_NEXT;  break;
+        case 8:  data->key = LV_KEY_LEFT;  break;
+        case 9:  data->key = LV_KEY_NEXT;  break; 
+        case 10: data->key = LV_KEY_RIGHT; break;
+        default: break;
+    }
+    
+    lv_obj_invalidate(lv_screen_active());//work-around for sticky menu that shows selected option at the top of the screen
 }
+
 
 // --- Menu Event Handler ---
 void Graphics::menu_event_cb(lv_event_t * e) {
@@ -170,12 +176,10 @@ void Graphics::begin(SensorSuite &sensor_suite)
 
     // --- Instantiate the menu architecture natively ---
     CREATE_MENU_ITEM(lbl1, "Animations");
-    CREATE_MENU_ITEM(lbl2, "Messages");
-    CREATE_MENU_ITEM(lbl3, "Settings");
-    CREATE_MENU_ITEM(lbl4, "Settings2");
-    CREATE_MENU_ITEM(lbl5, "Settings3");
-    CREATE_MENU_ITEM(lbl6, "Settings4");
-    CREATE_MENU_ITEM(lbl7, "Settings5");
+    CREATE_MENU_ITEM(lbl2, "Levels");
+    CREATE_MENU_ITEM(lbl3, "Messages");
+    CREATE_MENU_ITEM(lbl4, "Achievements");
+    CREATE_MENU_ITEM(lbl5, "Settings");
 
     #undef CREATE_MENU_ITEM
 }

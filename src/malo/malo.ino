@@ -84,29 +84,17 @@ volatile uint32_t frame_id0=0xFFFFFFFF;
 uint64_t frame_us=0;
 volatile bool setup0_complete=false;
 void setup() {//core 0
-  //delay(200);//allow screen to boot
   UniversalSerialBus::begin();
-  //delay(1);
-delay(1);//resolves intermittent multi-core lock-up (bad laoding on crystal during bootup?)
   pinMode(PIN_DEBUG_R,OUTPUT);//if unset, then ir rxd/txd will default to putting out pwm signals here to show ir status
   pinMode(PIN_DEBUG_G,OUTPUT);
-delay(1);
-  sensor_suite.scatterer_gatherer_engine_screen.begin(false); //limit to only 2 channels for screen
-delay(1);
-  sensor_suite.screen.begin();
-delay(1);
-  sensor_suite.scatterer_gatherer_engine_screen.registerSource(&sensor_suite.screen);
-delay(1);
-  sensor_suite.scatterer_gatherer_engine_screen.registerSource(&sensor_suite.scatterer_gatherer_engine_screen);//register self to perform end-of-cycle completion check
-delay(1);
-  sensor_suite.led_upper.begin();
-delay(1);
-  sensor_suite.led_lower.begin();
-delay(1);
-  sensor_suite.touch.begin();
-delay(1);
   sensor_suite.graphics.begin(sensor_suite); //beware lvgl interaction with USB mass storage mode (?) also with touch (?)
-  delay(1);
+  sensor_suite.scatterer_gatherer_engine_screen.begin(false); //limit to only 2 channels for screen
+  sensor_suite.screen.begin();
+  sensor_suite.scatterer_gatherer_engine_screen.registerSource(&sensor_suite.screen);
+  sensor_suite.scatterer_gatherer_engine_screen.registerSource(&sensor_suite.scatterer_gatherer_engine_screen);//register self to perform end-of-cycle completion check
+  sensor_suite.led_upper.begin();
+  sensor_suite.led_lower.begin();
+  sensor_suite.touch.begin();
   setup0_complete=true;
   //Serial.println("SETUP0 DONE");
   frame_us=time_us_64();
@@ -118,7 +106,7 @@ void loop() { //core 0
   digitalWrite(PIN_DEBUG_R,millis()%200>=100);
   //Serial.printf("core0 loop done: %d\n",sensor_suite.frame_id0);
   //while(time_us_64()-frame_us<16666) yield();
-  busy_wait_until(frame_us+16666);
+  busy_wait_until(frame_us+16666);//target 60 FPS, but allow clean recovery if something runs long
   frame_us=time_us_64();
   sensor_suite.frame_id++;
   frame_id0=sensor_suite.frame_id;
