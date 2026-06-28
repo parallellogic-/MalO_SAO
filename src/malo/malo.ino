@@ -89,7 +89,7 @@ void setup() {//core 0
   pinMode(PIN_DEBUG_R,OUTPUT);//if unset, then ir rxd/txd will default to putting out pwm signals here to show ir status
   pinMode(PIN_DEBUG_G,OUTPUT);
   
-  sensor_suite.graphics.begin(); //beware lvgl interaction with USB mass storage mode (?)
+  sensor_suite.graphics.begin(sensor_suite); //beware lvgl interaction with USB mass storage mode (?)
 
   sensor_suite.led_upper.begin();
   sensor_suite.led_lower.begin();
@@ -124,7 +124,7 @@ void loop() { //core 0
   bool is_mounted=UniversalSerialBus::get_mounted();
   if(!is_mounted)
   {
-    sensor_suite.graphics.update(sensor_suite);
+    sensor_suite.graphics.update();
   }
   uint64_t end_us=time_us_64();
   Serial.printf("core0 runtime us: %d, %.2f%%\n",(uint32_t)(end_us-frame_us),(float)(end_us-frame_us)/166.6);
@@ -137,7 +137,7 @@ void setup1(){ //core 1
 void loop1(){ //core 1
   //digitalWrite(PIN_DEBUG_G,millis()%200<100);
 
-  Serial.printf("core1 loop done: %d\n",sensor_suite.frame_id1);
+  Serial.printf("core1 loop done: %d, %d\n",sensor_suite.frame_id1,sensor_suite.touch.get_down_button());
 
   while(sensor_suite.frame_id0==sensor_suite.frame_id1) tight_loop_contents();
   sensor_suite.frame_id1=sensor_suite.frame_id0;

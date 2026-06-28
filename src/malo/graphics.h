@@ -15,7 +15,8 @@ class Graphics{
   private:
 //    MenuState _current_state = MenuState::MAIN_MENU;
 //    MenuState _previous_state = MenuState::MAIN_MENU;
-    
+    SensorSuite* _sensor_suite = nullptr;
+
     // Core Layout Pointers
     lv_obj_t* _main_canvas = nullptr;
     lv_obj_t* _title_bar = nullptr;
@@ -50,28 +51,13 @@ class Graphics{
     lv_draw_buf_t _custom_canvas_draw_handle;
 
     // Internal Utility Implementations
-    void build_base_ui_frame();
-    void draw_title_bar(SensorSuite& sensors);
-    void build_tos_screen();
-    void build_menu_tree(const char* options[], uint8_t count);
-    void handle_menu_navigation(uint8_t key);
-    void handle_name_anim_input(uint8_t key, SensorSuite& sensors);
-    void process_achievement_queue();
-    void initialize_level_subsystem(uint8_t level_id);
-    void lvgl2spi(Screen &screen);
+    static void display_flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map);
+    static void button_read_cb(lv_indev_t * indev, lv_indev_data_t * data);
+    static void menu_event_cb(lv_event_t * e);
+    void lvgl2spi(uint8_t* src,Screen &screen);
   public:
     Graphics();
-    void begin();
-    void update(SensorSuite &sensor_suite);
+    void begin(SensorSuite &sensor_suite);
+    void update();
     void end();
-
-    void trigger_achievement_overlay(uint8_t achievement_id);
-    void save_state_to_disk(SensorSuite& sensors);
-    void provision_default_save(SensorSuite& sensors);
-
-
-    //debug:
-    void update_menu_focus_states();
-    void handle_tactile_menu_input(uint8_t key_pressed);
-    void create_interactive_menu(const char* options[], uint8_t count);
 };
