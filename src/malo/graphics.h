@@ -23,6 +23,8 @@ class Graphics{
     lv_obj_t* _menu_list = nullptr;
     lv_obj_t* _overlay_panel = nullptr;
 
+    lv_display_t* _dummy_disp = nullptr;//debug
+
     // Title Bar Metrics labels
     lv_obj_t* _lbl_battery = nullptr;
     lv_obj_t* _lbl_unlocks = nullptr;
@@ -66,4 +68,10 @@ class Graphics{
     void trigger_achievement_overlay(uint8_t achievement_id);
     void save_state_to_disk(SensorSuite& sensors);
     void provision_default_save(SensorSuite& sensors);
+
+
+    //debug:
+    void update_menu_focus_states();
+    void handle_tactile_menu_input(uint8_t key_pressed);
+    void create_interactive_menu(const char* options[], uint8_t count);
 };

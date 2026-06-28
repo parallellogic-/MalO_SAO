@@ -10,17 +10,27 @@ static void dummy_display_flush_cb(lv_display_t* disp, const lv_area_t* area, ui
     lv_display_flush_ready(disp);
 }
 
+//temp debug menu concept
+#define MAX_MENU_ITEMS 6
+lv_obj_t* menu_buttons[MAX_MENU_ITEMS];
+uint8_t current_menu_item_count = 0;
+const char* main_menu_options[] = {"Animations", "Levels", "Messages", "Achievements", "Settings"};
+//lv_obj_t* _menu_list = nullptr;
+//int8_t _selected_menu_idx = 0;
+
 void Graphics::begin()
 {
     lv_init();
 
     // Register internal virtual operational pipeline
-    lv_display_t* dummy_disp = lv_display_create(SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX);
-    lv_display_set_color_format(dummy_disp, LV_COLOR_FORMAT_L8);
-    lv_display_set_flush_cb(dummy_disp, dummy_display_flush_cb);
+    _dummy_disp = lv_display_create(SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX);
+    lv_display_set_color_format(_dummy_disp, LV_COLOR_FORMAT_L8);
+    lv_display_set_flush_cb(_dummy_disp, dummy_display_flush_cb);
 
     // Build raw custom context mapping allocations
     _main_canvas = lv_canvas_create(lv_screen_active());
+    lv_obj_set_size(_main_canvas, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX);
+    lv_obj_align(_main_canvas, LV_ALIGN_CENTER, 0, 0);
     lv_draw_buf_init(
         &_custom_canvas_draw_handle, 
         SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX, 
@@ -36,7 +46,98 @@ void Graphics::begin()
     // Provision base UI segments
     build_base_ui_frame();
 
+    //debug:
+    create_interactive_menu(main_menu_options, 5);
 }
+
+/**
+ * Generates an interactive, zero-overhead scrollable list widget inside the canvas viewport
+ */
+void Graphics::create_interactive_menu(const char* options[], uint8_t count) {
+    // 1. Safety check to protect physical bounds array tracking
+    if (count > MAX_MENU_ITEMS) count = MAX_MENU_ITEMS;
+    current_menu_item_count = count;
+
+    // 2. Wipe clean any stale old menu widgets to prevent memory leaks
+    if (_menu_list != nullptr) {
+        lv_obj_delete(_menu_list);
+        _menu_list = nullptr;
+    }
+
+    // 3. Instantiate a native LVGL list container on the active screen
+    // It will automatically align and overlay above your underlying canvas layer layout
+    _menu_list = lv_list_create(lv_screen_active());//lv_list_create(lv_screen_active());
+    
+    // Size it to take up the full screen real estate minus your 16px title bar
+    lv_obj_set_size(_menu_list, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX - 16);
+    lv_obj_align(_menu_list, LV_ALIGN_BOTTOM_MID, 0, 0);
+    
+    // Remove default padding/borders to save performance cycles during raster shifts
+    lv_obj_set_style_pad_all(_menu_list, 0, LV_PART_MAIN);
+    lv_obj_set_style_border_width(_menu_list, 0, LV_PART_MAIN);
+
+    // 4. Populate options iteratively out of your pre-canned array structures
+    for (uint8_t i = 0; i < count; i++) {
+        // Create an optimized list button container element
+        // (Pass NULL for icons to keep drawing processing ultra-lean)
+        menu_buttons[i] = lv_list_add_button(_menu_list, NULL, options[i]);
+        
+        // Tag each item button with its respective index tracker identifier
+        lv_obj_set_user_data(menu_buttons[i], (void*)(uintptr_t)i);
+        
+        // Clean out extra click delay metrics to maximize button state transitions
+        lv_obj_set_style_bg_opa(menu_buttons[i], LV_OPA_COVER, LV_PART_MAIN);
+        lv_obj_set_style_bg_color(menu_buttons[i], lv_color_hex(0x222222), LV_PART_MAIN); // Idle background
+        lv_obj_set_style_text_color(menu_buttons[i], lv_color_hex(0xCCCCCC), LV_PART_MAIN); // Idle text
+        
+        // Define a clear style structure for when a button becomes focused/highlighted
+        lv_obj_set_style_bg_color(menu_buttons[i], lv_color_hex(0xCCCCCC), LV_STATE_FOCUSED);
+        lv_obj_set_style_text_color(menu_buttons[i], lv_color_hex(0x000000), LV_STATE_FOCUSED);
+    }
+    
+    // Default our navigation system to snap focus to the very first item index slot
+    if (count > 0) {
+        lv_obj_add_state(menu_buttons[0], LV_STATE_FOCUSED);
+        _selected_menu_idx = 0;
+    }
+}
+void Graphics::handle_tactile_menu_input(uint8_t key_pressed) {
+    if (current_menu_item_count == 0 || _menu_list == nullptr) return;
+
+    // Use your specific button map: 6 is 'UP', 9 is 'DOWN', 4 is 'YES'
+    if (key_pressed == 9) { // DOWN Arrow pressed
+        // Step forward and loop index boundary safely
+        _selected_menu_idx = (_selected_menu_idx + 1) % current_menu_item_count;
+        update_menu_focus_states();
+    } 
+    else if (key_pressed == 6) { // UP Arrow pressed
+        // Step backward and loop index boundary safely
+        _selected_menu_idx = (_selected_menu_idx - 1 + current_menu_item_count) % current_menu_item_count;
+        update_menu_focus_states();
+    } 
+    else if (key_pressed == 4) { // YES Button pressed -> EXECUTE ACTION
+        Serial.printf("Menu Option Confirmed! Selected Index: %d\n", _selected_menu_idx);
+        
+        // Use this index tracker to clean your workspace and route your state engine cleanly
+        // Example: if (_selected_menu_idx == 0) transition_to_animations();
+    }
+}
+/**
+ * Updates focus highlights across widgets and handles off-screen list scrolling automatically
+ */
+void Graphics::update_menu_focus_states() {
+    for (uint8_t i = 0; i < current_menu_item_count; i++) {
+        if (i == _selected_menu_idx) {
+            lv_obj_add_state(menu_buttons[i], LV_STATE_FOCUSED);
+            
+            // AUTOMATIC SCROLLING: Forces LVGL to bring hidden options into view
+            lv_obj_scroll_to_view(menu_buttons[i], LV_ANIM_OFF); 
+        } else {
+            lv_obj_remove_state(menu_buttons[i], LV_STATE_FOCUSED);
+        }
+    }
+}
+
 
 void Graphics::update(SensorSuite &sensor_suite)
 {
@@ -46,13 +147,20 @@ void Graphics::update(SensorSuite &sensor_suite)
     //Serial.println("lv_canvas_fill_bg");
     // 4. Fill the background of the canvas with a baseline color value (e.g., 0x30)
     //lv_canvas_fill_bg(_main_canvas, lv_color_hex(0x333333), LV_OPA_COVER); //1200 us
-    memset(_canvas_buffer, 0x00, sizeof(_canvas_buffer)); //<200 us
+    memset(_canvas_buffer, 0x88, sizeof(_canvas_buffer)); //<200 us
 
 
+
+uint8_t input_button = sensor_suite.touch.get_down_button();
+if (input_button > 0) {
+    handle_tactile_menu_input(input_button);
+}
+lv_obj_invalidate(_main_canvas);
+lv_timer_handler();
 
 
     // 5. Configure drawing styles for your rectangle
-    lv_draw_rect_dsc_t rect_dsc;
+    /*lv_draw_rect_dsc_t rect_dsc;
     lv_draw_rect_dsc_init(&rect_dsc);
     
     // Map colors to the 8-bit index space
@@ -92,16 +200,20 @@ void Graphics::update(SensorSuite &sensor_suite)
     lv_area_t coords_text = {20, 52, 108, 76};
     lv_draw_label(&layer, &label_dsc, &coords_text);
 
+    // -- demo menu... ---
+    //semi-transparent sprite test too...
+
 
 
 
     // -- other draw actions --
 
-    lv_canvas_finish_layer(_main_canvas, &layer);//1200 us
+    lv_canvas_finish_layer(_main_canvas, &layer);//1200 us */
 
     //Serial.println("lv_refr_now");
     // Force an internal update pass so changes are immediately rasterized into canvas_buffer
-    lv_refr_now(NULL);//<30 us
+    //lv_refr_now(NULL);//<30 us
+    lv_refr_now(_dummy_disp);
 
     // 7. Extract the data layers, pack the nibbles, and flash the screen
     lvgl2spi(sensor_suite.screen); //600 us
