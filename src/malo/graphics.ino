@@ -54,6 +54,8 @@ void Graphics::button_read_cb(lv_indev_t * indev, lv_indev_data_t * data) {
     } else {
         data->state = LV_INDEV_STATE_RELEASED;
     }
+    if(!data->state==LV_INDEV_STATE_RELEASED)
+        lv_obj_invalidate(lv_screen_active());
 }
 
 // --- Menu Event Handler ---
@@ -74,6 +76,23 @@ void Graphics::menu_event_cb(lv_event_t * e) {
         // Map text selection to your application states
         // if(strcmp(text, "Animations") == 0) instance->run_animations();
     }
+}
+
+void Graphics::menu_focus_cb(lv_event_t * e) {
+    lv_obj_t * child = (lv_obj_t*)lv_event_get_target(e);
+    lv_obj_t * parent_list = lv_obj_get_parent(child);
+    
+    // Get the exact relative Y coordinate position of this item inside the flex list
+    int32_t item_y = lv_obj_get_y(child);
+    int32_t item_height = lv_obj_get_height(child);
+    int32_t container_height = lv_obj_get_height(parent_list);
+
+    // Math: Center of the item minus half the container window height 
+    // This calculates the perfect scrolling midpoint position.
+    int32_t target_scroll_y = item_y + (item_height / 2) - (container_height / 2);
+
+    // Smoothly glide the entire layout panel to center the selected item
+    lv_obj_scroll_to_y(parent_list, target_scroll_y, LV_ANIM_ON);
 }
 
 void Graphics::begin(SensorSuite &sensor_suite)
@@ -105,9 +124,9 @@ void Graphics::begin(SensorSuite &sensor_suite)
     // ==========================================
     static lv_style_t style_menu_item_main;
     lv_style_init(&style_menu_item_main);
-    lv_style_set_bg_opa(&style_menu_item_main, LV_OPA_TRANSP); // No state parameter here
+    lv_style_set_bg_opa(&style_menu_item_main, LV_OPA_TRANSP); 
     lv_style_set_text_color(&style_menu_item_main, lv_color_white());
-    lv_style_set_pad_ver(&style_menu_item_main, 4);
+    lv_style_set_pad_ver(&style_menu_item_main, 6);  // Clean spacing
     lv_style_set_pad_hor(&style_menu_item_main, 6);
     
     static lv_style_t style_menu_item_focused;
@@ -117,55 +136,51 @@ void Graphics::begin(SensorSuite &sensor_suite)
     lv_style_set_text_color(&style_menu_item_focused, lv_color_black());
 
     // ==========================================
-    // ULTRA-LIGHT OBJECT CREATION
+    // ULTRA-LIGHT OBJECT CREATION (FIXED OVERFLOW)
     // ==========================================
     _menu_list = lv_obj_create(lv_screen_active());
     lv_obj_set_user_data(_menu_list, this); 
     lv_obj_set_size(_menu_list, 128, 128);
     lv_obj_set_flex_flow(_menu_list, LV_FLEX_FLOW_COLUMN);
     
+    // CRITICAL FIX FOR BLACK BOXES: Forces drawing engine to render elements beyond the bounding box
+    lv_obj_add_flag(_menu_list, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+    
+    // Accept custom code scrolling controls
+    lv_obj_add_flag(_menu_list, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(_menu_list, LV_OBJ_FLAG_SCROLL_ELASTIC);
+    lv_obj_remove_flag(_menu_list, LV_OBJ_FLAG_SCROLL_MOMENTUM);
+    lv_obj_set_scrollbar_mode(_menu_list, LV_SCROLLBAR_MODE_OFF); 
+    
     lv_obj_set_style_bg_color(_menu_list, lv_color_black(), LV_PART_MAIN);
     lv_obj_set_style_border_width(_menu_list, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(_menu_list, 0, LV_PART_MAIN);
 
-    // --- Create Menu Item 1 ---
-    lv_obj_t * lbl1 = lv_label_create(_menu_list);
-    lv_label_set_text(lbl1, "Animations");
-    lv_obj_set_width(lbl1, LV_PCT(100));
-    
-    // Fixed type safety compilation error: Add flags independently
-    lv_obj_add_flag(lbl1, LV_OBJ_FLAG_CLICKABLE); 
-    lv_obj_add_flag(lbl1, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
-    
-    // Bind main style for default view, and bind focus style exclusively for LV_STATE_FOCUSED
-    lv_obj_add_style(lbl1, &style_menu_item_main, LV_STATE_DEFAULT);
-    lv_obj_add_style(lbl1, &style_menu_item_focused, LV_STATE_FOCUSED);
-    
-    lv_obj_add_event_cb(lbl1, menu_event_cb, LV_EVENT_CLICKED, NULL);
-    lv_group_add_obj(g, lbl1);
+    // Helper macro to radically cut down boilerplate menu instantiations while retaining 0-malloc rules
+    #define CREATE_MENU_ITEM(var_name, text_str) \
+        lv_obj_t * var_name = lv_label_create(_menu_list); \
+        lv_label_set_text(var_name, text_str); \
+        lv_obj_set_width(var_name, LV_PCT(100)); \
+        lv_obj_add_flag(var_name, LV_OBJ_FLAG_CLICKABLE); \
+        lv_obj_add_style(var_name, &style_menu_item_main, LV_STATE_DEFAULT); \
+        lv_obj_add_style(var_name, &style_menu_item_focused, LV_STATE_FOCUSED); \
+        lv_obj_add_event_cb(var_name, menu_focus_cb, LV_EVENT_FOCUSED, NULL); \
+        lv_obj_add_event_cb(var_name, menu_event_cb, LV_EVENT_CLICKED, NULL); \
+        lv_group_add_obj(g, var_name);
 
-    // --- Create Menu Item 2 ---
-    lv_obj_t * lbl2 = lv_label_create(_menu_list);
-    lv_label_set_text(lbl2, "Messages");
-    lv_obj_set_width(lbl2, LV_PCT(100));
-    lv_obj_add_flag(lbl2, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_flag(lbl2, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
-    lv_obj_add_style(lbl2, &style_menu_item_main, LV_STATE_DEFAULT);
-    lv_obj_add_style(lbl2, &style_menu_item_focused, LV_STATE_FOCUSED);
-    lv_obj_add_event_cb(lbl2, menu_event_cb, LV_EVENT_CLICKED, NULL);
-    lv_group_add_obj(g, lbl2);
+    // --- Instantiate the menu architecture natively ---
+    CREATE_MENU_ITEM(lbl1, "Animations");
+    CREATE_MENU_ITEM(lbl2, "Messages");
+    CREATE_MENU_ITEM(lbl3, "Settings");
+    CREATE_MENU_ITEM(lbl4, "Settings2");
+    CREATE_MENU_ITEM(lbl5, "Settings3");
+    CREATE_MENU_ITEM(lbl6, "Settings4");
+    CREATE_MENU_ITEM(lbl7, "Settings5");
 
-    // --- Create Menu Item 3 ---
-    lv_obj_t * lbl3 = lv_label_create(_menu_list);
-    lv_label_set_text(lbl3, "Settings");
-    lv_obj_set_width(lbl3, LV_PCT(100));
-    lv_obj_add_flag(lbl3, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_flag(lbl3, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
-    lv_obj_add_style(lbl3, &style_menu_item_main, LV_STATE_DEFAULT);
-    lv_obj_add_style(lbl3, &style_menu_item_focused, LV_STATE_FOCUSED);
-    lv_obj_add_event_cb(lbl3, menu_event_cb, LV_EVENT_CLICKED, NULL);
-    lv_group_add_obj(g, lbl3);
+    #undef CREATE_MENU_ITEM
 }
+
+
 
 
 void Graphics::update()
@@ -180,7 +195,7 @@ void Graphics::update()
     //lvgl2spi(_canvas_buffer,_sensor_suite->screen);
 
 
-    lv_mem_monitor_t mon;
+    /*lv_mem_monitor_t mon;
     lv_mem_monitor(&mon);
 
     Serial.printf("--- LVGL INTERNAL POOL STATUS ---\n");
@@ -192,7 +207,7 @@ void Graphics::update()
 
     if (mon.free_size < 2048) {
         Serial.printf("WARNING: Dangerously low on LVGL memory!\n");
-    }
+    }*/
 }
 
 void Graphics::end()

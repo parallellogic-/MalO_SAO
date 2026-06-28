@@ -55,6 +55,7 @@ class Graphics{
     static void display_flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map);
     static void button_read_cb(lv_indev_t * indev, lv_indev_data_t * data);
     static void menu_event_cb(lv_event_t * e);
+    static void menu_focus_cb(lv_event_t * e);
     void lvgl2spi(uint8_t* src,Screen &screen);
   public:
     Graphics();
