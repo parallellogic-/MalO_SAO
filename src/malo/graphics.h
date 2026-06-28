@@ -18,9 +18,18 @@ class Graphics{
     SensorSuite* _sensor_suite = nullptr;
     uint32_t _last_update_ms=0;
     uint8_t _last_raw_button=0;
+    lv_group_t * _input_group = nullptr;    // Kept as a member to load/unload submenus
+    lv_obj_t * _active_menu = nullptr;      // Points to the currently visible container
+    lv_obj_t * _menu_main = nullptr;        // Root main menu panel
+    lv_obj_t * _menu_settings = nullptr;    // Settings submenu container
+    lv_obj_t * _menu_animations = nullptr;  // Animations submenu container
+    lv_obj_t * _menu_animations_upper_leds = nullptr;  // Animations submenu container
+    lv_obj_t * _menu_animations_lower_leds = nullptr;  // Animations submenu container
+    lv_obj_t * _menu_animations_screen = nullptr;  // Animations submenu container
+
 
     // Core Layout Pointers
-    lv_obj_t* _main_canvas = nullptr;
+    /*lv_obj_t* _main_canvas = nullptr;
     lv_obj_t* _title_bar = nullptr;
     lv_obj_t* _content_area = nullptr;
     lv_obj_t* _menu_list = nullptr;
@@ -46,7 +55,7 @@ class Graphics{
 
     // Level Integration Instances
 //    ActiveLevelContainer _level_pool;
-    uint8_t _active_level_id = 0; // 0=None, 1=TicTacToe, 2=Puzzle...
+    uint8_t _active_level_id = 0;*/ // 0=None, 1=TicTacToe, 2=Puzzle...
 
     // Frame Buffers allocations matching your configuration snippets
     uint8_t _canvas_buffer[SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX] __attribute__((aligned(4)));
@@ -57,6 +66,7 @@ class Graphics{
     static void button_read_cb(lv_indev_t * indev, lv_indev_data_t * data);
     static void menu_event_cb(lv_event_t * e);
     static void menu_focus_cb(lv_event_t * e);
+    static void switch_menu(lv_obj_t * new_menu, bool remember_last_selection);
     void lvgl2spi(uint8_t* src,Screen &screen);
   public:
     Graphics();

@@ -14,125 +14,206 @@ void Graphics::display_flush_cb(lv_display_t * disp, const lv_area_t * area, uin
     lv_display_flush_ready(disp);
 }
 
-// --- Custom LVGL Input Device Driver ---
-void Graphics::button_read_cb(lv_indev_t * indev, lv_indev_data_t * data) {
-    Graphics* instance = (Graphics*)lv_indev_get_user_data(indev);
-    if (!instance || !instance->_sensor_suite) return;
-
-    // Fetch the raw hardware button code
-    uint8_t current_button = instance->_sensor_suite->touch.get_down_button();
-
-    if (current_button == 0) {
-        // Clear tracking state memory when no physical button is pressed
-        instance->_last_raw_button = 0; 
-        data->state = LV_INDEV_STATE_RELEASED;
-        return;
-    }
-
-    // The hardware detects a button press
-    data->state = LV_INDEV_STATE_PRESSED;
-
-    // =================================================================
-    // NATIVE ENHANCEMENT: Lock key assignments to the initial transition frame
-    // =================================================================
-    if (current_button == instance->_last_raw_button) {
-        // The button is still being held down. We leave data->key completely untouched 
-        // on this frame. This allows LVGL's native state machine to calculate long presses
-        // and repeat intervals cleanly without breaking menu scrolling animations.
-        return; 
-    }
-
-    // Capture the button ID to lock out subsequent frames
-    instance->_last_raw_button = current_button;
-
-    // This block only runs ONCE per physical button press event
-    switch (current_button) {
-        case 1:  data->key = LV_KEY_NEXT;  break;
-        case 2:  data->key = LV_KEY_ESC;   break;
-        case 3:  data->key = LV_KEY_ESC;   break;
-        case 4:  data->key = LV_KEY_ENTER; break;
-        case 5:  data->key = LV_KEY_PREV;  break;
-        case 6:  data->key = LV_KEY_PREV;  break; 
-        case 7:  data->key = LV_KEY_NEXT;  break;
-        case 8:  data->key = LV_KEY_LEFT;  break;
-        case 9:  data->key = LV_KEY_NEXT;  break; 
-        case 10: data->key = LV_KEY_RIGHT; break;
-        default: break;
-    }
+// --- Shared Menu Focus Monitor ---
+void Graphics::menu_focus_cb(lv_event_t * e) {
+    lv_obj_t * child = (lv_obj_t*)lv_event_get_target(e);
+    lv_obj_t * parent_list = lv_obj_get_parent(child);
     
-    lv_obj_invalidate(lv_screen_active());//work-around for sticky menu that shows selected option at the top of the screen
+    // MEMORY FEATURE: Save this item pointer as the last focused element inside the parent container!
+    // This uses zero dynamic heap memory allocations.
+    lv_obj_set_user_data(parent_list, child);
+
+    // Calculate centering scroll offset exactly like before
+    int32_t item_y = lv_obj_get_y(child);
+    int32_t item_height = lv_obj_get_height(child);
+    int32_t container_height = lv_obj_get_height(parent_list);
+    int32_t target_scroll_y = item_y + (item_height / 2) - (container_height / 2);
+
+    lv_obj_scroll_to_y(parent_list, target_scroll_y, LV_ANIM_ON);
 }
 
+// --- Menu Interaction & Switch Routine ---
+void Graphics::switch_menu(lv_obj_t * new_menu, bool remember_last_selection) {
+    Graphics* instance = (Graphics*)lv_display_get_user_data(NULL); // Fallback safe grab
+    if (!new_menu) return;
+
+    // 1. Hide the old active menu layout panel if it exists
+    if (instance->_active_menu) {
+        lv_obj_add_flag(instance->_active_menu, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    // 2. Erase all old button items from the keypad navigation ring
+    lv_group_remove_all_objs(instance->_input_group);
+
+    // 3. Make the target submenu container visible on screen
+    lv_obj_remove_flag(new_menu, LV_OBJ_FLAG_HIDDEN);
+    instance->_active_menu = new_menu;
+
+    // 4. Reload the keypad group ring with the child items inside the new menu panel
+    uint32_t child_count = lv_obj_get_child_count(new_menu);
+    for (uint32_t i = 0; i < child_count; i++) {
+        lv_obj_t * child = lv_obj_get_child(new_menu, i);
+        // Only insert clickable menu nodes into our keypad loop
+        if (lv_obj_has_flag(child, LV_OBJ_FLAG_CLICKABLE)) {
+            lv_group_add_obj(instance->_input_group, child);
+        }
+    }
+
+    // 5. RESTORE OR RESET MEMORY: Determine which item should receive initial focus highlight
+    lv_obj_t * target_focus_node = NULL;
+    
+    if (remember_last_selection) {
+        // Look up the historical child node stored inside this container's user data
+        target_focus_node = (lv_obj_t*)lv_obj_get_user_data(new_menu);
+    }
+
+    // If no memory existed or remember flag is off, fall back to focusing the first child item
+    if (!target_focus_node && child_count > 0) {
+        target_focus_node = lv_obj_get_child(new_menu, 0);
+    }
+
+    // Force the keypad focus subsystem onto the calculated node
+    if (target_focus_node) {
+        lv_group_focus_obj(target_focus_node);
+        // Instantly pop the view straight to it without scrolling lagging behind
+        lv_obj_scroll_to_view(target_focus_node, LV_ANIM_OFF);
+    }
+}
 
 // --- Menu Event Handler ---
 void Graphics::menu_event_cb(lv_event_t * e) {
     lv_event_code_t code = lv_event_get_code(e);
     lv_obj_t * obj = (lv_obj_t*)lv_event_get_target(e); 
 
-    if (code == LV_EVENT_CLICKED) {
-        // Walk up to the main container to grab the 'this' context pointer
-        lv_obj_t * menu_container = lv_obj_get_parent(obj);
-        Graphics* instance = (Graphics*)lv_obj_get_user_data(menu_container);
+    // ==========================================
+    // 1. DYNAMIC NAVIGATION TRAVERSAL ENGINE
+    // ==========================================
+    if (code == LV_EVENT_KEY) {
+        uint32_t key = lv_event_get_key(e);
+        Graphics* instance = (Graphics*)lv_display_get_user_data(NULL);
         if (!instance) return;
 
-        // Fetch text directly from the label widget safely
-        const char * text = lv_label_get_text(obj);
-        // Serial.printf("Label Menu Option Clicked: %s\n", text);
+        if (key == LV_KEY_ESC) {
+            // Fetch our embedded back-link hidden inside this label's user data
+            lv_obj_t * parent_menu = (lv_obj_t*)lv_obj_get_user_data(obj);
+            
+            // If a link exists, seamlessly back up exactly 1 level deep, preserving history
+            if (parent_menu) {
+                instance->switch_menu(parent_menu, true);
+            }
+            return;
+        }
+        
+        if (key == LV_KEY_HOME) {
+            // Direct escape straight to the root menu frame from any depth layer
+            if (instance->_active_menu != instance->_menu_main) {
+                instance->switch_menu(instance->_menu_main, true);
+            }
+            return;
+        }
+    }
 
-        // Map text selection to your application states
-        // if(strcmp(text, "Animations") == 0) instance->run_animations();
+    // ==========================================
+    // 2. ITEM CLICK MANAGEMENT (FORWARDS)
+    // ==========================================
+    if (code == LV_EVENT_CLICKED) {
+        Graphics* instance = (Graphics*)lv_display_get_user_data(NULL);
+        if (!instance) return;
+
+        const char * text = lv_label_get_text(obj);
+
+        // --- Deep Tree Forward Routers ---
+        // Level 1 -> Level 2
+        if (strcmp(text, "Settings") == 0) {
+            instance->switch_menu(instance->_menu_settings, true);
+        }
+        else if (strcmp(text, "Animations") == 0) {
+            instance->switch_menu(instance->_menu_animations, false);
+        }
+        // Level 2 -> Level 3 (Deep nested leaf node branch)
+        else if (strcmp(text, "Upper LEDs") == 0) {
+            instance->switch_menu(instance->_menu_animations_upper_leds, false);
+        }
+        // Unified Back string tracker handles older menu formats seamlessly
+        else if (strcmp(text, "Back") == 0) {
+            lv_obj_t * parent_menu = (lv_obj_t*)lv_obj_get_user_data(obj);
+            if (parent_menu) instance->switch_menu(parent_menu, true);
+        }
     }
 }
 
-void Graphics::menu_focus_cb(lv_event_t * e) {
-    lv_obj_t * child = (lv_obj_t*)lv_event_get_target(e);
-    lv_obj_t * parent_list = lv_obj_get_parent(child);
-    
-    // Get the exact relative Y coordinate position of this item inside the flex list
-    int32_t item_y = lv_obj_get_y(child);
-    int32_t item_height = lv_obj_get_height(child);
-    int32_t container_height = lv_obj_get_height(parent_list);
+void Graphics::button_read_cb(lv_indev_t * indev, lv_indev_data_t * data) {
+    Graphics* instance = (Graphics*)lv_indev_get_user_data(indev);
+    if (!instance || !instance->_sensor_suite) return;
 
-    // Math: Center of the item minus half the container window height 
-    // This calculates the perfect scrolling midpoint position.
-    int32_t target_scroll_y = item_y + (item_height / 2) - (container_height / 2);
+    uint8_t current_button = instance->_sensor_suite->touch.get_down_button();
 
-    // Smoothly glide the entire layout panel to center the selected item
-    lv_obj_scroll_to_y(parent_list, target_scroll_y, LV_ANIM_ON);
+    if (current_button == 0) {
+        instance->_last_raw_button = 0; 
+        data->state = LV_INDEV_STATE_RELEASED;
+        return;
+    }
+
+    data->state = LV_INDEV_STATE_PRESSED;
+
+    // Prevent autofire repeat streams from breaking menu position transitions
+    if (current_button == instance->_last_raw_button) {
+        return; 
+    }
+    instance->_last_raw_button = current_button;
+
+    switch (current_button) {
+        case 1:  data->key = LV_KEY_NEXT;  break;
+        case 2:  data->key = LV_KEY_HOME;  break;
+        case 3:  data->key = LV_KEY_ESC;   break;
+        case 4:  data->key = LV_KEY_ENTER; break;
+        case 5:  data->key = LV_KEY_ESC;   break;
+        case 6:  data->key = LV_KEY_PREV;  break; 
+        case 7:  data->key = LV_KEY_ENTER; break;
+        case 8:  data->key = LV_KEY_ESC;   break;
+        case 9:  data->key = LV_KEY_NEXT;  break; 
+        case 10: data->key = LV_KEY_ENTER; break;
+        default: break;
+    }
+    lv_obj_invalidate(lv_screen_active());//work-around for sticky menu that shows selected option at the top of the screen
 }
+
 
 void Graphics::begin(SensorSuite &sensor_suite)
 {
     _sensor_suite = &sensor_suite;
     lv_init();
 
-    // Create and configure the LVGL display
+    // Configure Display & Input Drivers (Keep your standard code here...)
     lv_display_t * disp = lv_display_create(SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX);
     lv_display_set_buffers(disp, _canvas_buffer, NULL, sizeof(_canvas_buffer), LV_DISPLAY_RENDER_MODE_PARTIAL);
     lv_display_set_user_data(disp, this); 
     lv_display_set_flush_cb(disp, display_flush_cb);
     
-    lv_obj_set_style_bg_color(lv_screen_active(), lv_color_black(), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(lv_screen_active(), LV_OPA_COVER, LV_PART_MAIN);
-
     // Create and configure the LVGL keyboard/button input device
     lv_indev_t * indev = lv_indev_create();
     lv_indev_set_type(indev, LV_INDEV_TYPE_KEYPAD);
-    lv_indev_set_user_data(indev, this);
+
+    // 1. Pass the Graphics class instance pointer to user_data so the callback can access it
+    lv_indev_set_user_data(indev, this); 
+
+    // 2. CRITICAL BINDING CALL: Attach your custom edge-detection button reader function
     lv_indev_set_read_cb(indev, button_read_cb);
 
-    lv_group_t * g = lv_group_create();
-    lv_group_set_default(g);
-    lv_indev_set_group(indev, g);
+    // ... input group bindings ...
+    lv_obj_set_style_bg_color(lv_screen_active(), lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(lv_screen_active(), LV_OPA_COVER, LV_PART_MAIN);
 
-    // ==========================================
-    // FIXED CORNERSTONE STATIC STYLE CONTAINERS
-    // ==========================================
+    _input_group = lv_group_create();
+    lv_group_set_default(_input_group);
+    lv_indev_set_group(indev, _input_group); // Must be active!
+
+    // Baseline Style Containers
     static lv_style_t style_menu_item_main;
     lv_style_init(&style_menu_item_main);
     lv_style_set_bg_opa(&style_menu_item_main, LV_OPA_TRANSP); 
     lv_style_set_text_color(&style_menu_item_main, lv_color_white());
-    lv_style_set_pad_ver(&style_menu_item_main, 6);  // Clean spacing
+    lv_style_set_pad_ver(&style_menu_item_main, 6);
     lv_style_set_pad_hor(&style_menu_item_main, 6);
     
     static lv_style_t style_menu_item_focused;
@@ -140,52 +221,85 @@ void Graphics::begin(SensorSuite &sensor_suite)
     lv_style_set_bg_opa(&style_menu_item_focused, LV_OPA_COVER);
     lv_style_set_bg_color(&style_menu_item_focused, lv_color_white());
     lv_style_set_text_color(&style_menu_item_focused, lv_color_black());
+    lv_style_set_radius(&style_menu_item_focused, 4); 
 
     // ==========================================
-    // ULTRA-LIGHT OBJECT CREATION (FIXED OVERFLOW)
+    // INITIALIZE ALL SUBMENU CONTAINER FRAMES
     // ==========================================
-    _menu_list = lv_obj_create(lv_screen_active());
-    lv_obj_set_user_data(_menu_list, this); 
-    lv_obj_set_size(_menu_list, 128, 128);
-    lv_obj_set_flex_flow(_menu_list, LV_FLEX_FLOW_COLUMN);
-    
-    // CRITICAL FIX FOR BLACK BOXES: Forces drawing engine to render elements beyond the bounding box
-    lv_obj_add_flag(_menu_list, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
-    
-    // Accept custom code scrolling controls
-    lv_obj_add_flag(_menu_list, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_remove_flag(_menu_list, LV_OBJ_FLAG_SCROLL_ELASTIC);
-    lv_obj_remove_flag(_menu_list, LV_OBJ_FLAG_SCROLL_MOMENTUM);
-    lv_obj_set_scrollbar_mode(_menu_list, LV_SCROLLBAR_MODE_OFF); 
-    
-    lv_obj_set_style_bg_color(_menu_list, lv_color_black(), LV_PART_MAIN);
-    lv_obj_set_style_border_width(_menu_list, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(_menu_list, 0, LV_PART_MAIN);
+    // FIXED: Removed all bitwise OR operators ('|') inside the macro code
+    // to strictly preserve C++ enum type-safety conversion rules.
+    #define PREPARE_MENU_PANEL(panel_var) \
+        panel_var = lv_obj_create(lv_screen_active()); \
+        lv_obj_set_size(panel_var, 128, 128); \
+        lv_obj_set_flex_flow(panel_var, LV_FLEX_FLOW_COLUMN); \
+        \
+        lv_obj_add_flag(panel_var, LV_OBJ_FLAG_OVERFLOW_VISIBLE); \
+        lv_obj_add_flag(panel_var, LV_OBJ_FLAG_SCROLLABLE); \
+        \
+        lv_obj_remove_flag(panel_var, LV_OBJ_FLAG_SCROLL_ELASTIC); \
+        lv_obj_remove_flag(panel_var, LV_OBJ_FLAG_SCROLL_MOMENTUM); \
+        \
+        lv_obj_set_scrollbar_mode(panel_var, LV_SCROLLBAR_MODE_OFF); \
+        lv_obj_set_style_bg_color(panel_var, lv_color_black(), LV_PART_MAIN); \
+        lv_obj_set_style_border_width(panel_var, 0, LV_PART_MAIN); \
+        lv_obj_set_style_pad_all(panel_var, 0, LV_PART_MAIN); \
+        lv_obj_add_flag(panel_var, LV_OBJ_FLAG_HIDDEN);
 
-    // Helper macro to radically cut down boilerplate menu instantiations while retaining 0-malloc rules
-    #define CREATE_MENU_ITEM(var_name, text_str) \
-        lv_obj_t * var_name = lv_label_create(_menu_list); \
-        lv_label_set_text(var_name, text_str); \
-        lv_obj_set_width(var_name, LV_PCT(100)); \
-        lv_obj_add_flag(var_name, LV_OBJ_FLAG_CLICKABLE); \
-        lv_obj_add_style(var_name, &style_menu_item_main, LV_STATE_DEFAULT); \
-        lv_obj_add_style(var_name, &style_menu_item_focused, LV_STATE_FOCUSED); \
-        lv_obj_add_event_cb(var_name, menu_focus_cb, LV_EVENT_FOCUSED, NULL); \
-        lv_obj_add_event_cb(var_name, menu_event_cb, LV_EVENT_CLICKED, NULL); \
-        lv_group_add_obj(g, var_name);
+    // Unpack macro instances cleanly across your private header variables
+    PREPARE_MENU_PANEL(_menu_main);
+    PREPARE_MENU_PANEL(_menu_animations);
+    PREPARE_MENU_PANEL(_menu_animations_upper_leds);
+    PREPARE_MENU_PANEL(_menu_settings);
+    #undef PREPARE_MENU_PANEL
 
-    // --- Instantiate the menu architecture natively ---
-    CREATE_MENU_ITEM(lbl1, "Animations");
-    CREATE_MENU_ITEM(lbl2, "Levels");
-    CREATE_MENU_ITEM(lbl3, "Messages");
-    CREATE_MENU_ITEM(lbl4, "Achievements");
-    CREATE_MENU_ITEM(lbl5, "Settings");
 
-    #undef CREATE_MENU_ITEM
+    // =================================================================
+    // NEW STRUCTURAL ITEM MACRO: LINKS BACKWARD TARGET ON INITIALIZATION
+    // =================================================================
+    #define ADD_LINKED_ITEM(target_panel, text_str, escape_dest_panel) { \
+        lv_obj_t * lbl = lv_label_create(target_panel); \
+        lv_label_set_text(lbl, text_str); \
+        lv_obj_set_width(lbl, LV_PCT(100)); \
+        lv_obj_add_flag(lbl, LV_OBJ_FLAG_CLICKABLE); \
+        lv_obj_add_style(lbl, &style_menu_item_main, LV_STATE_DEFAULT); \
+        lv_obj_add_style(lbl, &style_menu_item_focused, LV_STATE_FOCUSED); \
+        lv_obj_add_event_cb(lbl, menu_focus_cb, LV_EVENT_FOCUSED, NULL); \
+        lv_obj_add_event_cb(lbl, menu_event_cb, LV_EVENT_ALL, NULL); \
+        \
+        /* LINK TRICK: Embed the backwards menu pointer right inside the item! */ \
+        lv_obj_set_user_data(lbl, escape_dest_panel); \
+    }
+
+    // --- LEVEL 1 (ROOT MAIN MENU) ---
+    // Roots pass NULL because pressing ESC at the base level shouldn't go anywhere backwards
+    ADD_LINKED_ITEM(_menu_main, "Animations",   NULL);
+    ADD_LINKED_ITEM(_menu_main, "Levels",       NULL);
+    ADD_LINKED_ITEM(_menu_main, "Messages",     NULL);
+    ADD_LINKED_ITEM(_menu_main, "Achievements", NULL);
+    ADD_LINKED_ITEM(_menu_main, "Settings",     NULL);
+
+    // --- LEVEL 2 (SUBMENUS) ---
+    // Items inside these submenus will link back to the Root Main Menu on ESC
+    ADD_LINKED_ITEM(_menu_settings, "Brightness", _menu_main);
+    ADD_LINKED_ITEM(_menu_settings, "Volume",     _menu_main);
+    ADD_LINKED_ITEM(_menu_settings, "Back",       _menu_main);
+
+    ADD_LINKED_ITEM(_menu_animations, "Upper LEDs",   _menu_main);
+    ADD_LINKED_ITEM(_menu_animations, "Lower LEDs",   _menu_main);
+    ADD_LINKED_ITEM(_menu_animations, "Screen",       _menu_main);
+    ADD_LINKED_ITEM(_menu_animations, "Back",         _menu_main);
+
+    // --- LEVEL 3 (DEEP SUB-SUBMENUS) ---
+    // Items inside this leaf menu will link back to the Animations Panel on ESC
+    ADD_LINKED_ITEM(_menu_animations_upper_leds, "Rainbow Fade", _menu_animations);
+    ADD_LINKED_ITEM(_menu_animations_upper_leds, "Static Cyan",  _menu_animations);
+    ADD_LINKED_ITEM(_menu_animations_upper_leds, "Back",         _menu_animations);
+
+    #undef ADD_LINKED_ITEM
+
+    // Launch initial application view into root main layout frame
+    switch_menu(_menu_main, false);
 }
-
-
-
 
 void Graphics::update()
 {
@@ -196,10 +310,9 @@ void Graphics::update()
 
     lv_timer_handler();
     //memset(_canvas_buffer, 0x66, sizeof(_canvas_buffer)); //<200 us
-    //lvgl2spi(_canvas_buffer,_sensor_suite->screen);
+    //lvgl2spi(_canvas_buffer,_sensor_suite->screen);//direct draw to screen
 
-
-    /*lv_mem_monitor_t mon;
+    lv_mem_monitor_t mon;
     lv_mem_monitor(&mon);
 
     Serial.printf("--- LVGL INTERNAL POOL STATUS ---\n");
@@ -211,7 +324,7 @@ void Graphics::update()
 
     if (mon.free_size < 2048) {
         Serial.printf("WARNING: Dangerously low on LVGL memory!\n");
-    }*/
+    }
 }
 
 void Graphics::end()
