@@ -60,7 +60,7 @@ void Graphics::begin(SensorSuite &sensor_suite)
 
     // Create and configure the LVGL display
     lv_display_t * disp = lv_display_create(SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX);
-    lv_display_set_buffers(disp, _canvas_buffer, NULL, sizeof(_canvas_buffer), LV_DISPLAY_RENDER_MODE_FULL);
+    lv_display_set_buffers(disp, _canvas_buffer, NULL, sizeof(_canvas_buffer), LV_DISPLAY_RENDER_MODE_PARTIAL);
     lv_display_set_user_data(disp, this); 
     lv_display_set_flush_cb(disp, display_flush_cb);
 
@@ -81,6 +81,13 @@ void Graphics::begin(SensorSuite &sensor_suite)
     _menu_list = lv_list_create(lv_screen_active());
     lv_obj_set_size(_menu_list, 128, 128);
     lv_obj_center(_menu_list);
+    lv_obj_set_style_bg_color(lv_screen_active(), lv_color_black(), LV_PART_MAIN);
+
+    // FIX 2: Turn the list container body completely black and strip default styling
+    lv_obj_set_style_bg_color(_menu_list, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(_menu_list, 0, LV_PART_MAIN);      // Remove default border
+    lv_obj_set_style_pad_all(_menu_list, 0, LV_PART_MAIN);          // Remove padding gaps
+    lv_obj_set_style_shadow_width(_menu_list, 0, LV_PART_MAIN);     // Strip hidden shadow blooms
 
     // Add list items and associate them with the event handler
     lv_obj_t * btn1 = lv_list_add_button(_menu_list, LV_SYMBOL_SETTINGS, "Animations");
@@ -97,12 +104,39 @@ void Graphics::begin(SensorSuite &sensor_suite)
     lv_obj_add_event_cb(btn3, menu_event_cb, LV_EVENT_CLICKED, NULL);
     lv_obj_set_user_data(btn3, this); // Binds "this" instance for menu clicks
     lv_group_add_obj(g, btn3);
+
+    uint32_t child_count = lv_obj_get_child_count(_menu_list);
+    for(uint32_t i = 0; i < child_count; i++) {
+        lv_obj_t * child = lv_obj_get_child(_menu_list, i);
+        
+        // 1. Set Button Background to Black (Default state)
+        lv_obj_set_style_bg_color(child, lv_color_black(), LV_STATE_DEFAULT);
+        
+        // 2. Set Text & Symbol colors to White (Default state)
+        lv_obj_set_style_text_color(child, lv_color_white(), LV_STATE_DEFAULT);
+        lv_obj_set_style_image_recolor(child, lv_color_black(), LV_STATE_DEFAULT); // Icons/Symbols
+        lv_obj_set_style_image_recolor_opa(child, LV_OPA_COVER, LV_STATE_DEFAULT);
+
+        // 3. Define Focus State: What happens when the button is highlighted/focused?
+        // Let's make the focused item invert back (White background, Black text) so it stands out.
+        lv_obj_set_style_bg_color(child, lv_color_black(), LV_STATE_FOCUS_KEY);
+        lv_obj_set_style_text_color(child, lv_color_white(), LV_STATE_FOCUS_KEY);
+        lv_obj_set_style_image_recolor(child, lv_color_black(), LV_STATE_FOCUS_KEY);
+        
+        // Ensure standard keypad focus matches the focus style rules
+        lv_obj_set_style_bg_color(child, lv_color_black(), LV_STATE_FOCUSED);
+        lv_obj_set_style_text_color(child, lv_color_white(), LV_STATE_FOCUSED);
+        lv_obj_set_style_image_recolor(child, lv_color_black(), LV_STATE_FOCUSED);
+    }
 }
 
 
 void Graphics::update()
 {
     //memset(_canvas_buffer, 0x66, sizeof(_canvas_buffer)); //<200 us
+    //uint32_t current_time_ms=millis();
+    //lv_tick_inc(current_time_ms-_last_update_ms);
+    //_last_update_ms=current_time_ms;
 
     lv_timer_handler();
     //lvgl2spi(_canvas_buffer,_sensor_suite->screen);
