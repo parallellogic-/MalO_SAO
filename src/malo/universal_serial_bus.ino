@@ -2,15 +2,16 @@
 
 void UniversalSerialBus::begin()
 {
-  Serial.begin();//TODO: move to USB
+  Serial.begin(1'000'000);//TODO: move to USB
   long start_tms=millis();
-  while(!Serial && (millis()-start_tms)<7000);//wait for terminal to connect or timeout, whichever is first
+  while(!Serial && (millis()-start_tms)<7000) delay(1);//wait for terminal to connect or timeout, whichever is first
+  //delay(1);
   Serial.println("START");
 }
 
 void UniversalSerialBus::update(bool is_core1_shutdown)
 {
-  if(Serial.available()>0) set_mounted(); //character received over terminal prompts reqeust to mount as usb mass storage device
+  //if(Serial.available()>0) set_mounted(); //character received over terminal prompts reqeust to mount as usb mass storage device
   //if any character received over Serial terminal, drop into mounted mode
   if(_is_mount_request && is_core1_shutdown && !_is_mounted)
   {//if enough time has passed without satisfying the mount request, then servie the mount request

@@ -222,7 +222,7 @@ uint32_t Touch::get_capacitive_touch(uint8_t index)
 
 void Touch::debug()
 {
-  Serial.print("Touch: ");
+  /*Serial.print("Touch: ");
   for(int iter=1;iter<11;iter++) Serial.printf("%d=%4d, ",iter,get_capacitive_touch(iter));
-  Serial.printf("down_id: %d\n",get_down_button());
+  Serial.printf("down_id: %d\n",get_down_button());*/
 }

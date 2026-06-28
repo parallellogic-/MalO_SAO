@@ -7,9 +7,9 @@
 #include "led.h"
 #include "graphics.h"
 
+
 struct SensorSuite{//bundle into an object to make easier to pass through graphics handling
-  volatile uint32_t frame_id0;
-  volatile uint32_t frame_id1;
+  uint32_t frame_id;
 
   Charlieplex led_lower;
   Charlieplex led_upper;

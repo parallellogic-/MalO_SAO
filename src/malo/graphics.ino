@@ -6,6 +6,7 @@ Graphics::Graphics()
 }
 
 void Graphics::display_flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map) {
+
     Graphics* instance = (Graphics*)lv_display_get_user_data(disp);
     if (instance && instance->_sensor_suite) {
       instance->lvgl2spi((uint8_t*)px_map,instance->_sensor_suite->screen);
@@ -19,14 +20,36 @@ void Graphics::button_read_cb(lv_indev_t * indev, lv_indev_data_t * data) {
   if (!instance || !instance->_sensor_suite) return;
 
   uint8_t down_button=instance->_sensor_suite->touch.get_down_button();
+  //Serial.printf("\nButton: %d\n\n",down_button);
     if (down_button==1) {
         data->key = LV_KEY_NEXT;
         data->state = LV_INDEV_STATE_PRESSED;
     } else if (down_button==2) {
-        data->key = LV_KEY_PREV;
+        data->key = LV_KEY_ESC;
         data->state = LV_INDEV_STATE_PRESSED;
     } else if (down_button==3) {
+        data->key = LV_KEY_ESC;
+        data->state = LV_INDEV_STATE_PRESSED;
+    } else if (down_button==4) {
         data->key = LV_KEY_ENTER;
+        data->state = LV_INDEV_STATE_PRESSED;
+    } else if (down_button==5) {
+        data->key = LV_KEY_PREV;
+        data->state = LV_INDEV_STATE_PRESSED;
+    } else if (down_button==6) {
+        data->key = LV_KEY_UP;
+        data->state = LV_INDEV_STATE_PRESSED;
+    } else if (down_button==7) {
+        data->key = LV_KEY_NEXT;
+        data->state = LV_INDEV_STATE_PRESSED;
+    } else if (down_button==8) {
+        data->key = LV_KEY_LEFT;
+        data->state = LV_INDEV_STATE_PRESSED;
+    } else if (down_button==9) {
+        data->key = LV_KEY_DOWN;
+        data->state = LV_INDEV_STATE_PRESSED;
+    } else if (down_button==10) {
+        data->key = LV_KEY_RIGHT;
         data->state = LV_INDEV_STATE_PRESSED;
     } else {
         data->state = LV_INDEV_STATE_RELEASED;
@@ -40,12 +63,14 @@ void Graphics::menu_event_cb(lv_event_t * e) {
 
     if (code == LV_EVENT_CLICKED) {
         // Extract the 'this' Graphics instance from the active menu list object
-        Graphics* instance = (Graphics*)lv_obj_get_user_data(obj);
+        //Graphics* instance = (Graphics*)lv_obj_get_user_data(obj);
+        lv_obj_t * parent_list = lv_obj_get_parent(obj);
+        Graphics* instance = (Graphics*)lv_obj_get_user_data(parent_list);
         if (!instance) return;
 
         // Safe usage with LVGL v9 string-fetching methods
-        const char * text = lv_list_get_button_text(instance->_menu_list, obj);
-        Serial.printf("Menu Option Clicked: %s\n", text);
+//        const char * text = lv_list_get_button_text(instance->_menu_list, obj);
+//        Serial.printf("Menu Option Clicked: %s\n", text);
 
         // Use 'instance->' to route to your state machines
         // instance->initialize_level_subsystem(1);
@@ -63,6 +88,8 @@ void Graphics::begin(SensorSuite &sensor_suite)
     lv_display_set_buffers(disp, _canvas_buffer, NULL, sizeof(_canvas_buffer), LV_DISPLAY_RENDER_MODE_PARTIAL);
     lv_display_set_user_data(disp, this); 
     lv_display_set_flush_cb(disp, display_flush_cb);
+    lv_obj_set_style_bg_color(lv_screen_active(), lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(lv_screen_active(), LV_OPA_COVER, LV_PART_MAIN);
 
     // Create and configure the LVGL keyboard/button input device
     lv_indev_t * indev = lv_indev_create();
@@ -77,69 +104,96 @@ void Graphics::begin(SensorSuite &sensor_suite)
 
     // -- debug application specific parts --
 
+
+    static lv_style_t style_menu_item;
+    lv_style_init(&style_menu_item);
+    lv_style_set_bg_color(&style_menu_item, lv_color_black());
+    lv_style_set_text_color(&style_menu_item, lv_color_white());
+    lv_style_set_border_width(&style_menu_item, 0);
+    lv_style_set_pad_all(&style_menu_item, 0);
+
     // --- UI Layout: Three-Option Menu ---
     _menu_list = lv_list_create(lv_screen_active());
     lv_obj_set_size(_menu_list, 128, 128);
-    lv_obj_center(_menu_list);
-    lv_obj_set_style_bg_color(lv_screen_active(), lv_color_black(), LV_PART_MAIN);
+    lv_obj_add_style(_menu_list, &style_menu_item, LV_PART_MAIN); // Reused pointer!
+//    lv_obj_center(_menu_list);
 
     // FIX 2: Turn the list container body completely black and strip default styling
-    lv_obj_set_style_bg_color(_menu_list, lv_color_black(), LV_PART_MAIN);
-    lv_obj_set_style_border_width(_menu_list, 0, LV_PART_MAIN);      // Remove default border
-    lv_obj_set_style_pad_all(_menu_list, 0, LV_PART_MAIN);          // Remove padding gaps
-    lv_obj_set_style_shadow_width(_menu_list, 0, LV_PART_MAIN);     // Strip hidden shadow blooms
+    //lv_obj_set_style_bg_color(_menu_list, lv_color_black(), LV_PART_MAIN);
+    //lv_obj_set_style_border_width(_menu_list, 0, LV_PART_MAIN);      // Remove default border
+    //lv_obj_set_style_pad_all(_menu_list, 0, LV_PART_MAIN);          // Remove padding gaps
+    //lv_obj_set_style_shadow_width(_menu_list, 0, LV_PART_MAIN);     // Strip hidden shadow blooms
 
     // Add list items and associate them with the event handler
-    lv_obj_t * btn1 = lv_list_add_button(_menu_list, LV_SYMBOL_SETTINGS, "Animations");
+    lv_obj_t * btn1 = lv_list_add_button(_menu_list, NULL, "Animations");
     lv_obj_add_event_cb(btn1, menu_event_cb, LV_EVENT_CLICKED, NULL);
-    lv_obj_set_user_data(btn1, this); // Binds "this" instance for menu clicks
+    //lv_obj_set_user_data(btn1, this); // Binds "this" instance for menu clicks
     lv_group_add_obj(g, btn1); // Add to navigation group
+    lv_obj_add_style(btn1, &style_menu_item, LV_PART_MAIN);
 
-    lv_obj_t * btn2 = lv_list_add_button(_menu_list, LV_SYMBOL_AUDIO, "Messages");
+    lv_obj_t * btn2 = lv_list_add_button(_menu_list, NULL, "Messages");
     lv_obj_add_event_cb(btn2, menu_event_cb, LV_EVENT_CLICKED, NULL);
-    lv_obj_set_user_data(btn2, this); // Binds "this" instance for menu clicks
+    //lv_obj_set_user_data(btn2, this); // Binds "this" instance for menu clicks
     lv_group_add_obj(g, btn2);
+    lv_obj_add_style(btn2, &style_menu_item, LV_PART_MAIN);
 
-    lv_obj_t * btn3 = lv_list_add_button(_menu_list, LV_SYMBOL_POWER, "Settings");
+    lv_obj_t * btn3 = lv_list_add_button(_menu_list, NULL, "Settings");
     lv_obj_add_event_cb(btn3, menu_event_cb, LV_EVENT_CLICKED, NULL);
-    lv_obj_set_user_data(btn3, this); // Binds "this" instance for menu clicks
+    //lv_obj_set_user_data(btn3, this); // Binds "this" instance for menu clicks
     lv_group_add_obj(g, btn3);
+    lv_obj_add_style(btn3, &style_menu_item, LV_PART_MAIN);
 
-    uint32_t child_count = lv_obj_get_child_count(_menu_list);
+    /*uint32_t child_count = lv_obj_get_child_count(_menu_list);
     for(uint32_t i = 0; i < child_count; i++) {
         lv_obj_t * child = lv_obj_get_child(_menu_list, i);
         
         // 1. Set Button Background to Black (Default state)
-        lv_obj_set_style_bg_color(child, lv_color_black(), LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_color(child, lv_color_black(), LV_STATE_DEFAULT); //sets inactive buttons to black background
         
         // 2. Set Text & Symbol colors to White (Default state)
         lv_obj_set_style_text_color(child, lv_color_white(), LV_STATE_DEFAULT);
-        lv_obj_set_style_image_recolor(child, lv_color_black(), LV_STATE_DEFAULT); // Icons/Symbols
-        lv_obj_set_style_image_recolor_opa(child, LV_OPA_COVER, LV_STATE_DEFAULT);
+        //lv_obj_set_style_image_recolor(child, lv_color_black(), LV_STATE_DEFAULT); // Icons/Symbols
+        //lv_obj_set_style_image_recolor_opa(child, LV_OPA_COVER, LV_STATE_DEFAULT);
 
         // 3. Define Focus State: What happens when the button is highlighted/focused?
         // Let's make the focused item invert back (White background, Black text) so it stands out.
-        lv_obj_set_style_bg_color(child, lv_color_black(), LV_STATE_FOCUS_KEY);
-        lv_obj_set_style_text_color(child, lv_color_white(), LV_STATE_FOCUS_KEY);
-        lv_obj_set_style_image_recolor(child, lv_color_black(), LV_STATE_FOCUS_KEY);
+        //lv_obj_set_style_bg_color(child, lv_color_black(), LV_STATE_FOCUS_KEY);
+        //lv_obj_set_style_text_color(child, lv_color_white(), LV_STATE_FOCUS_KEY);
+        //lv_obj_set_style_image_recolor(child, lv_color_black(), LV_STATE_FOCUS_KEY);
         
         // Ensure standard keypad focus matches the focus style rules
-        lv_obj_set_style_bg_color(child, lv_color_black(), LV_STATE_FOCUSED);
-        lv_obj_set_style_text_color(child, lv_color_white(), LV_STATE_FOCUSED);
-        lv_obj_set_style_image_recolor(child, lv_color_black(), LV_STATE_FOCUSED);
-    }
+        //lv_obj_set_style_bg_color(child, lv_color_black(), LV_STATE_FOCUSED);
+        //lv_obj_set_style_text_color(child, lv_color_white(), LV_STATE_FOCUSED);
+        //lv_obj_set_style_image_recolor(child, lv_color_black(), LV_STATE_FOCUSED);
+    }*/
 }
 
 
 void Graphics::update()
 {
-    //memset(_canvas_buffer, 0x66, sizeof(_canvas_buffer)); //<200 us
-    //uint32_t current_time_ms=millis();
-    //lv_tick_inc(current_time_ms-_last_update_ms);
-    //_last_update_ms=current_time_ms;
+    if(_last_update_ms==0) _last_update_ms=millis();//bootup
+    uint32_t current_time_ms=millis();
+    lv_tick_inc(current_time_ms-_last_update_ms);
+    _last_update_ms=current_time_ms;
 
     lv_timer_handler();
+    //memset(_canvas_buffer, 0x66, sizeof(_canvas_buffer)); //<200 us
     //lvgl2spi(_canvas_buffer,_sensor_suite->screen);
+
+
+    lv_mem_monitor_t mon;
+    lv_mem_monitor(&mon);
+
+    Serial.printf("--- LVGL INTERNAL POOL STATUS ---\n");
+    Serial.printf("Total Pool Size: %d bytes\n", mon.total_size);
+    Serial.printf("Free Memory Left: %d bytes\n", mon.free_size);
+    Serial.printf("Memory Used: %d%% (%d bytes)\n", mon.used_pct, mon.total_size - mon.free_size);
+    Serial.printf("Max Memory Ever Used: %d bytes\n", mon.max_used);
+    Serial.printf("Memory Fragmentation: %d%%\n", mon.frag_pct);
+
+    if (mon.free_size < 2048) {
+        Serial.printf("WARNING: Dangerously low on LVGL memory!\n");
+    }
 }
 
 void Graphics::end()

@@ -47,8 +47,7 @@
 // -- objects --
 
 SensorSuite sensor_suite = {
-  .frame_id0=0xFFFFFFFF,
-  .frame_id1=0xFFFFFFFF,
+  .frame_id=0xFFFFFFFF,
 
   .led_lower=Charlieplex(0),
   .led_upper=Charlieplex(1),
@@ -81,43 +80,49 @@ void update_led()
 
 // -- variables --
 
+volatile uint32_t frame_id0=0xFFFFFFFF;
+uint64_t frame_us=0;
 volatile bool setup0_complete=false;
 void setup() {//core 0
   //delay(200);//allow screen to boot
-
   UniversalSerialBus::begin();
+  //delay(1);
+delay(1);//resolves intermittent multi-core lock-up (bad laoding on crystal during bootup?)
   pinMode(PIN_DEBUG_R,OUTPUT);//if unset, then ir rxd/txd will default to putting out pwm signals here to show ir status
   pinMode(PIN_DEBUG_G,OUTPUT);
-  
-  sensor_suite.graphics.begin(sensor_suite); //beware lvgl interaction with USB mass storage mode (?)
-
-  sensor_suite.led_upper.begin();
-  sensor_suite.led_lower.begin();
-
+delay(1);
   sensor_suite.scatterer_gatherer_engine_screen.begin(false); //limit to only 2 channels for screen
-
+delay(1);
   sensor_suite.screen.begin();
+delay(1);
   sensor_suite.scatterer_gatherer_engine_screen.registerSource(&sensor_suite.screen);
-
-  sensor_suite.touch.begin();
-
+delay(1);
   sensor_suite.scatterer_gatherer_engine_screen.registerSource(&sensor_suite.scatterer_gatherer_engine_screen);//register self to perform end-of-cycle completion check
-
-
+delay(1);
+  sensor_suite.led_upper.begin();
+delay(1);
+  sensor_suite.led_lower.begin();
+delay(1);
+  sensor_suite.touch.begin();
+delay(1);
+  sensor_suite.graphics.begin(sensor_suite); //beware lvgl interaction with USB mass storage mode (?) also with touch (?)
+  delay(1);
   setup0_complete=true;
-  Serial.println("SETUP0 DONE");
+  //Serial.println("SETUP0 DONE");
+  frame_us=time_us_64();
 }
 
-uint64_t frame_us=0;
 volatile bool is_core1_shutdown_request=false; //core0 flag to core1 to begin shutdown
 volatile bool is_core1_shutdown=false; //core1 flag to core0 that shutdown is complete
 void loop() { //core 0
-  //digitalWrite(PIN_DEBUG_R,millis()%200<100);
+  digitalWrite(PIN_DEBUG_R,millis()%200>=100);
   //Serial.printf("core0 loop done: %d\n",sensor_suite.frame_id0);
-
-  while(time_us_64()-frame_us<16666) tight_loop_contents();
+  //while(time_us_64()-frame_us<16666) yield();
+  busy_wait_until(frame_us+16666);
   frame_us=time_us_64();
-  sensor_suite.frame_id0++;
+  sensor_suite.frame_id++;
+  frame_id0=sensor_suite.frame_id;
+  rp2040.fifo.push_nb(frame_id0); //signal core1 to run
 
   if(UniversalSerialBus::get_mount_request()) is_core1_shutdown_request=true;//ensure graphics had a chance to push busy image to screen before asking core1 to shutdown
   UniversalSerialBus::update(is_core1_shutdown);
@@ -130,45 +135,45 @@ void loop() { //core 0
   Serial.printf("core0 runtime us: %d, %.2f%%\n",(uint32_t)(end_us-frame_us),(float)(end_us-frame_us)/166.6);
 }
 
-void setup1(){ //core 1
-  while(!setup0_complete) tight_loop_contents();
+void __not_in_flash_func(setup1()){ //core 1
+  delay(1);
+  while(!setup0_complete) delay(1);//yield();
+  //delay(17);
 }
 
-void loop1(){ //core 1
-  //digitalWrite(PIN_DEBUG_G,millis()%200<100);
+volatile uint32_t frame_id1=0xFFFFFFFF;
+void __not_in_flash_func(loop1)(){ //core 1
+  digitalWrite(PIN_DEBUG_G,millis()%200<100);
 
-  Serial.printf("core1 loop done: %d, %d\n",sensor_suite.frame_id1,sensor_suite.touch.get_down_button());
+//  Serial.printf("core1 loop done: %d, %d\n",sensor_suite.frame_id1,sensor_suite.touch.get_down_button());
 
-  while(sensor_suite.frame_id0==sensor_suite.frame_id1) tight_loop_contents();
-  sensor_suite.frame_id1=sensor_suite.frame_id0;
+  //while(sensor_suite.frame_id0==sensor_suite.frame_id1) yield();
+  //Serial.println("HERE1");
+  //uint32_t token_value = 0;
+
+  // Returns true if a value was pulled successfully, false if empty
+  //while (frame_id1==frame_id0) delay(1);//yield();
+  //frame_id1 = frame_id0;
+      // Run frame code...
+  do{
+    frame_id1=rp2040.fifo.pop();
+  }while(rp2040.fifo.available());
+  //uint32_t token = rp2040.fifo.pop();//wait for core0 signal to run sensor update step
+  //Serial.println("HERE2");
+  //sensor_suite.frame_id1=sensor_suite.frame_id0;
+  //delay(1);
   uint64_t start_us=time_us_64();
 
   if(!is_core1_shutdown)
   {
     if(!is_core1_shutdown_request)
     {
-      // -- temp debug screen --
-      /*uint8_t* tx_buffer=sensor_suite.screen.get_frame_buffer();
-      uint8_t pressed_id=sensor_suite.touch.get_down_button();
-      for (int i = 0; i < SSD1327_BUFFER_SIZE; i++) {
-          tx_buffer[i]=pressed_id==0?test_image2[i]:pressed_id<6?0x00:0xFF;
-          if(pressed_id==6)
-          {
-            uint8_t val=(i/2)*0x10/(SSD1327_BUFFER_SIZE/2);
-            tx_buffer[i]=val<<4|val;
-            uint8_t row=i/64;
-            uint8_t col=i%64;
-            if(row/8==col/4) tx_buffer[i]=0;
-          }
-      }
-      sensor_suite.screen.flush();*/
       // -- temp debug led --
       update_led();
 
-
-      sensor_suite.scatterer_gatherer_engine_screen.compileAndRun(sensor_suite.frame_id0);
-      sensor_suite.touch.update(sensor_suite.frame_id0);//kicked off very near the beginning of the frame, normally it takes core0 notably longer to compute what to display on the screen
-      //touch.debug();
+      sensor_suite.scatterer_gatherer_engine_screen.compileAndRun(frame_id1);
+      sensor_suite.touch.update(frame_id1);//kicked off very near the beginning of the frame, normally it takes core0 notably longer to compute what to display on the screen
+      //sensor_suite.touch.debug();
     }else{
       sensor_suite.touch.end();
     }
@@ -179,5 +184,5 @@ void loop1(){ //core 1
     Serial.println("core1 DONE");
   }
   uint64_t end_us=time_us_64();
-  Serial.printf("core1 runtime us: %d, %.2f%%\n",(uint32_t)(end_us-start_us),(float)(end_us-start_us)/166.6);
+  Serial.printf("core1 runtime us: %d, %.2f%%, touch: %d\n",(uint32_t)(end_us-start_us),(float)(end_us-start_us)/166.6,sensor_suite.touch.get_down_button());
 }
