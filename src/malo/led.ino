@@ -148,3 +148,232 @@ void Charlieplex::set_max_effective_led_count(uint8_t count)
   count=max(count,1);
   _max_effective_led_count=count;
 }
+
+
+// ---- Application specific animations ----
+
+
+void Charlieplex::animation_off(SensorSuite &sensor_suite)
+{//leds are cleared to 0 on each use, so nothing to set here
+    set_max_effective_led_count(1);
+    flush();
+}
+
+void Charlieplex::animation_blink(SensorSuite &sensor_suite)
+{
+    // Configure the speed of the individual LED pulses
+    const uint32_t pulse_speed_divisor = 256; 
+
+    // Target a low active count to match your power budget
+    set_max_effective_led_count(5); 
+
+    for (uint8_t iter = 0; iter < CHARLIPLEX_LED_COUNT; iter++) {
+        // 1. PHASE SHIFTING: Create a unique mathematical seed for this specific LED index.
+        // Multiplying by a prime number (like 37) maps different pins to wildly different starting offsets.
+        uint32_t led_seed = iter * 37;
+
+        // 2. TIME MAP GENERATION: Calculate a smooth, rolling time value unique to this LED.
+        // Adding the seed to millis() offsets each LED's timeline so they don't sync up.
+        uint32_t led_time = (millis() / pulse_speed_divisor) + led_seed;
+
+        // 3. STATISTICAL RANDOM THRESHOLD CHECK:
+        // We use a pseudo-random hash (multiplying by a large prime, then shifting) to check the state.
+        // Modulo 10 creates a 10-step rhythm for each individual LED timeline.
+        uint8_t hash_step = ((led_time * 0x45D9F3B) >> 16) % 10;
+
+        // An individual LED turns on ONLY when its specific timeline lands on step 0 or 1.
+        // 2 steps out of 10 = ~20% probability. 
+        // 20% of 24 LEDs = ~4.8 (roughly 5) LEDs illuminated simultaneously at any given time.
+        if (hash_step < 2) {
+            set_brightness(iter, 255);
+        } else {
+            set_brightness(iter, 0);
+        }
+    }
+
+    // 4. Command the hardware line engine to render the updated configuration
+    flush();
+}
+
+void Charlieplex::animation_cycle(SensorSuite &sensor_suite)
+{
+    const uint32_t cycle_ms=12000; //how often to change between screen savers
+    const uint8_t screen_saver_count=4; //how many screensavers to cycle through
+    uint8_t screen_saver_index=millis()/cycle_ms%screen_saver_count;
+    switch(screen_saver_index)
+    {
+        case 0: animation_blink(sensor_suite); return;
+        case 1: animation_rainbow_fade(sensor_suite); return;
+        case 2: animation_steeple_chase(sensor_suite); return;
+        case 3: animation_stars(sensor_suite); return;
+        case 4: animation_off(sensor_suite); return;
+        case 5: animation_off(sensor_suite); return;
+        case 6: animation_off(sensor_suite); return;
+        case 7: animation_off(sensor_suite); return;
+        case 8: animation_off(sensor_suite); return;
+        case 9: animation_off(sensor_suite); return;
+        case 10: animation_off(sensor_suite); return;
+        case 11: animation_off(sensor_suite); return;
+        default: animation_off(sensor_suite); return;
+    }
+}
+
+void Charlieplex::animation_gyroscope(SensorSuite &sensor_suite)
+{
+    set_max_effective_led_count(CHARLIPLEX_LED_COUNT/4);
+
+    for(uint8_t iter=0;iter<CHARLIPLEX_LED_COUNT;iter++)
+    {
+        float brightness;
+        float accel=(sensor_suite.imu.get_accel(1))*2.0;//imu.get_accel(1);
+        float gyro=sensor_suite.imu.get_gyro(2)/100.0;
+        if(iter<CHARLIPLEX_LED_COUNT/2)
+        {
+          brightness=gyro*.5+.5*accel+sensor_suite.imu.get_accel(1)*.75;
+        }else{
+          brightness=gyro*.8+.2*accel+sensor_suite.imu.get_accel(1)*.75;
+        }
+        brightness=max(brightness,-1.0);
+        brightness=min(brightness,1.0);
+        brightness=(0.25-brightness/4)*CHARLIPLEX_LED_COUNT;
+        brightness=255*(1.4-abs(brightness-(iter%(CHARLIPLEX_LED_COUNT/2)))/3.0);
+        brightness=max(brightness,0);
+        brightness=min(brightness,255);
+        uint8_t brightness8=(uint8_t)brightness;
+        set_brightness(iter,brightness8);
+    }
+
+    flush();
+}
+
+void Charlieplex::animation_pulse(SensorSuite &sensor_suite)
+{
+    set_max_effective_led_count(CHARLIPLEX_LED_COUNT/4+1);
+
+    for(uint8_t iter=0;iter<CHARLIPLEX_LED_COUNT;iter++)
+    {
+      //slow fade
+      uint16_t brightness_upper = (-millis()/8); 
+      if(brightness_upper & 0x0100) brightness_upper=255-(uint8_t)brightness_upper;//fade fully off half the time
+      if(iter<CHARLIPLEX_LED_COUNT/2) brightness_upper^=0xFF;//invert red out of phase by 180 degrees from green
+      set_brightness(iter,(uint8_t)brightness_upper/4);//dim the bulk of the leds
+      if((millis()/75)%(CHARLIPLEX_LED_COUNT/2)==iter%(CHARLIPLEX_LED_COUNT/2)) set_brightness(iter,(uint8_t)brightness_upper);//make one brighter
+    }
+    flush();
+}
+
+void Charlieplex::animation_rainbow_fade(SensorSuite &sensor_suite)
+{
+    set_max_effective_led_count(CHARLIPLEX_LED_COUNT/2);
+
+    for(uint8_t iter=0;iter<CHARLIPLEX_LED_COUNT;iter++)
+    {
+      //slow fade
+      uint16_t brightness_upper = (-millis()/8)+iter*32; 
+      if(brightness_upper & 0x0100) brightness_upper=255-(uint8_t)brightness_upper;//fade fully off half the time
+      set_brightness(iter,(uint8_t)brightness_upper);
+    }
+    flush();
+}
+
+void Charlieplex::animation_stars(SensorSuite &sensor_suite)
+{
+    set_max_effective_led_count(CHARLIPLEX_LED_COUNT/8);
+    const uint16_t period=8500;
+    for (uint8_t iter = 0; iter < CHARLIPLEX_LED_COUNT/2; iter++)
+    {
+        uint32_t phase=(millis()+((iter * 13010771)) * 2654435761U)%period;
+        uint32_t color = (((millis() + iter*1000) / period) ^ (iter * 13010771)) * 2654435761U;
+        uint8_t red=0;//default off
+        uint8_t green=0;
+        if(phase<period/4)
+        {//getting brighter
+            red=  (  color %255)*phase/(period/4);
+            green=((-color)%255)*phase/(period/4);
+        }else if(phase<period/2){//getting dimmer
+            red=  (  color %255)*((period/2)-phase)/(period/4);
+            green=((-color)%255)*((period/2)-phase)/(period/4);
+        }
+        set_brightness(iter,red);
+        set_brightness(iter+CHARLIPLEX_LED_COUNT/2,green);
+    }
+    flush();
+}
+
+void Charlieplex::animation_static_green(SensorSuite &sensor_suite)
+{
+    set_max_effective_led_count(CHARLIPLEX_LED_COUNT/2);
+    for (uint8_t iter = CHARLIPLEX_LED_COUNT/2; iter < CHARLIPLEX_LED_COUNT; iter++) set_brightness(iter,255);
+    flush();
+}
+void Charlieplex::animation_static_red(SensorSuite &sensor_suite)
+{
+    set_max_effective_led_count(CHARLIPLEX_LED_COUNT/2);
+    for (uint8_t iter = 0; iter < CHARLIPLEX_LED_COUNT/2; iter++) set_brightness(iter,255);
+    flush();
+}
+void Charlieplex::animation_steeple_chase(SensorSuite &sensor_suite)
+{
+    set_max_effective_led_count(CHARLIPLEX_LED_COUNT/4+1);
+
+    for(uint8_t iter=0;iter<CHARLIPLEX_LED_COUNT;iter++)
+    {
+      //slow fade
+      uint16_t brightness_upper = (-millis()/8); 
+      if(brightness_upper & 0x0100) brightness_upper=255-(uint8_t)brightness_upper;//fade fully off half the time
+      if(iter<CHARLIPLEX_LED_COUNT/2) brightness_upper^=0xFF;//invert red out of phase by 180 degrees from green
+      set_brightness(iter,(uint8_t)brightness_upper/4);//dim the bulk of the leds
+      if((millis()/75)%7==iter%(CHARLIPLEX_LED_COUNT/2)%7) set_brightness(iter,(uint8_t)brightness_upper);//make one brighter
+    }
+    flush();
+}
+
+// given a string "name" of the animation to play, update the dest_func with a pointer to the above application-specific animation to play in response
+//Note: also need to update menu options in graphics.ino to make new options visible to the user
+bool Charlieplex::get_animation_by_name(const char * name, AnimationFunc &dest_func) {
+    if (!name) return false;
+
+    if (strcmp(name, "Off") == 0) {
+        dest_func = &Charlieplex::animation_off;
+        return true;
+    }
+    else if (strcmp(name, "Auto Cycle") == 0) {
+        dest_func = &Charlieplex::animation_cycle;
+        return true;
+    }
+    else if (strcmp(name, "Blink") == 0) {
+        dest_func = &Charlieplex::animation_blink;
+        return true;
+    }
+    else if (strcmp(name, "Gyroscope") == 0) {
+        dest_func = &Charlieplex::animation_gyroscope;
+        return true;
+    }
+    else if (strcmp(name, "Pulse") == 0) {
+        dest_func = &Charlieplex::animation_pulse;
+        return true;
+    }
+    else if (strcmp(name, "Rainbow Fade") == 0) {
+        dest_func = &Charlieplex::animation_rainbow_fade;
+        return true;
+    }
+    else if (strcmp(name, "Stars") == 0) {
+        dest_func = &Charlieplex::animation_stars;
+        return true;
+    }
+    else if (strcmp(name, "Static Green") == 0) {
+        dest_func = &Charlieplex::animation_static_green;
+        return true;
+    }
+    else if (strcmp(name, "Static Red") == 0) {
+        dest_func = &Charlieplex::animation_static_red;
+        return true;
+    }
+    else if (strcmp(name, "Steeple Chase") == 0) {
+        dest_func = &Charlieplex::animation_steeple_chase;
+        return true;
+    }
+
+    // String not recognized by this class instance
+    return false; 
+}

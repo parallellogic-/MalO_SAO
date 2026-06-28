@@ -88,10 +88,10 @@ void Graphics::menu_event_cb(lv_event_t * e) {
     // ==========================================
     // 1. DYNAMIC NAVIGATION TRAVERSAL ENGINE
     // ==========================================
+    Graphics* instance = (Graphics*)lv_display_get_user_data(NULL);
+    if (!instance) return;
     if (code == LV_EVENT_KEY) {
         uint32_t key = lv_event_get_key(e);
-        Graphics* instance = (Graphics*)lv_display_get_user_data(NULL);
-        if (!instance) return;
 
         if (key == LV_KEY_ESC) {
             // Fetch our embedded back-link hidden inside this label's user data
@@ -100,6 +100,7 @@ void Graphics::menu_event_cb(lv_event_t * e) {
             // If a link exists, seamlessly back up exactly 1 level deep, preserving history
             if (parent_menu) {
                 instance->switch_menu(parent_menu, true);
+                instance->led_cb(true); //turn off leds if leaving the Animations menu
             }
             return;
         }
@@ -108,6 +109,7 @@ void Graphics::menu_event_cb(lv_event_t * e) {
             // Direct escape straight to the root menu frame from any depth layer
             if (instance->_active_menu != instance->_menu_main) {
                 instance->switch_menu(instance->_menu_main, true);
+                instance->led_cb(true); //turn off leds if leaving the Animations menu
             }
             return;
         }
@@ -117,12 +119,15 @@ void Graphics::menu_event_cb(lv_event_t * e) {
     // 2. ITEM CLICK MANAGEMENT (FORWARDS)
     // ==========================================
     if (code == LV_EVENT_CLICKED) {
-        Graphics* instance = (Graphics*)lv_display_get_user_data(NULL);
-        if (!instance) return;
-
         const char * text = lv_label_get_text(obj);
 
-        // --- Deep Tree Forward Routers ---
+        if (instance->_active_menu != nullptr && instance->_active_menu == instance->_menu_animations_upper_leds) {
+            if (instance->_sensor_suite->led_upper.get_animation_by_name(text, instance->_active_animation_upper)) return;
+        }
+        if (instance->_active_menu != nullptr && instance->_active_menu == instance->_menu_animations_lower_leds) {
+            if (instance->_sensor_suite->led_lower.get_animation_by_name(text, instance->_active_animation_lower)) return;
+        }
+        //--- Deep Tree Forward Routers ---
         // Level 1 -> Level 2
         if (strcmp(text, "Settings") == 0) {
             instance->switch_menu(instance->_menu_settings, true);
@@ -134,12 +139,25 @@ void Graphics::menu_event_cb(lv_event_t * e) {
         else if (strcmp(text, "Upper LEDs") == 0) {
             instance->switch_menu(instance->_menu_animations_upper_leds, false);
         }
+        else if (strcmp(text, "Lower LEDs") == 0) {
+            instance->switch_menu(instance->_menu_animations_lower_leds, false);
+        }
+        else if (strcmp(text, "Screen") == 0) {
+            instance->switch_menu(instance->_menu_animations_screen, false);
+        }
+        else if (strcmp(text, "Levels") == 0) {
+            instance->switch_menu(instance->_menu_levels, false);
+        }
+        else if (strcmp(text, "Messages") == 0) {
+            instance->switch_menu(instance->_menu_messages, false);
+        }
         // Unified Back string tracker handles older menu formats seamlessly
         else if (strcmp(text, "Back") == 0) {
             lv_obj_t * parent_menu = (lv_obj_t*)lv_obj_get_user_data(obj);
             if (parent_menu) instance->switch_menu(parent_menu, true);
         }
     }
+    instance->led_cb(true); //turn off leds if leaving the Animations menu
 }
 
 void Graphics::button_read_cb(lv_indev_t * indev, lv_indev_data_t * data) {
@@ -170,14 +188,37 @@ void Graphics::button_read_cb(lv_indev_t * indev, lv_indev_data_t * data) {
         case 5:  data->key = LV_KEY_ESC;   break;
         case 6:  data->key = LV_KEY_PREV;  break; 
         case 7:  data->key = LV_KEY_ENTER; break;
-        case 8:  data->key = LV_KEY_ESC;   break;
+        case 8:  data->key = LV_KEY_LEFT;   break;
         case 9:  data->key = LV_KEY_NEXT;  break; 
-        case 10: data->key = LV_KEY_ENTER; break;
+        case 10: data->key = LV_KEY_RIGHT; break;
         default: break;
     }
     lv_obj_invalidate(lv_screen_active());//work-around for sticky menu that shows selected option at the top of the screen
 }
 
+void Graphics::led_cb(bool is_menu_event)
+{
+    bool is_menu_valid=_active_menu != nullptr;
+    bool is_visible_menu=_active_menu == _menu_animations || 
+            _active_menu == _menu_animations_upper_leds || 
+            _active_menu == _menu_animations_lower_leds || 
+            _active_menu == _menu_animations_screen;
+    if(!is_menu_event && is_menu_valid && is_visible_menu)
+    {//run the update on the currently commanded led animation
+        if(_active_animation_lower) (_sensor_suite->led_lower.*_active_animation_lower)(*_sensor_suite);
+        if(_active_animation_upper) (_sensor_suite->led_upper.*_active_animation_upper)(*_sensor_suite);
+    }
+    if(is_menu_event && is_menu_valid && !is_visible_menu)
+    {//turn off leds when leaving animations menu
+        _sensor_suite->led_lower.animation_off(sensor_suite);
+        _sensor_suite->led_upper.animation_off(sensor_suite);
+        if(is_menu_event)
+        {
+            Serial.println("\n\nHALT\n\n");
+            //while(1);
+        }
+    }
+}
 
 void Graphics::begin(SensorSuite &sensor_suite)
 {
@@ -249,7 +290,11 @@ void Graphics::begin(SensorSuite &sensor_suite)
     PREPARE_MENU_PANEL(_menu_main);
     PREPARE_MENU_PANEL(_menu_animations);
     PREPARE_MENU_PANEL(_menu_animations_upper_leds);
+    PREPARE_MENU_PANEL(_menu_animations_lower_leds);
+    PREPARE_MENU_PANEL(_menu_animations_screen);
     PREPARE_MENU_PANEL(_menu_settings);
+    PREPARE_MENU_PANEL(_menu_levels);
+    PREPARE_MENU_PANEL(_menu_messages);
     #undef PREPARE_MENU_PANEL
 
 
@@ -280,20 +325,45 @@ void Graphics::begin(SensorSuite &sensor_suite)
 
     // --- LEVEL 2 (SUBMENUS) ---
     // Items inside these submenus will link back to the Root Main Menu on ESC
-    ADD_LINKED_ITEM(_menu_settings, "Brightness", _menu_main);
-    ADD_LINKED_ITEM(_menu_settings, "Volume",     _menu_main);
-    ADD_LINKED_ITEM(_menu_settings, "Back",       _menu_main);
+    ADD_LINKED_ITEM(_menu_levels, "Tic Tac Toe",      _menu_main);
+    ADD_LINKED_ITEM(_menu_levels, "Pong",             _menu_main);
+    ADD_LINKED_ITEM(_menu_levels, "Box",              _menu_main);
+    ADD_LINKED_ITEM(_menu_levels, "Snake",            _menu_main);
+    ADD_LINKED_ITEM(_menu_levels, "Platformer",       _menu_main);
+    ADD_LINKED_ITEM(_menu_levels, "Back",             _menu_main);
+
+    ADD_LINKED_ITEM(_menu_settings, "Alert Type",     _menu_main);
+    ADD_LINKED_ITEM(_menu_settings, "LED Brightness", _menu_main);
+    ADD_LINKED_ITEM(_menu_settings, "Mount USB",      _menu_main);
+    ADD_LINKED_ITEM(_menu_settings, "Back",           _menu_main);
 
     ADD_LINKED_ITEM(_menu_animations, "Upper LEDs",   _menu_main);
     ADD_LINKED_ITEM(_menu_animations, "Lower LEDs",   _menu_main);
     ADD_LINKED_ITEM(_menu_animations, "Screen",       _menu_main);
     ADD_LINKED_ITEM(_menu_animations, "Back",         _menu_main);
 
+    ADD_LINKED_ITEM(_menu_messages, "Received",       _menu_main);
+    ADD_LINKED_ITEM(_menu_messages, "Send",           _menu_main);
+    ADD_LINKED_ITEM(_menu_messages, "Back",           _menu_main);
+
     // --- LEVEL 3 (DEEP SUB-SUBMENUS) ---
     // Items inside this leaf menu will link back to the Animations Panel on ESC
-    ADD_LINKED_ITEM(_menu_animations_upper_leds, "Rainbow Fade", _menu_animations);
-    ADD_LINKED_ITEM(_menu_animations_upper_leds, "Static Cyan",  _menu_animations);
-    ADD_LINKED_ITEM(_menu_animations_upper_leds, "Back",         _menu_animations);
+    for(uint8_t is_upper=0;is_upper<2;is_upper++)
+    {
+        ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Off",           _menu_animations);
+        ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Auto Cycle",    _menu_animations);//change every X seconds
+        ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Blink",         _menu_animations);
+        ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Gyroscope",     _menu_animations);
+        ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Meteor",        _menu_animations);//note google search animation
+        ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Music",         _menu_animations);
+        //ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Pulse",         _menu_animations);
+        ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Rainbow Fade",  _menu_animations);
+        ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Static Green",  _menu_animations);
+        ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Static Red",    _menu_animations);
+        ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Steeple Chase", _menu_animations);
+        ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Stars",         _menu_animations);
+        ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Back",          _menu_animations);
+    }
 
     #undef ADD_LINKED_ITEM
 
@@ -309,6 +379,8 @@ void Graphics::update()
     _last_update_ms=current_time_ms;
 
     lv_timer_handler();
+    led_cb(false);
+
     //memset(_canvas_buffer, 0x66, sizeof(_canvas_buffer)); //<200 us
     //lvgl2spi(_canvas_buffer,_sensor_suite->screen);//direct draw to screen
 

@@ -44,14 +44,21 @@
 #define PIN_DEBUG_R 37
 #define PIN_DEBUG_G 38
 
+#define I2C0_SDA 12 //todo: delete
+#define I2C0_SCL 13
+#define I2C0_BAUD 400'000
+
 // -- objects --
 
 SensorSuite sensor_suite = {
   .frame_id=0xFFFFFFFF,
 
+  .imu=IMU(),
   .led_lower=Charlieplex(0),
   .led_upper=Charlieplex(1),
+  .light_sensor=LightSensor(),
   .graphics=Graphics(),
+  .scatterer_gatherer_engine_general=ScatterGatherEngine(),
   .scatterer_gatherer_engine_screen=ScatterGatherEngine(),
   .screen=Screen(),
   .touch=Touch(pio1)
@@ -88,9 +95,27 @@ void setup() {//core 0
   pinMode(PIN_DEBUG_R,OUTPUT);//if unset, then ir rxd/txd will default to putting out pwm signals here to show ir status
   pinMode(PIN_DEBUG_G,OUTPUT);
   sensor_suite.graphics.begin(sensor_suite); //beware lvgl interaction with USB mass storage mode (?) also with touch (?)
+
+
+    Wire.setSDA(I2C0_SDA);
+    Wire.setSCL(I2C0_SCL);
+    Wire.begin();
+    Wire.setClock(I2C0_BAUD);
+
+  Serial.println("Init Light Sensor...");
+  sensor_suite.light_sensor.begin();
+  sensor_suite.scatterer_gatherer_engine_general.registerSource(&sensor_suite.light_sensor);
+
+  Serial.println("Init IMU...");
+  sensor_suite.imu.begin();
+  sensor_suite.scatterer_gatherer_engine_general.registerSource(&sensor_suite.imu);//IMU after light sensor on shared I2C bus
+  
+
+  sensor_suite.scatterer_gatherer_engine_general.begin(true); //I2C needs aux channels to perform sync'd reads.  also uses sniff0 to compute the length of the imu fifo
   sensor_suite.scatterer_gatherer_engine_screen.begin(false); //limit to only 2 channels for screen
   sensor_suite.screen.begin();
   sensor_suite.scatterer_gatherer_engine_screen.registerSource(&sensor_suite.screen);
+  sensor_suite.scatterer_gatherer_engine_general.registerSource(&sensor_suite.scatterer_gatherer_engine_general);
   sensor_suite.scatterer_gatherer_engine_screen.registerSource(&sensor_suite.scatterer_gatherer_engine_screen);//register self to perform end-of-cycle completion check
   sensor_suite.led_upper.begin();
   sensor_suite.led_lower.begin();
@@ -103,7 +128,7 @@ void setup() {//core 0
 volatile bool is_core1_shutdown_request=false; //core0 flag to core1 to begin shutdown
 volatile bool is_core1_shutdown=false; //core1 flag to core0 that shutdown is complete
 void loop() { //core 0
-  digitalWrite(PIN_DEBUG_R,millis()%200>=100);
+  //digitalWrite(PIN_DEBUG_R,millis()%200>=100);
   //Serial.printf("core0 loop done: %d\n",sensor_suite.frame_id0);
   //while(time_us_64()-frame_us<16666) yield();
   busy_wait_until(frame_us+16666);//target 60 FPS, but allow clean recovery if something runs long
@@ -131,25 +156,13 @@ void __not_in_flash_func(setup1()){ //core 1
 
 volatile uint32_t frame_id1=0xFFFFFFFF;
 void __not_in_flash_func(loop1)(){ //core 1
-  digitalWrite(PIN_DEBUG_G,millis()%200<100);
-
+  //digitalWrite(PIN_DEBUG_G,millis()%200<100);
 //  Serial.printf("core1 loop done: %d, %d\n",sensor_suite.frame_id1,sensor_suite.touch.get_down_button());
 
-  //while(sensor_suite.frame_id0==sensor_suite.frame_id1) yield();
-  //Serial.println("HERE1");
-  //uint32_t token_value = 0;
-
-  // Returns true if a value was pulled successfully, false if empty
-  //while (frame_id1==frame_id0) delay(1);//yield();
-  //frame_id1 = frame_id0;
-      // Run frame code...
   do{
     frame_id1=rp2040.fifo.pop();
   }while(rp2040.fifo.available());
-  //uint32_t token = rp2040.fifo.pop();//wait for core0 signal to run sensor update step
-  //Serial.println("HERE2");
-  //sensor_suite.frame_id1=sensor_suite.frame_id0;
-  //delay(1);
+  
   uint64_t start_us=time_us_64();
 
   if(!is_core1_shutdown)
@@ -157,11 +170,16 @@ void __not_in_flash_func(loop1)(){ //core 1
     if(!is_core1_shutdown_request)
     {
       // -- temp debug led --
-      update_led();
+      //update_led();
 
+      sensor_suite.imu.update(); //before scatterer-gather enginer resets buffers
       sensor_suite.scatterer_gatherer_engine_screen.compileAndRun(frame_id1);
+      sensor_suite.scatterer_gatherer_engine_general.compileAndRun(frame_id1);
       sensor_suite.touch.update(frame_id1);//kicked off very near the beginning of the frame, normally it takes core0 notably longer to compute what to display on the screen
+
       //sensor_suite.touch.debug();
+      Serial.printf("imu_c: %.2f, fifo: %d, ",sensor_suite.imu.get_celsius(),sensor_suite.imu.get_fifo_sample_count());
+      Serial.printf("accel: %0.2f, %0.2f, %0.2f, gyro: %0.2f, %0.2f, %0.2f, light: %d\n",sensor_suite.imu.get_accel(0),sensor_suite.imu.get_accel(1),sensor_suite.imu.get_accel(2),sensor_suite.imu.get_gyro(0),sensor_suite.imu.get_gyro(1),sensor_suite.imu.get_gyro(2),sensor_suite.light_sensor.getBrightness());
     }else{
       sensor_suite.touch.end();
     }

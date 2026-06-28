@@ -5,6 +5,7 @@
 #include "charlieplex.pio.h"
 #include "hardware/regs/pads_bank0.h"
 #include "hardware/structs/padsbank0.h"
+#include "malo.h"
 
 #define LED_UPPER_START_PIN 0
 #define LED_LOWER_START_PIN 17
@@ -28,6 +29,15 @@ uint16_t const CHARLIEPLEX_PINOUT_CONFIG[2][CHARLIPLEX_LED_COUNT]={//index 0: lo
 0x2220,0x2820,0x4240,0x4840,0x5040,0x6040,0x0301,0x0901,0x1101,0x2101,0x4101,0x8101,0x2202,0x2808,0x4202,0x4808,0x5010,0x6020,0x0302,0x0908,0x1110,0x2120,0x4140,0x8180
 }};
 
+    // =================================================================
+    // 1. DEFINE THE POINTER-TO-MEMBER TYPE ALIAS
+    // =================================================================
+    // This defines 'AnimationFunc' as a pointer to a Charlieplex member function 
+    // that accepts a SensorSuite reference and returns void.
+struct SensorSuite;
+class Charlieplex;
+typedef void (Charlieplex::*AnimationFunc)(SensorSuite &);
+
 class Charlieplex{
   private:
     uint8_t _api_brightness[CHARLIPLEX_LED_COUNT];//write brightness values here for the frame currently being developed (red in lower 24 indexes, green in the upper 24)
@@ -49,4 +59,17 @@ class Charlieplex{
     void flush();
     void set_brightness(uint8_t index,uint8_t brightness);
     void set_max_effective_led_count(uint8_t count);
+
+    void animation_off(SensorSuite &sensor_suite);
+    void animation_blink(SensorSuite &sensor_suite);
+    void animation_cycle(SensorSuite &sensor_suite);
+    void animation_gyroscope(SensorSuite &sensor_suite);
+    void animation_pulse(SensorSuite &sensor_suite);
+    void animation_rainbow_fade(SensorSuite &sensor_suite);
+    void animation_stars(SensorSuite &sensor_suite);
+    void animation_static_green(SensorSuite &sensor_suite);
+    void animation_static_red(SensorSuite &sensor_suite);
+    void animation_steeple_chase(SensorSuite &sensor_suite);
+
+    bool get_animation_by_name(const char * name, AnimationFunc &dest_func);
 };
