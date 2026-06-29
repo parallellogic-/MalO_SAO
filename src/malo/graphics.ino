@@ -121,11 +121,31 @@ void Graphics::menu_event_cb(lv_event_t * e) {
     if (code == LV_EVENT_CLICKED) {
         const char * text = lv_label_get_text(obj);
 
+        lv_obj_t * parent_panel = lv_obj_get_parent(obj);
+        if (!parent_panel) return;
+
         if (instance->_active_menu != nullptr && instance->_active_menu == instance->_menu_animations_upper_leds) {
             if (instance->_sensor_suite->led_upper.get_animation_by_name(text, instance->_active_animation_upper)) return;
         }
         if (instance->_active_menu != nullptr && instance->_active_menu == instance->_menu_animations_lower_leds) {
             if (instance->_sensor_suite->led_lower.get_animation_by_name(text, instance->_active_animation_lower)) return;
+        }
+
+        if(parent_panel==instance->_menu_animations_screen && strcmp(text, "Off") == 0)
+        {//request to blank the display
+            instance->_is_in_level = true;
+            
+            // Hide the active menu interface 
+            if (instance->_active_menu) {
+                lv_obj_add_flag(instance->_active_menu, LV_OBJ_FLAG_HIDDEN);
+            }
+            
+            // Unhide the raw canvas object interface wrapper
+            lv_obj_remove_flag(instance->_level_canvas, LV_OBJ_FLAG_HIDDEN);
+            
+            // Clear or seed the screen array before rendering begins
+            memset(instance->_level_buffer, 0, sizeof(instance->_level_buffer));
+            return; 
         }
         //--- Deep Tree Forward Routers ---
         // Level 1 -> Level 2
@@ -233,6 +253,15 @@ void Graphics::begin(SensorSuite &sensor_suite)
     lv_display_set_buffers(disp, _canvas_buffer, NULL, sizeof(_canvas_buffer), LV_DISPLAY_RENDER_MODE_PARTIAL);
     lv_display_set_user_data(disp, this); 
     lv_display_set_flush_cb(disp, display_flush_cb);
+
+
+    _level_canvas = lv_canvas_create(lv_screen_active());
+    // Bind your private game_frame_buffer array as the canvas asset data target
+    // Assumes your display driver defaults to standard RGB565 depth
+    lv_canvas_set_buffer(_level_canvas, _level_buffer, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX, LV_COLOR_FORMAT_L8);
+    lv_obj_align(_level_canvas, LV_ALIGN_CENTER, 0, 0);
+    // Keep it hidden initially so it doesn't mask out the main selection tree
+    lv_obj_add_flag(_level_canvas, LV_OBJ_FLAG_HIDDEN); 
     
     // Create and configure the LVGL keyboard/button input device
     lv_indev_t * indev = lv_indev_create();
@@ -339,6 +368,7 @@ void Graphics::begin(SensorSuite &sensor_suite)
     ADD_LINKED_ITEM(_menu_settings, "Alert Type",     _menu_main);
     ADD_LINKED_ITEM(_menu_settings, "LED Brightness", _menu_main);
     ADD_LINKED_ITEM(_menu_settings, "Periphreal Test",_menu_main);
+    ADD_LINKED_ITEM(_menu_settings, "IR Transmit Rate",_menu_main); //bit clock rate
     ADD_LINKED_ITEM(_menu_settings, "Mount USB",      _menu_main);
     ADD_LINKED_ITEM(_menu_settings, "Back",           _menu_main);
 
@@ -359,6 +389,8 @@ void Graphics::begin(SensorSuite &sensor_suite)
 
     ADD_LINKED_ITEM(_menu_animations_screen, "Off",             _menu_animations);
     ADD_LINKED_ITEM(_menu_animations_screen, "Dance",           _menu_animations);
+    ADD_LINKED_ITEM(_menu_animations_screen, "Name",            _menu_animations);
+    ADD_LINKED_ITEM(_menu_animations_screen, "Spectrogram",      _menu_animations);
     ADD_LINKED_ITEM(_menu_animations_screen, "Back",             _menu_animations);
 
     // --- LEVEL 3 (DEEP SUB-SUBMENUS) ---
@@ -368,8 +400,8 @@ void Graphics::begin(SensorSuite &sensor_suite)
         ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Off",           _menu_animations);
         ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Auto Cycle",    _menu_animations);//change every X seconds
         ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Blink",         _menu_animations);
+        ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Fire",          _menu_animations);//note google search animation for 'Meteor'
         ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Gyroscope",     _menu_animations);
-        ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Meteor",        _menu_animations);//note google search animation
         ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Microphone",    _menu_animations);
         //ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Pulse",         _menu_animations);
         ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Rainbow Fade",  _menu_animations);

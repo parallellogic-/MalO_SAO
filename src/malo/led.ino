@@ -218,6 +218,53 @@ void Charlieplex::animation_cycle(SensorSuite &sensor_suite)
     }
 }
 
+void Charlieplex::animation_fire(SensorSuite &sensor_suite)
+{
+    set_max_effective_led_count(CHARLIPLEX_LED_COUNT/4);
+
+    unsigned long current_time = millis();
+    uint8_t half_count = CHARLIPLEX_LED_COUNT / 2;
+
+    for(uint8_t iter=0; iter<half_count; iter++)
+    {
+        // Normalize position from 0.0 (bottom/near zero) to 1.0 (top/higher index)
+        float progress = (float)iter / half_count;
+
+        // Combine multiple sine waves for organic flickering
+        float flicker1 = sin(current_time * 0.015f - iter * 2.0f);
+        float flicker2 = cos(current_time * 0.007f + iter * 1.5f);
+        float flicker3 = sin(current_time * 0.035f - iter * 3.7f);
+        
+        // Raw flicker value mapped strictly to a 0.0 to 1.0 range
+        float total_flicker = ((flicker1 * 0.5f) + (flicker2 * 0.3f) + (flicker3 * 0.2f)) * 0.5f + 0.5f;
+        
+        // MODERATE CONTRAST: Exponent scales from 1.0 up to 6.0 at the top.
+        // This widens the dark gaps noticeably without making sparks completely disappear.
+        float flicker_exponent = 1.0f + (progress * 5.0f);
+        total_flicker = pow(total_flicker, flicker_exponent);
+
+        // Gentle squared curve for baseline decay.
+        // Drops off faster than linear, but keeps the lower-middle indexes feeling warm.
+        float base_glow = pow(1.0f - progress, 2.0f) * 0.8f;
+        
+        // Combine baseline glow with the sharpened flicker peaks
+        float final_brightness = (base_glow + total_flicker) * 255.0f;
+        
+        // Constrain the final value to valid 8-bit bounds
+        final_brightness = max(final_brightness, 0.0f);
+        final_brightness = min(final_brightness, 255.0f);
+        
+        // Maintain your color gradient logic
+        uint8_t red = (uint8_t)(final_brightness * (CHARLIPLEX_LED_COUNT*.7 - iter) / (CHARLIPLEX_LED_COUNT*.7));
+        uint8_t green = (uint8_t)(final_brightness * pow((float)iter,0.7f)*1.5f / half_count);
+        green=min(green,red<30?red:red-30);
+        
+        set_brightness(iter, red);
+        set_brightness(iter + half_count, green);
+    }
+    flush();
+}
+
 void Charlieplex::animation_gyroscope(SensorSuite &sensor_suite)
 {
     set_max_effective_led_count(CHARLIPLEX_LED_COUNT/4);
@@ -369,6 +416,10 @@ bool Charlieplex::get_animation_by_name(const char * name, AnimationFunc &dest_f
     }
     else if (strcmp(name, "Blink") == 0) {
         dest_func = &Charlieplex::animation_blink;
+        return true;
+    }
+    else if (strcmp(name, "Fire") == 0) {
+        dest_func = &Charlieplex::animation_fire;
         return true;
     }
     else if (strcmp(name, "Gyroscope") == 0) {

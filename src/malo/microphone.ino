@@ -173,9 +173,7 @@ void Microphone::update(){
 
   // Scenario A: Linear read (The DMA pointer did not wrap around the ring boundary)
   if (end_ptr > start_ptr) {
-    Serial.print("mic no-wrap\n");
     uint8_t* ptr = (uint8_t*)start_ptr;
-    Serial.printf("(uint32_t)ptr: 0x%08X, end_ptr: 0x%08X\n",(uint32_t)ptr,end_ptr);
     while ((uint32_t)ptr < end_ptr) {
       // 1. Read raw byte exactly as it exists in memory (0 to 255 spectrum)
       uint8_t raw_byte = *ptr; 
@@ -192,10 +190,8 @@ void Microphone::update(){
   } 
   // Scenario B: Wrapped read (The DMA pointer wrapped back around to the front of the array)
   else {
-    Serial.print("mic with wrap\n");
     // Phase 1: Process from previous position up to the absolute end of the array buffer
     uint8_t* ptr = (uint8_t*)start_ptr;
-    Serial.printf("(uint32_t)ptr: 0x%08X, buffer_end_addr: 0x%08X\n",(uint32_t)ptr,buffer_end_addr);
     while ((uint32_t)ptr < buffer_end_addr) {
       uint8_t raw_byte = *ptr; 
       int32_t filtered_sample = (int32_t)raw_byte - 128; 
@@ -205,7 +201,6 @@ void Microphone::update(){
     }
     // Phase 2: Process from the beginning of array buffer up to the current active DMA target
     ptr = (uint8_t*)buffer_start_addr;
-    Serial.printf("(uint32_t)ptr: 0x%08X, end_ptr: 0x%08X\n",(uint32_t)ptr,end_ptr);
     while ((uint32_t)ptr < end_ptr) {
       uint8_t raw_byte = *ptr; 
       int32_t filtered_sample = (int32_t)raw_byte - 128; 
@@ -214,7 +209,6 @@ void Microphone::update(){
       ptr++;
     }
   }
-  Serial.printf("mic: %d, %d\n",(uint32_t)squared_sum,samples_processed);
 
   // Compute Mean Square value safely to protect against any edge case division-by-zero errors
   if (samples_processed > 0) {
@@ -232,53 +226,3 @@ void Microphone::end(){
 
 float Microphone::get_mean_square(){ return _mean_square; }
 
-/*void loopXX() {
-  bool report_now = (millis() - lastReportTime >= 16);
-  uint32_t current_pc = 0;
-  
-  if (report_now) {
-    current_pc = _sm_get_pc(_pio, _sm);
-  }
-
-  // Read any decimated audio density sample bytes pushed into the RX FIFO
-  while (!_sm_is_rx_fifo_empty(_pio, _sm)) {
-    uint32_t fifoValue = _sm_get(_pio, _sm);
-    //Serial.printf("%08X\n",fifoValue);
-    int8_t xByteValue = (uint8_t)(fifoValue & 0xFF);
-
-    //int16_t rawSample = (int16_t)(((xByteValue * 65535) / 255) - 32768);
-    xByteValue+=128;
-    //erial.println(xByteValue);
-    dcFilterState=0;
-    double filteredSample = (int16_t)xByteValue;// - dcFilterState;
-    dcFilterState = dcFilterState + 0.0005 * filteredSample;
-
-    squaredSum += filteredSample * filteredSample;
-    totalSamplesCount++;
-  }
-
-  if (report_now) {
-    uint32_t relative_instruction = (current_pc >= program_offset) ? (current_pc - program_offset) : current_pc;
-
-    if (totalSamplesCount > 0) {
-      double meanSquare = squaredSum / totalSamplesCount;
-      double rms = sqrt(meanSquare);
-      Serial.print("RMS Audio Level: ");
-      Serial.print(rms, 2);
-      Serial.print(" | Current PIO Instruction: ");
-      Serial.println(relative_instruction);
-      
-  uint slice_num = pwm_gpio_to_slice_num(PIN_DEBUG_R);
-  uint chan = pwm_gpio_to_channel(PIN_DEBUG_R);
-  pwm_set_chan_level(slice_num, chan, (uint16_t)(rms*rms*10));
-    } else {
-      Serial.print("Waiting for clock transitions... | Stuck at PIO Instruction: ");
-      Serial.println(relative_instruction);
-    }
-
-    // Reset loop variables
-    squaredSum = 0;
-    totalSamplesCount = 0;
-    lastReportTime = millis();
-  }
-}*/

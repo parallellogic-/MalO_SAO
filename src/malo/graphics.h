@@ -29,9 +29,12 @@ class Graphics{
     lv_obj_t * _menu_levels = nullptr; //games/puzzles
     lv_obj_t * _menu_messages = nullptr; //ir receive and transmit
     lv_obj_t * _menu_periphreal_test = nullptr; //stand-alone demo/checkout of periphreals
+    lv_obj_t * _level_canvas;
+    bool _is_in_level = false;
 
     // Frame Buffers allocations matching your configuration snippets
     uint8_t _canvas_buffer[SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX] __attribute__((aligned(4)));
+    uint8_t _level_buffer[SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX] __attribute__((aligned(4))); //LV_COLOR_FORMAT_AL88: byte 0 is luminance 0, and byte 1 is 8-bit opacity
     lv_draw_buf_t _custom_canvas_draw_handle;
 
     AnimationFunc  _active_animation_lower  = nullptr; // Keeps track of the chosen function address

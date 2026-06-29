@@ -92,7 +92,7 @@ volatile uint32_t frame_id0=0xFFFFFFFF;
 uint64_t frame_us=0;
 volatile bool setup0_complete=false;
 void setup() {//core 0
-  UniversalSerialBus::begin();
+//  UniversalSerialBus::begin();
   pinMode(PIN_DEBUG_R,OUTPUT);//if unset, then ir rxd/txd will default to putting out pwm signals here to show ir status
   pinMode(PIN_DEBUG_G,OUTPUT);
   sensor_suite.graphics.begin(sensor_suite); //beware lvgl interaction with USB mass storage mode (?) also with touch (?)
