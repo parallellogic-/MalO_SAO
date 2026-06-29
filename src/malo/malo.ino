@@ -53,11 +53,12 @@
 SensorSuite sensor_suite = {
   .frame_id=0xFFFFFFFF,
 
+  .graphics=Graphics(),
   .imu=IMU(),
   .led_lower=Charlieplex(0),
   .led_upper=Charlieplex(1),
   .light_sensor=LightSensor(),
-  .graphics=Graphics(),
+  .microphone=Microphone(),
   .scatterer_gatherer_engine_general=ScatterGatherEngine(),
   .scatterer_gatherer_engine_screen=ScatterGatherEngine(),
   .screen=Screen(),
@@ -110,7 +111,7 @@ void setup() {//core 0
   sensor_suite.imu.begin();
   sensor_suite.scatterer_gatherer_engine_general.registerSource(&sensor_suite.imu);//IMU after light sensor on shared I2C bus
   
-
+sensor_suite.microphone.begin();
   sensor_suite.scatterer_gatherer_engine_general.begin(true); //I2C needs aux channels to perform sync'd reads.  also uses sniff0 to compute the length of the imu fifo
   sensor_suite.scatterer_gatherer_engine_screen.begin(false); //limit to only 2 channels for screen
   sensor_suite.screen.begin();
@@ -172,13 +173,15 @@ void __not_in_flash_func(loop1)(){ //core 1
       // -- temp debug led --
       //update_led();
 
-      sensor_suite.imu.update(); //before scatterer-gather enginer resets buffers
+      sensor_suite.imu.update(); //before scatterer-gather enginer resets buffers (does introduce some additional timing jitter on the scatterer-gatherers...)
       sensor_suite.scatterer_gatherer_engine_screen.compileAndRun(frame_id1);
       sensor_suite.scatterer_gatherer_engine_general.compileAndRun(frame_id1);
       sensor_suite.touch.update(frame_id1);//kicked off very near the beginning of the frame, normally it takes core0 notably longer to compute what to display on the screen
+      sensor_suite.microphone.update();
 
       //sensor_suite.touch.debug();
       Serial.printf("imu_c: %.2f, fifo: %d, ",sensor_suite.imu.get_celsius(),sensor_suite.imu.get_fifo_sample_count());
+      Serial.printf("mic: %.2f, ",sensor_suite.microphone.get_mean_square());
       Serial.printf("accel: %0.2f, %0.2f, %0.2f, gyro: %0.2f, %0.2f, %0.2f, light: %d\n",sensor_suite.imu.get_accel(0),sensor_suite.imu.get_accel(1),sensor_suite.imu.get_accel(2),sensor_suite.imu.get_gyro(0),sensor_suite.imu.get_gyro(1),sensor_suite.imu.get_gyro(2),sensor_suite.light_sensor.getBrightness());
     }else{
       sensor_suite.touch.end();

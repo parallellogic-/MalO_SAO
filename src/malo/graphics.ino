@@ -151,6 +151,9 @@ void Graphics::menu_event_cb(lv_event_t * e) {
         else if (strcmp(text, "Messages") == 0) {
             instance->switch_menu(instance->_menu_messages, false);
         }
+        else if (strcmp(text, "Periphreal Test") == 0) {
+            instance->switch_menu(instance->_menu_periphreal_test, false);
+        }
         // Unified Back string tracker handles older menu formats seamlessly
         else if (strcmp(text, "Back") == 0) {
             lv_obj_t * parent_menu = (lv_obj_t*)lv_obj_get_user_data(obj);
@@ -193,7 +196,7 @@ void Graphics::button_read_cb(lv_indev_t * indev, lv_indev_data_t * data) {
         case 10: data->key = LV_KEY_RIGHT; break;
         default: break;
     }
-    lv_obj_invalidate(lv_screen_active());//work-around for sticky menu that shows selected option at the top of the screen
+    lv_obj_invalidate(lv_screen_active());//work-around for sticky menu that shows selected option at the top of the screen instead of the middle where it should be
 }
 
 void Graphics::led_cb(bool is_menu_event)
@@ -212,11 +215,11 @@ void Graphics::led_cb(bool is_menu_event)
     {//turn off leds when leaving animations menu
         _sensor_suite->led_lower.animation_off(sensor_suite);
         _sensor_suite->led_upper.animation_off(sensor_suite);
-        if(is_menu_event)
+        /*if(is_menu_event)
         {
             Serial.println("\n\nHALT\n\n");
             //while(1);
-        }
+        }*/
     }
 }
 
@@ -295,6 +298,7 @@ void Graphics::begin(SensorSuite &sensor_suite)
     PREPARE_MENU_PANEL(_menu_settings);
     PREPARE_MENU_PANEL(_menu_levels);
     PREPARE_MENU_PANEL(_menu_messages);
+    PREPARE_MENU_PANEL(_menu_periphreal_test);
     #undef PREPARE_MENU_PANEL
 
 
@@ -334,6 +338,7 @@ void Graphics::begin(SensorSuite &sensor_suite)
 
     ADD_LINKED_ITEM(_menu_settings, "Alert Type",     _menu_main);
     ADD_LINKED_ITEM(_menu_settings, "LED Brightness", _menu_main);
+    ADD_LINKED_ITEM(_menu_settings, "Periphreal Test",_menu_main);
     ADD_LINKED_ITEM(_menu_settings, "Mount USB",      _menu_main);
     ADD_LINKED_ITEM(_menu_settings, "Back",           _menu_main);
 
@@ -346,6 +351,16 @@ void Graphics::begin(SensorSuite &sensor_suite)
     ADD_LINKED_ITEM(_menu_messages, "Send",           _menu_main);
     ADD_LINKED_ITEM(_menu_messages, "Back",           _menu_main);
 
+    ADD_LINKED_ITEM(_menu_periphreal_test, "Buzzer",           _menu_settings);
+    ADD_LINKED_ITEM(_menu_periphreal_test, "IMU",           _menu_settings);
+    ADD_LINKED_ITEM(_menu_periphreal_test, "Light Sensor",           _menu_settings);
+    ADD_LINKED_ITEM(_menu_periphreal_test, "Vibration Motor",           _menu_settings);
+    ADD_LINKED_ITEM(_menu_periphreal_test, "Back",           _menu_settings);
+
+    ADD_LINKED_ITEM(_menu_animations_screen, "Off",             _menu_animations);
+    ADD_LINKED_ITEM(_menu_animations_screen, "Dance",           _menu_animations);
+    ADD_LINKED_ITEM(_menu_animations_screen, "Back",             _menu_animations);
+
     // --- LEVEL 3 (DEEP SUB-SUBMENUS) ---
     // Items inside this leaf menu will link back to the Animations Panel on ESC
     for(uint8_t is_upper=0;is_upper<2;is_upper++)
@@ -355,7 +370,7 @@ void Graphics::begin(SensorSuite &sensor_suite)
         ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Blink",         _menu_animations);
         ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Gyroscope",     _menu_animations);
         ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Meteor",        _menu_animations);//note google search animation
-        ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Music",         _menu_animations);
+        ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Microphone",    _menu_animations);
         //ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Pulse",         _menu_animations);
         ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Rainbow Fade",  _menu_animations);
         ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Static Green",  _menu_animations);

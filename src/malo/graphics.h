@@ -28,6 +28,7 @@ class Graphics{
     lv_obj_t * _menu_animations_screen = nullptr;  // Animations submenu container
     lv_obj_t * _menu_levels = nullptr; //games/puzzles
     lv_obj_t * _menu_messages = nullptr; //ir receive and transmit
+    lv_obj_t * _menu_periphreal_test = nullptr; //stand-alone demo/checkout of periphreals
 
     // Frame Buffers allocations matching your configuration snippets
     uint8_t _canvas_buffer[SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX] __attribute__((aligned(4)));

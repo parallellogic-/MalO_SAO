@@ -246,6 +246,32 @@ void Charlieplex::animation_gyroscope(SensorSuite &sensor_suite)
     flush();
 }
 
+void Charlieplex::animation_microphone(SensorSuite &sensor_suite)
+{
+    set_max_effective_led_count(CHARLIPLEX_LED_COUNT/4+1);
+
+    float mean_square=sensor_suite.microphone.get_mean_square();
+    float audio_level=min(CHARLIPLEX_LED_COUNT/2,1+(log2f(max(1,mean_square))/10.0)*(CHARLIPLEX_LED_COUNT/2));
+    for(uint8_t iter=0;iter<CHARLIPLEX_LED_COUNT/2;iter++)
+    {
+        uint8_t red=0;
+        uint8_t green=0;
+        if(iter<audio_level)
+        {
+            red=(uint8_t)(iter*255/(CHARLIPLEX_LED_COUNT/2));
+            green=255-red;
+        }
+        if(iter==(uint8_t)audio_level)
+        {//if the tip of the sound bar, then give it a fractional brightness
+            red=(uint8_t)((audio_level-(uint8_t)audio_level)*iter*255/(CHARLIPLEX_LED_COUNT/2));
+            green=(uint8_t)((audio_level-(uint8_t)audio_level)*(255-(iter*255/(CHARLIPLEX_LED_COUNT/2))));
+        }
+        set_brightness(iter,red);
+        set_brightness(iter+CHARLIPLEX_LED_COUNT/2,green);
+    }
+    flush();
+}
+
 void Charlieplex::animation_pulse(SensorSuite &sensor_suite)
 {
     set_max_effective_led_count(CHARLIPLEX_LED_COUNT/4+1);
@@ -347,6 +373,10 @@ bool Charlieplex::get_animation_by_name(const char * name, AnimationFunc &dest_f
     }
     else if (strcmp(name, "Gyroscope") == 0) {
         dest_func = &Charlieplex::animation_gyroscope;
+        return true;
+    }
+    else if (strcmp(name, "Microphone") == 0) {
+        dest_func = &Charlieplex::animation_microphone;
         return true;
     }
     else if (strcmp(name, "Pulse") == 0) {
