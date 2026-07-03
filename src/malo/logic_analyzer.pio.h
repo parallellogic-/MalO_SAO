@@ -15,14 +15,15 @@
 #define logic_analyzer_wrap_target 1
 #define logic_analyzer_wrap 15
 #define logic_analyzer_pio_version 0
+#define LOGIC_ANALYZER_PIN_COUNT 11
 
 static const uint16_t logic_analyzer_program_instructions[] = {
     0xa020, //  0: mov    x, pins
             //     .wrap_target
     0xa0eb, //  1: mov    osr, ~null
-    0x60d5, //  2: out    isr, 21
+    0x60d5, //  2: out    isr, 21     // 32-LOGIC_ANALYZER_PIN_COUNT
     0xa040, //  3: mov    y, pins
-    0x00ab, //  4: jmp    x != y, 11
+    0x00ab, //  4: jmp    x != y, 11  // LOGIC_ANALYZER_PIN_COUNT
     0xa046, //  5: mov    y, isr
     0x0089, //  6: jmp    y--, 9
     0xa041, //  7: mov    y, x

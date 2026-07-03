@@ -1,6 +1,6 @@
 #include "led.h"
 
-uint Charlieplex::_sm_offset = -1; //define static (upload pio program only one time)
+//uint Charlieplex::_sm_offset = -1; //define static (upload pio program only one time)
 
 Charlieplex::Charlieplex(bool is_upper)
 {
@@ -10,18 +10,21 @@ Charlieplex::Charlieplex(bool is_upper)
   _current_list_ptr = &_charliplex_list[0][0]; 
 }
 
-void Charlieplex::begin(){
+void Charlieplex::begin(PIOProgramManager &pio_program_manager){
     for(int iter=_first_pin;iter<_first_pin+8;iter++){
       pinMode(iter,INPUT);
       gpio_disable_pulls(iter);
     }//init 8 contiguous LEDs as expected by PIO program
 
     // 1. Initialize PIO
-    if(_sm_offset == (uint)-1)
-      _sm_offset = pio_add_program(_pio, &charlieplex_dma_program);//load once in main
+    //if(_sm_offset == (uint)-1)
+    //  _sm_offset = pio_add_program(_pio, &charlieplex_dma_program);//load once in main
 
-    _sm = pio_claim_unused_sm(_pio, true);//for each charlieplex LED (one for lower, one for upper)
-    charlieplex_dma_program_init(_pio, _sm, _sm_offset, _first_pin, 8);
+    //_sm = pio_claim_unused_sm(_pio, true);//for each charlieplex LED (one for lower, one for upper)
+    PIO pio=pio_program_manager.get_pio();
+    uint sm=pio_program_manager.allocate_sm();
+    uint sm_offset=pio_program_manager.get_offset();
+    charlieplex_dma_program_init(pio, sm, sm_offset, _first_pin, 8);
 
     // 2. Configure DATA DMA (The worker)
     _data_chan = dma_claim_unused_channel(true);
@@ -29,7 +32,7 @@ void Charlieplex::begin(){
     channel_config_set_transfer_data_size(&c_data, DMA_SIZE_32);
     channel_config_set_read_increment(&c_data, true);
     channel_config_set_write_increment(&c_data, false);
-    channel_config_set_dreq(&c_data, pio_get_dreq(_pio, _sm, true));
+    channel_config_set_dreq(&c_data, pio_get_dreq(pio, sm, true));
     
     // 3. Configure CONTROL DMA (The restarter)
     _ctrl_chan = dma_claim_unused_channel(true);
@@ -43,7 +46,7 @@ void Charlieplex::begin(){
 
     dma_channel_configure(
         _data_chan, &c_data,
-        &_pio->txf[_sm],     
+        &pio->txf[sm],     
         _current_list_ptr,  
         CHARLIPLEX_LED_COUNT+1,                
         false              
@@ -81,7 +84,7 @@ void Charlieplex::end() {
     }
 
     // 2. Halt the underlying PIO State Machine engine
-    if (_sm != (uint)-1) {
+    /*if (_sm != (uint)-1) {
         pio_sm_set_enabled(_pio, _sm, false);
         
         // Clear the PIO Tx FIFO to drain any lingering matrix transitions
@@ -90,7 +93,7 @@ void Charlieplex::end() {
         // Release the state machine resource back to the Pico SDK pool
         pio_sm_unclaim(_pio, _sm);
         _sm = (uint)-1; // Mark as unallocated
-    }
+    }*/
 
     // 3. Unclaim the DMA channels to clear them from the system bus matrix
     if (_ctrl_chan >= 0) {
@@ -104,21 +107,13 @@ void Charlieplex::end() {
 
     // 4. Reset the instance's specific pins to a safe, high-impedance state
     // This isolates the Charlieplex grid from hardware noise during flash writes
-    if (_pio_index) {
-        // Upper Instance Pins (Pins 16-23)
-        for (int iter = 16; iter < 24; iter++) {
-            gpio_init(iter);
-            gpio_set_dir(iter, GPIO_IN);
-        }
-    } else {
-        // Lower Instance Pins (Pins 0-7)
-        for (int iter = 0; iter < 8; iter++) {
-            gpio_init(iter);
-            gpio_set_dir(iter, GPIO_IN);
-        }
+    for (int iter = _first_pin; iter < _first_pin+8; iter++) {
+        gpio_init(iter);
+        gpio_set_dir(iter, GPIO_IN);
     }
 }
 
+//called to move the data from RAM to the periphreal (LEDs)
 void Charlieplex::flush()
 {
     // Use a different index than the one currently being displayed by DMA
@@ -156,7 +151,7 @@ void Charlieplex::set_max_effective_led_count(uint8_t count)
 void Charlieplex::animation_off(SensorSuite &sensor_suite)
 {//leds are cleared to 0 on each use, so nothing to set here
     set_max_effective_led_count(1);
-    flush();
+    for(int8_t iter = 0; iter < CHARLIPLEX_LED_COUNT; iter++) set_brightness(iter, 0);
 }
 
 void Charlieplex::animation_blink(SensorSuite &sensor_suite)
@@ -190,9 +185,6 @@ void Charlieplex::animation_blink(SensorSuite &sensor_suite)
             set_brightness(iter, 0);
         }
     }
-
-    // 4. Command the hardware line engine to render the updated configuration
-    flush();
 }
 
 void Charlieplex::animation_cycle(SensorSuite &sensor_suite)
@@ -262,7 +254,6 @@ void Charlieplex::animation_fire(SensorSuite &sensor_suite)
         set_brightness(iter, red);
         set_brightness(iter + half_count, green);
     }
-    flush();
 }
 
 void Charlieplex::animation_gyroscope(SensorSuite &sensor_suite)
@@ -289,8 +280,6 @@ void Charlieplex::animation_gyroscope(SensorSuite &sensor_suite)
         uint8_t brightness8=(uint8_t)brightness;
         set_brightness(iter,brightness8);
     }
-
-    flush();
 }
 
 void Charlieplex::animation_microphone(SensorSuite &sensor_suite)
@@ -316,7 +305,6 @@ void Charlieplex::animation_microphone(SensorSuite &sensor_suite)
         set_brightness(iter,red);
         set_brightness(iter+CHARLIPLEX_LED_COUNT/2,green);
     }
-    flush();
 }
 
 void Charlieplex::animation_pulse(SensorSuite &sensor_suite)
@@ -332,7 +320,6 @@ void Charlieplex::animation_pulse(SensorSuite &sensor_suite)
       set_brightness(iter,(uint8_t)brightness_upper/4);//dim the bulk of the leds
       if((millis()/75)%(CHARLIPLEX_LED_COUNT/2)==iter%(CHARLIPLEX_LED_COUNT/2)) set_brightness(iter,(uint8_t)brightness_upper);//make one brighter
     }
-    flush();
 }
 
 void Charlieplex::animation_rainbow_fade(SensorSuite &sensor_suite)
@@ -346,7 +333,6 @@ void Charlieplex::animation_rainbow_fade(SensorSuite &sensor_suite)
       if(brightness_upper & 0x0100) brightness_upper=255-(uint8_t)brightness_upper;//fade fully off half the time
       set_brightness(iter,(uint8_t)brightness_upper);
     }
-    flush();
 }
 
 void Charlieplex::animation_stars(SensorSuite &sensor_suite)
@@ -370,20 +356,17 @@ void Charlieplex::animation_stars(SensorSuite &sensor_suite)
         set_brightness(iter,red);
         set_brightness(iter+CHARLIPLEX_LED_COUNT/2,green);
     }
-    flush();
 }
 
 void Charlieplex::animation_static_green(SensorSuite &sensor_suite)
 {
     set_max_effective_led_count(CHARLIPLEX_LED_COUNT/2);
     for (uint8_t iter = CHARLIPLEX_LED_COUNT/2; iter < CHARLIPLEX_LED_COUNT; iter++) set_brightness(iter,255);
-    flush();
 }
 void Charlieplex::animation_static_red(SensorSuite &sensor_suite)
 {
     set_max_effective_led_count(CHARLIPLEX_LED_COUNT/2);
     for (uint8_t iter = 0; iter < CHARLIPLEX_LED_COUNT/2; iter++) set_brightness(iter,255);
-    flush();
 }
 void Charlieplex::animation_steeple_chase(SensorSuite &sensor_suite)
 {
@@ -398,7 +381,6 @@ void Charlieplex::animation_steeple_chase(SensorSuite &sensor_suite)
       set_brightness(iter,(uint8_t)brightness_upper/4);//dim the bulk of the leds
       if((millis()/75)%7==iter%(CHARLIPLEX_LED_COUNT/2)%7) set_brightness(iter,(uint8_t)brightness_upper);//make one brighter
     }
-    flush();
 }
 
 // given a string "name" of the animation to play, update the dest_func with a pointer to the above application-specific animation to play in response

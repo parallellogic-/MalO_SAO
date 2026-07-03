@@ -38,15 +38,8 @@
 // -- include --
 
 #include "malo.h"
-
-// -- define --
-
-#define PIN_DEBUG_R 37
-#define PIN_DEBUG_G 38
-
-#define I2C0_SDA 12 //todo: delete
-#define I2C0_SCL 13
-#define I2C0_BAUD 400'000
+#include "charlieplex.pio.h"
+#include "logic_analyzer.pio.h"
 
 // -- objects --
 
@@ -59,32 +52,13 @@ SensorSuite sensor_suite = {
   .led_upper=Charlieplex(1),
   .light_sensor=LightSensor(),
   .microphone=Microphone(),
+  .pio_charlieplex=PIOProgramManager(pio0,&charlieplex_dma_program,0), //pio needs to be onlower bank to reach gp0.  duty cycle pairs of LEDs spread across 8 output pins
+  .pio_logic_analyzer=PIOProgramManager(pio1,&logic_analyzer_program,16), //needs to be a separate pio to reach above pin 32 (configured at bank level.  run-length encoder of 11 pin states
   .scatterer_gatherer_engine_general=ScatterGatherEngine(),
   .scatterer_gatherer_engine_screen=ScatterGatherEngine(),
   .screen=Screen(),
-  .touch=Touch(pio1)
+  .touch=Touch()
 };
-
-// -- debug --
-
-
-void update_led()
-{
-    sensor_suite.led_upper.set_max_effective_led_count(CHARLIPLEX_LED_COUNT/2);
-    sensor_suite.led_lower.set_max_effective_led_count(CHARLIPLEX_LED_COUNT/2);
-
-    for(uint8_t iter=0;iter<CHARLIPLEX_LED_COUNT;iter++)
-    {
-      //slow fade
-      uint16_t brightness_upper = (-millis()/8)+iter*32; 
-      if(brightness_upper & 0x0100) brightness_upper=255-(uint8_t)brightness_upper;//fade fully off half the time
-      sensor_suite.led_upper.set_brightness(iter,(uint8_t)brightness_upper);
-      sensor_suite.led_lower.set_brightness(iter,(uint8_t)brightness_upper);
-    }
-    sensor_suite.led_upper.flush();
-    sensor_suite.led_lower.flush();
-}
-
 
 // -- variables --
 
@@ -92,35 +66,36 @@ volatile uint32_t frame_id0=0xFFFFFFFF;
 uint64_t frame_us=0;
 volatile bool setup0_complete=false;
 void setup() {//core 0
-//  UniversalSerialBus::begin();
+  //UniversalSerialBus::begin();
   pinMode(PIN_DEBUG_R,OUTPUT);//if unset, then ir rxd/txd will default to putting out pwm signals here to show ir status
   pinMode(PIN_DEBUG_G,OUTPUT);
-  sensor_suite.graphics.begin(sensor_suite); //beware lvgl interaction with USB mass storage mode (?) also with touch (?)
 
+  sensor_suite.pio_charlieplex.begin();
+  sensor_suite.pio_logic_analyzer.begin();
 
-    Wire.setSDA(I2C0_SDA);
-    Wire.setSCL(I2C0_SCL);
-    Wire.begin();
-    Wire.setClock(I2C0_BAUD);
+  sensor_suite.graphics.begin(sensor_suite);
 
-  Serial.println("Init Light Sensor...");
+  Wire.setSDA(I2C0_SDA);
+  Wire.setSCL(I2C0_SCL);
+  Wire.begin();
+  Wire.setClock(I2C0_BAUD);
   sensor_suite.light_sensor.begin();
   sensor_suite.scatterer_gatherer_engine_general.registerSource(&sensor_suite.light_sensor);
-
-  Serial.println("Init IMU...");
   sensor_suite.imu.begin();
   sensor_suite.scatterer_gatherer_engine_general.registerSource(&sensor_suite.imu);//IMU after light sensor on shared I2C bus
+  //TODO: RFID init here on same shared i2c bus...
   
-sensor_suite.microphone.begin();
+  sensor_suite.microphone.begin();
   sensor_suite.scatterer_gatherer_engine_general.begin(true); //I2C needs aux channels to perform sync'd reads.  also uses sniff0 to compute the length of the imu fifo
   sensor_suite.scatterer_gatherer_engine_screen.begin(false); //limit to only 2 channels for screen
   sensor_suite.screen.begin();
   sensor_suite.scatterer_gatherer_engine_screen.registerSource(&sensor_suite.screen);
   sensor_suite.scatterer_gatherer_engine_general.registerSource(&sensor_suite.scatterer_gatherer_engine_general);
   sensor_suite.scatterer_gatherer_engine_screen.registerSource(&sensor_suite.scatterer_gatherer_engine_screen);//register self to perform end-of-cycle completion check
-  sensor_suite.led_upper.begin();
-  sensor_suite.led_lower.begin();
-  sensor_suite.touch.begin();
+  sensor_suite.led_upper.begin(sensor_suite.pio_charlieplex);
+  sensor_suite.led_lower.begin(sensor_suite.pio_charlieplex);
+  sensor_suite.touch.begin(sensor_suite.pio_logic_analyzer);
+
   setup0_complete=true;
   //Serial.println("SETUP0 DONE");
   frame_us=time_us_64();
@@ -131,7 +106,14 @@ volatile bool is_core1_shutdown=false; //core1 flag to core0 that shutdown is co
 void loop() { //core 0
   //digitalWrite(PIN_DEBUG_R,millis()%200>=100);
   //Serial.printf("core0 loop done: %d\n",sensor_suite.frame_id0);
-  //while(time_us_64()-frame_us<16666) yield();
+  if(is_core1_shutdown && UniversalSerialBus::get_mounted())
+  {//in usb mode, file system exposed only, all other activity silenced
+    pinMode(PIN_DEBUG_R,OUTPUT);
+    digitalWrite(PIN_DEBUG_R,millis()%200>=100);//activity indicator
+    UniversalSerialBus::update(is_core1_shutdown);
+    return;
+  }//fast solo loop in usb mode
+  
   busy_wait_until(frame_us+16666);//target 60 FPS, but allow clean recovery if something runs long
   frame_us=time_us_64();
   sensor_suite.frame_id++;
@@ -140,10 +122,10 @@ void loop() { //core 0
 
   if(UniversalSerialBus::get_mount_request()) is_core1_shutdown_request=true;//ensure graphics had a chance to push busy image to screen before asking core1 to shutdown
   UniversalSerialBus::update(is_core1_shutdown);
-  bool is_mounted=UniversalSerialBus::get_mounted();
-  if(!is_mounted)
+  if(!UniversalSerialBus::get_mounted())
   {
     sensor_suite.graphics.update();
+    //if(sensor_suite.touch.get_down_button() && millis()>8000) UniversalSerialBus::set_mounted();
   }
   uint64_t end_us=time_us_64();
   Serial.printf("core0 runtime us: %d, %.2f%%\n",(uint32_t)(end_us-frame_us),(float)(end_us-frame_us)/166.6);
@@ -170,9 +152,6 @@ void __not_in_flash_func(loop1)(){ //core 1
   {
     if(!is_core1_shutdown_request)
     {
-      // -- temp debug led --
-      //update_led();
-
       sensor_suite.imu.update(); //before scatterer-gather enginer resets buffers (does introduce some additional timing jitter on the scatterer-gatherers...)
       sensor_suite.scatterer_gatherer_engine_screen.compileAndRun(frame_id1);
       sensor_suite.scatterer_gatherer_engine_general.compileAndRun(frame_id1);
@@ -184,7 +163,12 @@ void __not_in_flash_func(loop1)(){ //core 1
       Serial.printf("mic: %.2f, ",sensor_suite.microphone.get_mean_square());
       Serial.printf("accel: %0.2f, %0.2f, %0.2f, gyro: %0.2f, %0.2f, %0.2f, light: %d\n",sensor_suite.imu.get_accel(0),sensor_suite.imu.get_accel(1),sensor_suite.imu.get_accel(2),sensor_suite.imu.get_gyro(0),sensor_suite.imu.get_gyro(1),sensor_suite.imu.get_gyro(2),sensor_suite.light_sensor.getBrightness());
     }else{
+      sensor_suite.graphics.end();
+      sensor_suite.scatterer_gatherer_engine_screen.end();
+      sensor_suite.scatterer_gatherer_engine_general.end();
       sensor_suite.touch.end();
+      sensor_suite.microphone.end();
+      sensor_suite.imu.end();
     }
   }
   if(!is_core1_shutdown && is_core1_shutdown_request)

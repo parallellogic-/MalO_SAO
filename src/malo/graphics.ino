@@ -1,4 +1,5 @@
 #include "graphics.h"
+#include "universal_serial_bus.h"
 
 Graphics::Graphics()
 {
@@ -145,8 +146,31 @@ void Graphics::menu_event_cb(lv_event_t * e) {
             
             // Clear or seed the screen array before rendering begins
             memset(instance->_level_buffer, 0, sizeof(instance->_level_buffer));
+            //for(int iter=0;iter<500;iter++) instance->_level_buffer[iter]=0xFF;//temp display
             return; 
         }
+        /*else if(parent_panel==instance->_menu_animations_screen && strcmp(text, "Dance") == 0)
+        {//request to blank the display
+            instance->_is_in_level = true;
+            
+            // Hide the active menu interface 
+            if (instance->_active_menu) {
+                lv_obj_add_flag(instance->_active_menu, LV_OBJ_FLAG_HIDDEN);
+            }
+            
+            // Unhide the raw canvas object interface wrapper
+            lv_obj_remove_flag(instance->_level_canvas, LV_OBJ_FLAG_HIDDEN);
+            
+            // Clear or seed the screen array before rendering begins
+            if(_active_level==nullptr)
+            {
+                _active_level=new LevelUnlock(0);
+                _active_level.update(instance->_sensor_suite);
+            }
+
+            //for(int iter=0;iter<500;iter++) instance->_level_buffer[iter]=0xFF;//temp display
+            return; 
+        }*/
         //--- Deep Tree Forward Routers ---
         // Level 1 -> Level 2
         if (strcmp(text, "Settings") == 0) {
@@ -173,6 +197,10 @@ void Graphics::menu_event_cb(lv_event_t * e) {
         }
         else if (strcmp(text, "Periphreal Test") == 0) {
             instance->switch_menu(instance->_menu_periphreal_test, false);
+        }
+        else if (strcmp(text, "Mount USB") == 0) {
+            //TODO: show graphic of USB symbol = mounted
+            UniversalSerialBus::set_mounted();
         }
         // Unified Back string tracker handles older menu formats seamlessly
         else if (strcmp(text, "Back") == 0) {
@@ -228,18 +256,15 @@ void Graphics::led_cb(bool is_menu_event)
             _active_menu == _menu_animations_screen;
     if(!is_menu_event && is_menu_valid && is_visible_menu)
     {//run the update on the currently commanded led animation
-        if(_active_animation_lower) (_sensor_suite->led_lower.*_active_animation_lower)(*_sensor_suite);
-        if(_active_animation_upper) (_sensor_suite->led_upper.*_active_animation_upper)(*_sensor_suite);
+        if(_active_animation_lower){ (_sensor_suite->led_lower.*_active_animation_lower)(*_sensor_suite); _sensor_suite->led_lower.flush(); }
+        if(_active_animation_upper){ (_sensor_suite->led_upper.*_active_animation_upper)(*_sensor_suite); _sensor_suite->led_upper.flush(); }
     }
     if(is_menu_event && is_menu_valid && !is_visible_menu)
     {//turn off leds when leaving animations menu
         _sensor_suite->led_lower.animation_off(sensor_suite);
         _sensor_suite->led_upper.animation_off(sensor_suite);
-        /*if(is_menu_event)
-        {
-            Serial.println("\n\nHALT\n\n");
-            //while(1);
-        }*/
+        _sensor_suite->led_lower.flush();
+        _sensor_suite->led_upper.flush();
     }
 }
 
@@ -427,6 +452,7 @@ void Graphics::update()
 
     lv_timer_handler();
     led_cb(false);
+    
 
     //memset(_canvas_buffer, 0x66, sizeof(_canvas_buffer)); //<200 us
     //lvgl2spi(_canvas_buffer,_sensor_suite->screen);//direct draw to screen

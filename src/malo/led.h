@@ -6,6 +6,7 @@
 #include "hardware/regs/pads_bank0.h"
 #include "hardware/structs/padsbank0.h"
 #include "malo.h"
+#include "pio_program_manager.h"
 
 #define LED_UPPER_START_PIN 0
 #define LED_LOWER_START_PIN 17
@@ -45,14 +46,14 @@ class Charlieplex{
     uint32_t* _current_list_ptr; // The "Next" list pointer
     uint8_t _pio_index=0;
     uint8_t _first_pin;
-    PIO _pio = pio0;
-    static uint _sm_offset;//only upload the PIO program once
-    uint _sm;
+    //PIO _pio = pio0;
+    //static uint _sm_offset;//only upload the PIO program once
+    //uint _sm;
     int _data_chan;//dma for moving out data
     int _ctrl_chan;//dma to loop the other dma (optional: could make a 64-element dma loop, with 0 wait states at end to save a DMA channel)
   public:
     Charlieplex(bool is_upper);
-    void begin();
+    void begin(PIOProgramManager &pio_program_manager);
     void end();
     void flush();
     void set_brightness(uint8_t index,uint8_t brightness);

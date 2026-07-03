@@ -7,7 +7,6 @@
 //actually, expose as an accessor method for one button, and update method (60 hz poll)
 
 #include "touch.h"
-#include "hardware/pio.h"
 #include "hardware/dma.h"
 #include "hardware/pwm.h"
 #include "hardware/clocks.h"
@@ -19,21 +18,25 @@
 
 // -- class methods --
 
-Touch::Touch(PIO pio){
-  _pio=pio;
+Touch::Touch(){//PIO pio){
+  //_pio=pio;
   //_sm_offset=sm_offset; //_sm_offset = pio_add_program(_pio, &logic_analyzer_program);
 }
 
-void Touch::begin(){
-  pio_set_gpio_base(_pio, 16);//need to use >pin 32 for this pio
+void Touch::begin(PIOProgramManager &pio_program_manager){
+  PIO pio=pio_program_manager.get_pio();
+  int sm_offset=pio_program_manager.get_offset();
+  //pio_set_gpio_base(pio, 16);//need to use >pin 32 for this pio --> moved to pio_program_manager construtor
 
-  if(_sm_offset<0) _sm_offset=pio_add_program(pio1, &logic_analyzer_program);
+  //if(_sm_offset<0) _sm_offset=pio_add_program(pio, &logic_analyzer_program);
 
-  _sm=pio_claim_unused_sm(_pio, true); 
+  //_sm=pio_claim_unused_sm(_pio, true); 
+  int sm=pio_program_manager.allocate_sm(); 
+  if(sm<0) return;
   for(uint8_t pin=FIRST_PIN_CAPTOUCH;pin<(FIRST_PIN_CAPTOUCH+CAPACITIVE_TOUCH_COUNT);pin++)
   {//init the pins
     gpio_disable_pulls(pin);
-    pio_gpio_init(_pio, pin);
+    pio_gpio_init(pio, pin);
     gpio_set_input_enabled(pin, true);
     gpio_disable_pulls(pin);
   }
@@ -57,7 +60,7 @@ void Touch::begin(){
   pwm_set_enabled(slice_num, true);             // Start generating PWM
 
   // 4. Configure the PIO State Machine to listen
-  pio_sm_config c = logic_analyzer_program_get_default_config(_sm_offset);
+  pio_sm_config c = logic_analyzer_program_get_default_config(sm_offset);
   
   // Set the IN pins to start at our PWM pin
   sm_config_set_in_pins(&c, FIRST_PIN_CAPTOUCH);
@@ -67,8 +70,8 @@ void Touch::begin(){
   sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
 
   // Initialize and start the state machine
-  pio_sm_init(_pio, _sm, _sm_offset, &c);
-  pio_sm_set_enabled(_pio, _sm, true);
+  pio_sm_init(pio, sm, sm_offset, &c);
+  pio_sm_set_enabled(pio, sm, true);
 
   // 4. DMA Setup
   _dma_chan = dma_claim_unused_channel(true);
@@ -77,9 +80,9 @@ void Touch::begin(){
   channel_config_set_read_increment(&dma_c, false);
   channel_config_set_write_increment(&dma_c, true);
   channel_config_set_ring(&dma_c, true, __builtin_ctz(sizeof(_capture_buffer))); // 10+2 bits = 1024*4 words --> +2 fudge factor needed (for uint8 to uint32 adaption?)) //10+2+2
-  channel_config_set_dreq(&dma_c, pio_get_dreq(_pio, _sm, false));
+  channel_config_set_dreq(&dma_c, pio_get_dreq(pio, sm, false));
 
-  dma_channel_configure(_dma_chan, &dma_c, _capture_buffer, &_pio->rxf[_sm], 0xFFFFFFFF, true);
+  dma_channel_configure(_dma_chan, &dma_c, _capture_buffer, &pio->rxf[sm], 0xFFFFFFFF, true);
 }
 
 void Touch::end() {
@@ -92,12 +95,12 @@ void Touch::end() {
     }
 
     // 2. Turn off and release the PIO logic analyzer listener state machine
-    if (_sm != (uint)-1) {
+    /*if (_sm != (uint)-1) {
         pio_sm_set_enabled(_pio, _sm, false);
         pio_sm_clear_fifos(_pio, _sm); // Purge any remaining burst samples
         pio_sm_unclaim(_pio, _sm);
         _sm = (uint)-1;
-    }
+    }*/
 
     // 3. Stop the hardware PWM charging clock slice
     uint slice_num = pwm_gpio_to_slice_num(FIRST_PIN_CAPTOUCH);
@@ -200,7 +203,7 @@ void Touch::update(uint32_t frame_id)
   for(int iter=1;iter<CAPACITIVE_TOUCH_COUNT;iter++)
   {
     uint32_t this_reading=get_capacitive_touch(iter);
-    if(this_reading>=sensitivity && (reading==0 || this_reading>reading) )
+    if(this_reading>=_sensitivity && (reading==0 || this_reading>reading) )
     {//if the capacitance is sufficient to equal a finger, and the reading is better than before, consider this the touched button
       reading=this_reading;//PRECON: assuming varaible dc-offset between buttons, but equal gain once a finger is present, so ignore gain correction here
       out_id=iter;

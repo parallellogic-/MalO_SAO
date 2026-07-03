@@ -3,6 +3,7 @@
 #include "malo.h"
 #include "screen.h"
 #include "led.h"
+//#include "level.h"
 
 //WAS ~/Arduino/libraries/lv_conf.h
 //IS ~/Arduino/libraries/lvgl/src/lv_conf.h
@@ -31,6 +32,7 @@ class Graphics{
     lv_obj_t * _menu_periphreal_test = nullptr; //stand-alone demo/checkout of periphreals
     lv_obj_t * _level_canvas;
     bool _is_in_level = false;
+    //Level _active_level=nullptr;
 
     // Frame Buffers allocations matching your configuration snippets
     uint8_t _canvas_buffer[SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX] __attribute__((aligned(4)));
