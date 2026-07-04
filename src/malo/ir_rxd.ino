@@ -54,8 +54,29 @@ void SharedDecoderBuffer::begin(PIOProgramManager &pio_program_manager){
   dma_channel_configure(_dma_chan, &dma_c, _capture_buffer, &pio->rxf[sm], 0xFFFFFFFF, true);
 }
 
-void SharedDecoderBuffer::end(){
-  
+void SharedDecoderBuffer::end() {
+  // 1. Stop and disable the DMA channel to prevent memory corruption
+  dma_channel_abort(_dma_chan);
+  dma_channel_unclaim(_dma_chan);
+
+  // 2. Fetch active PIO hardware context from your program manager
+  /*PIO pio = pio_program_manager.get_pio();
+  int sm = pio_program_manager.get_active_sm(); // Assumes get_active_sm() or keeping _sm as a class member
+
+  // 3. Stop and reset the PIO State Machine
+  pio_sm_set_enabled(pio, sm, false);
+  pio_sm_clear_fifos(pio, sm);
+  pio_sm_unclaim(pio, sm);*/ // Returns the state machine back to the manager pool
+
+  // 4. Reset GPIO overrides and return pins to safe default states
+  for (uint8_t pin = _rxd_first_pin; pin < (_rxd_first_pin + _rxd_pin_count); pin++) {
+    gpio_set_inover(pin, GPIO_OVERRIDE_NORMAL); // Remove the IR invert override
+    gpio_disable_pulls(pin);                    // Reset pull-ups/pull-downs
+    gpio_set_input_enabled(pin, false);         // Disable input buffer
+    
+    // De-assign pin from PIO back to default general purpose I/O (Software control)
+    gpio_set_function(pin, GPIO_FUNC_SIO); 
+  }
 }
 
 //uint16_t SharedDecoderBuffer::get_buffer_length(){ return sizeof(_capture_buffer)/sizeof(_capture_buffer[0]); }
@@ -298,7 +319,7 @@ bool DecoderGeneric::get_message(uint32_t *message, uint16_t &message_length)
   message_length = out_buff_len;
 
   // Clear data and clear flag so the update thread knows this buffer is completely open again
-  _decode_index[read_buf] = 0;
+  //_decode_index[read_buf] = 0;
   _is_read_ready[read_buf] = false; 
 
   return true;
@@ -415,19 +436,24 @@ bool DecoderWS2812::get_message(bool is_ping_pong,uint8_t *message, uint16_t &me
     {
       numerator+=_generic_decoder_ptr->get_message_at(generic_index);//legnth of 1's
       denominator+=_generic_decoder_ptr->get_message_at(generic_index);
-      denominator+=_generic_decoder_ptr->get_message_at(generic_index+1);//length of 1 and 0s
+      //if it's the last 0, it becomes ambiguous which part of the inactivity is from the silent part of the bit, vs the intra-message gap.  so put in placeholder value in that case
+      denominator+=generic_index==(generic_message_length-2)?min(_generic_decoder_ptr->get_message_at(generic_index+1),period_cycles-numerator):_generic_decoder_ptr->get_message_at(generic_index+1);//length of 1 and 0s
       generic_index+=2;
-      if( generic_index >= generic_message_length || (denominator+_generic_decoder_ptr->get_message_at(generic_index)+_generic_decoder_ptr->get_message_at(generic_index+1)) > (3*period_cycles/2) ) break;
+      if( ( denominator+_generic_decoder_ptr->get_message_at(generic_index)+_generic_decoder_ptr->get_message_at(generic_index+1) ) > (3*period_cycles/2) ) break;//if including the next pair would make the current section logner than 1.5 periods, then don't merge them //generic_index >= generic_message_length ||  is redunetnat with outer while loop
     }
     bool decoded_bit=numerator>(denominator/2);//if 1 for more than half the time, consider this a 1, else 0
-    decoded_byte=(decoded_byte<<1) | decoded_bit;
-    bit_decode_count++;
-    if(bit_decode_count==8)
-    {
-      message[out_index]=decoded_byte;
-      decoded_byte=0;
-      bit_decode_count=0;
-      out_index++;
+    for(uint16_t iter=0;iter<max(1,(denominator+(period_cycles/2))/period_cycles);iter++)
+    {//if this bit is too long, push extra bits in to compensate
+      decoded_byte=(decoded_byte<<1) | decoded_bit;
+      bit_decode_count++;
+      if(bit_decode_count==8)
+      {
+        message[out_index]=decoded_byte;
+        decoded_byte=0;
+        bit_decode_count=0;
+        out_index++;
+      }
+      if(out_index>=(max_length-1)) break;
     }
   }
   message_length=out_index;

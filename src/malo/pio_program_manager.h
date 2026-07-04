@@ -74,6 +74,8 @@ public:
     void end() {
         for (int sm = 0; sm < 4; sm++) {
             if (allocated_sms[sm]) {
+                pio_sm_set_enabled(pio, sm, false); //added
+                pio_sm_clear_fifos(pio, sm); //added
                 pio_sm_unclaim(pio, sm);
                 allocated_sms[sm] = false;
             }

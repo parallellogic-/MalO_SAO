@@ -69,7 +69,7 @@ volatile uint32_t frame_id0=0xFFFFFFFF;
 uint64_t frame_us=0;
 volatile bool setup0_complete=false;
 void setup() {//core 0
-  //UniversalSerialBus::begin();
+  UniversalSerialBus::begin();
   //pinMode(PIN_DEBUG_R,OUTPUT);//if unset, then ir rxd/txd will default to putting out pwm signals here to show ir status
   //pinMode(PIN_DEBUG_G,OUTPUT);
 
@@ -169,7 +169,7 @@ void __not_in_flash_func(loop1)(){ //core 1
       Serial.printf("imu_c: %.2f, fifo: %d, ",sensor_suite.imu.get_celsius(),sensor_suite.imu.get_fifo_sample_count());
       Serial.printf("mic: %.2f, ",sensor_suite.microphone.get_mean_square());
       Serial.printf("accel: %0.2f, %0.2f, %0.2f, gyro: %0.2f, %0.2f, %0.2f, light: %d\n",sensor_suite.imu.get_accel(0),sensor_suite.imu.get_accel(1),sensor_suite.imu.get_accel(2),sensor_suite.imu.get_gyro(0),sensor_suite.imu.get_gyro(1),sensor_suite.imu.get_gyro(2),sensor_suite.light_sensor.getBrightness());
-      //sensor_suite.decoder_ir_rxd.debug();
+      sensor_suite.decoder_ir_rxd.debug();
       sensor_suite.decoder_ir_rxd_ws2812.debug();
     }else{
       sensor_suite.graphics.end();
@@ -178,6 +178,10 @@ void __not_in_flash_func(loop1)(){ //core 1
       sensor_suite.touch.end();
       sensor_suite.microphone.end();
       sensor_suite.imu.end();
+      sensor_suite.shared_decoder_buffer.end();
+
+      sensor_suite.pio_charlieplex.end();
+      sensor_suite.pio_logic_analyzer.end();
     }
   }
   if(!is_core1_shutdown && is_core1_shutdown_request)
