@@ -50,13 +50,15 @@ SensorSuite sensor_suite = {
   .imu=IMU(),
   .led_lower=Charlieplex(0),
   .led_upper=Charlieplex(1),
+  .decoder_ir_rxd=DecoderGeneric(0,PIN_DEBUG_R),
   .light_sensor=LightSensor(),
   .microphone=Microphone(),
-  .pio_charlieplex=PIOProgramManager(pio0,&charlieplex_dma_program,0), //pio needs to be onlower bank to reach gp0.  duty cycle pairs of LEDs spread across 8 output pins
+  .pio_charlieplex=PIOProgramManager(pio0,&charlieplex_dma_program,0), //pio needs to be on lower bank to reach gp0.  duty cycle pairs of LEDs spread across 8 output pins
   .pio_logic_analyzer=PIOProgramManager(pio1,&logic_analyzer_program,16), //needs to be a separate pio to reach above pin 32 (configured at bank level.  run-length encoder of 11 pin states
   .scatterer_gatherer_engine_general=ScatterGatherEngine(),
   .scatterer_gatherer_engine_screen=ScatterGatherEngine(),
   .screen=Screen(),
+  .shared_decoder_buffer=SharedDecoderBuffer(),
   .touch=Touch()
 };
 
@@ -67,12 +69,14 @@ uint64_t frame_us=0;
 volatile bool setup0_complete=false;
 void setup() {//core 0
   //UniversalSerialBus::begin();
-  pinMode(PIN_DEBUG_R,OUTPUT);//if unset, then ir rxd/txd will default to putting out pwm signals here to show ir status
-  pinMode(PIN_DEBUG_G,OUTPUT);
+  //pinMode(PIN_DEBUG_R,OUTPUT);//if unset, then ir rxd/txd will default to putting out pwm signals here to show ir status
+  //pinMode(PIN_DEBUG_G,OUTPUT);
 
   sensor_suite.pio_charlieplex.begin();
   sensor_suite.pio_logic_analyzer.begin();
+  sensor_suite.shared_decoder_buffer.begin(sensor_suite.pio_logic_analyzer);
 
+  sensor_suite.decoder_ir_rxd.begin(&sensor_suite.shared_decoder_buffer);
   sensor_suite.graphics.begin(sensor_suite);
 
   Wire.setSDA(I2C0_SDA);
@@ -157,11 +161,13 @@ void __not_in_flash_func(loop1)(){ //core 1
       sensor_suite.scatterer_gatherer_engine_general.compileAndRun(frame_id1);
       sensor_suite.touch.update(frame_id1);//kicked off very near the beginning of the frame, normally it takes core0 notably longer to compute what to display on the screen
       sensor_suite.microphone.update();
+      sensor_suite.decoder_ir_rxd.update();
 
       //sensor_suite.touch.debug();
       Serial.printf("imu_c: %.2f, fifo: %d, ",sensor_suite.imu.get_celsius(),sensor_suite.imu.get_fifo_sample_count());
       Serial.printf("mic: %.2f, ",sensor_suite.microphone.get_mean_square());
       Serial.printf("accel: %0.2f, %0.2f, %0.2f, gyro: %0.2f, %0.2f, %0.2f, light: %d\n",sensor_suite.imu.get_accel(0),sensor_suite.imu.get_accel(1),sensor_suite.imu.get_accel(2),sensor_suite.imu.get_gyro(0),sensor_suite.imu.get_gyro(1),sensor_suite.imu.get_gyro(2),sensor_suite.light_sensor.getBrightness());
+      sensor_suite.decoder_ir_rxd.debug();
     }else{
       sensor_suite.graphics.end();
       sensor_suite.scatterer_gatherer_engine_screen.end();

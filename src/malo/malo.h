@@ -11,6 +11,7 @@
 #include "graphics.h"
 #include "microphone.h"
 #include <Wire.h>
+#include "ir_rxd.h"
 
 // -- define --
 
@@ -29,6 +30,7 @@ struct SensorSuite{//bundle into an object to make easier to pass through graphi
   IMU imu;
   Charlieplex led_lower;
   Charlieplex led_upper;
+  DecoderGeneric decoder_ir_rxd;
   LightSensor light_sensor;
   Microphone microphone;
   PIOProgramManager pio_charlieplex;
@@ -36,5 +38,6 @@ struct SensorSuite{//bundle into an object to make easier to pass through graphi
   ScatterGatherEngine scatterer_gatherer_engine_general;
   ScatterGatherEngine scatterer_gatherer_engine_screen;
   Screen screen;
+  SharedDecoderBuffer shared_decoder_buffer;
   Touch touch;
 };
