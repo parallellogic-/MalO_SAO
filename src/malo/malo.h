@@ -31,6 +31,7 @@ struct SensorSuite{//bundle into an object to make easier to pass through graphi
   Charlieplex led_lower;
   Charlieplex led_upper;
   DecoderGeneric decoder_ir_rxd;
+  DecoderWS2812 decoder_ir_rxd_ws2812;
   LightSensor light_sensor;
   Microphone microphone;
   PIOProgramManager pio_charlieplex;

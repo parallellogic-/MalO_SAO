@@ -15,8 +15,10 @@
 #define IR_RXD_PIN 43 //need to assign pull-up on IR RxD pin
 #define SHARED_BUFFER_FIRST_PIN 43
 #define SHARED_BUFFER_PIN_COUNT 3 //IR_RXD, SAO_GP1, SAO_GP2
-#define DECODER_MAX_MESSAGE_LENGTH 257 //max number of bytes, including error correction, that are expected to be received before a timeout (40 baud cycles) is expect to be received
+#define DECODER_MAX_GENERIC_MESSAGE_LENGTH (256*8*2*5/4) //256 characters, 8 buts, 2x 1/0 transitions, margin
+#define DECODER_MAX_WS2812_MESSAGE_LENGTH (257) //256 characters, margin
 #define DECODER_ACTIVITY_BRIGHTNESS (65535/10) //how long of 65535 should the PWM indicator be ON for each cycle (less is dimmer)
+#define DECODER_TIMEOUT_US 10'000 //IR remote has 25 ms blanking between end of trnamissions and beginning of next one, so key off this
 
 class SharedDecoderBuffer{
   private: 
@@ -31,50 +33,66 @@ class SharedDecoderBuffer{
     void begin(PIOProgramManager &pio_program_manager);//setup DMA ring
     //nothing to update, just is a constant ring-buffer loop
     void end(); //DMA and sm/pio dispose
-    uint16_t get_buffer_index();//returns the index within the ring buffer where the latest reading was stored
-    void get_sample(uint8_t pin_index,uint16_t sample_index,uint32_t &cycles,bool &value);//returns the number of 25 MHz cycles since the last state change (backward looking), and returns the new value the pin is now at after then transition (forward looking)
+    uint16_t get_ring_buffer_index(bool is_read);//returns the index within the ring buffer where the latest reading was stored.  is_read for the latest addres that is valid to read from.  false to return the address where the DMA is about (but has not yet) written to
+    const uint16_t get_buffer_length(){ return sizeof(_capture_buffer)/sizeof(_capture_buffer[0]); }
+    void get_buffer_at(uint8_t pin_index,uint16_t sample_index,uint32_t &cycles,bool &value);//returns the number of 25 MHz cycles since the last state change (backward looking), and returns the new value the pin is now at after then transition (forward looking)
     bool is_activity(uint8_t pin_index,uint32_t timeout_us);//true if there has been any 1/0 or 0/1 transitions in the past timeout_us
 };
 
-class DecoderWS2812{
-  private:
-    //just doing static variables here vs standing up a separate class and sharing pointers to it among mulitple consumers...
-    SharedDecoderBuffer *_buffer_ptr=nullptr;
-    int16_t _buffer_index=0;//location of last read from ring-buffer (or first observed transition)
-    uint8_t _decode_buffer[DECODER_MAX_MESSAGE_LENGTH];
-    uint16_t _decode_index=0;//index where next byte should be written to
-    uint32_t _period=0;//emperically derived period (look at first byte received and look at most common period of 0->1 transitions and use that to decode)
-    uint8_t _rxd_pin_index; //index of the pin wihtin the pio_sm output to inspect (0 to LOGIC_ANALYZER_PIN_COUNT-1)
-    int8_t _pwm_activity_pin=-1; //where to route is_activity indication to during update()
-
-    void set_activity(bool is_activity);//flush activity state to PWM LED
-    uint32_t get_period(); //helper to determine the spacing between bits
-  public:
-    DecoderWS2812(uint8_t rxd_pin_index,int8_t pwm_activity_pin=-1);
-    void begin(SharedDecoderBuffer* buffer);
-    void update(); //update decode state machine
-    void debug();
-    //void end();
-
-    bool get_message(uint8_t &message, uint16_t &message_length, uint32_t &period); //if message is found, store into &message (expect max 256 character size)
+enum DecodeState {
+    STATE_LOOKING_FOR_START,
+    STATE_MEASURING_HIGH,
+    STATE_MEASURING_LOW
 };
 
-//TODO: generic IR decoder class here to store the run-length encoded pulse lengths (structure akin to the IEEE float/double protocol: the first bit (duration) is a 1 and go from there) for lookup against industry standard protocol definitions
+//key off the gap between IR messagesand then store the duration of the alernating 1 (38 khz present) and 0s (no IR present)
 class DecoderGeneric{
   private:
     SharedDecoderBuffer *_buffer_ptr=nullptr;
-    int16_t _buffer_index=0;//location of last read from ring-buffer (or first observed transition)
-    uint32_t _decode_buffer[DECODER_MAX_MESSAGE_LENGTH];
-    uint16_t _decode_index=0;//index where next byte should be written to
-    uint8_t _rxd_pin_index; //index of the pin wihtin the pio_sm output to inspect (0 to LOGIC_ANALYZER_PIN_COUNT-1)
+    int16_t _ring_buffer_index=0;//location of last read from ring-buffer (or first observed transition)
+    bool _is_ping_pong=false;
+    uint32_t _decode_buffer[2][DECODER_MAX_GENERIC_MESSAGE_LENGTH]; //~32kB
+    uint16_t _decode_index[2]={0,0};//index where next byte should be written to (aka 'length' when message is complete)
+    bool _is_read_ready[2]={false,false};//flag asserted after the get_message() has returned the current message
+    uint8_t _rxd_pin_index; //index of the pin within the pio_sm output to inspect inpnut from (0 to LOGIC_ANALYZER_PIN_COUNT-1)
     int8_t _pwm_activity_pin=-1; //where to route is_activity indication to during update()
+    DecodeState _state = STATE_LOOKING_FOR_START;
+    uint32_t _running_cycle_count = 0;
+    uint32_t _timeout_us;//when a gap between messages is long enough to register as the start of a new message
   public:
-    DecoderGeneric(uint8_t rxd_pin_index,int8_t pwm_activity_pin=-1);
+    DecoderGeneric(uint8_t rxd_pin_index,int8_t pwm_activity_pin=-1,uint32_t timeout_us=DECODER_TIMEOUT_US);
     void begin(SharedDecoderBuffer* buffer);
     void update();
     void debug();
     //void end();
 
+    const bool get_ping_pong(){ return !_is_ping_pong; } //where to read out of
+    const uint16_t get_buffer_length(){ return sizeof(_decode_buffer[0])/sizeof(_decode_buffer[0][0]); }
     void set_activity(bool is_activity);//flush activity state to PWM LED
-    bool get_message(uint32_t *message, uint16_t &message_length); //returns a series of '1'/'0' durations in us, starting with a '1' duration.  true on message found, false otherwise
+    uint16_t get_message_length(){ return _decode_index[!_is_ping_pong]; }
+    uint32_t get_message_at(uint32_t index){ if(index>=_decode_index[!_is_ping_pong]) return 0; return _decode_buffer[!_is_ping_pong][index]; } //query the ping_pong buffer.  result is in _cycles (counts at 25 MHz)
+    bool get_message(uint32_t *message, uint16_t &message_length);//make a deep copy of the message out fothe ping_pong buffer.  result is in _cycles (counts at 25 MHz
 };
+
+//make sense of the 1 and 0 durations from GenericDecoder
+class DecoderWS2812{
+  private:
+    DecoderGeneric *_generic_decoder_ptr=nullptr;
+    bool _is_ping_pong=false; // False (0) = buffer 0, True (1) = buffer 1
+    //uint8_t _decode_buffer[2][DECODER_MAX_WS2812_MESSAGE_LENGTH];
+    uint32_t _period=0;//emperically derived period (look at first byte received and look at most common period of 0->1 transitions and use that to decode)
+    bool _is_read_ready[2] = {false, false}; // Flag asserted when a message is ready and waiting to be read
+
+    void set_activity(bool is_activity);//flush activity state to PWM LED
+    uint32_t _get_median_signal_period(); //helper to determine the spacing between bits
+  public:
+    DecoderWS2812();
+    void begin(DecoderGeneric* buffer);
+    void debug();
+
+    //const uint16_t get_buffer_length(){ return sizeof(_decode_buffer[0])/sizeof(_decode_buffer[0][0]); }
+    bool get_message(bool is_ping_pong,uint8_t *message, uint16_t &message_length, uint32_t &period_cycles); //if message is found, store into &message (expect max 256 character size).  period_cycles is counts at 25 MHz (40 ns per count)
+    bool get_message(uint8_t *message, uint16_t &message_length, uint32_t &period_cycles); //assumes single consumer
+};
+
+
