@@ -497,6 +497,42 @@ void PulseChain::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_star
 }
 
 
+uint16_t encodeHamming128(uint8_t data) {
+    // Extract individual bits from the 8-bit input byte
+    bool d3  = (data >> 7) & 1;
+    bool d5  = (data >> 6) & 1;
+    bool d6  = (data >> 5) & 1;
+    bool d7  = (data >> 4) & 1;
+    bool d9  = (data >> 3) & 1;
+    bool d10 = (data >> 2) & 1;
+    bool d11 = (data >> 1) & 1;
+    bool d12 = data        & 1;
+
+    // Calculate the 4 parity bits using XOR logic
+    bool p1 = d3 ^ d5 ^ d7 ^ d9  ^ d11;
+    bool p2 = d3 ^ d6 ^ d7 ^ d10 ^ d11;
+    bool p4 = d5 ^ d6 ^ d7 ^ d12;
+    bool p8 = d9 ^ d10 ^ d11 ^ d12;
+
+    // Pack the parity and data bits into a single 12-bit word
+    // Layout: P1 P2 D3 P4 D5 D6 D7 P8 D9 D10 D11 D12
+    uint16_t codeword = 0;
+    codeword |= ((uint16_t)p1  << 11);
+    codeword |= ((uint16_t)p2  << 10);
+    codeword |= ((uint16_t)d3  << 9);
+    codeword |= ((uint16_t)p4  << 8);
+    codeword |= ((uint16_t)d5  << 7);
+    codeword |= ((uint16_t)d6  << 6);
+    codeword |= ((uint16_t)d7  << 5);
+    codeword |= ((uint16_t)p8  << 4);
+    codeword |= ((uint16_t)d9  << 3);
+    codeword |= ((uint16_t)d10 << 2);
+    codeword |= ((uint16_t)d11 << 1);
+    codeword |= (uint16_t)d12;
+
+    return codeword;
+}
+
 void PulseChain::debug(uint32_t frame_id)
 {
   if(frame_id%300!=0 || frame_id==0) return;//one activity per second
@@ -506,11 +542,15 @@ void PulseChain::debug(uint32_t frame_id)
 
   append_note(255,0,1);//initial sync clear
   uint16_t expand=1;
-  for(int iter=0;iter<128;iter++)
+  for(int iter=0;iter<256;iter++)
+  //for(int iter=255;iter>=0;iter--)
   {
-    //append_note(255,127,16+4*(iter%4));
-    //append_note(255,0,16+4*iter);
-    for(int bit=7;bit>=0;bit--)
+    //uint16_t encoded=encodeHamming128(iter);
+    //append_note(255,127,16+2*(map_graycode2(iter>>6,true)));
+    //append_note(255,0,16+2*(map_graycode6(iter&0x003F,true)));
+    append_note(255,127,16);
+    append_note(255,0,16+1*(iter&0x00FF));
+    /*for(int bit=7;bit>=0;bit--)
     {
       if((iter>>bit)&0x01)
       {
@@ -520,7 +560,7 @@ void PulseChain::debug(uint32_t frame_id)
         append_note(255,127,16);
         append_note(255,0,24+20*2+20*4);
       }
-    }
+    }*/
     /*if(iter==64)
     {
       for(int iter=0;iter<4;iter++)

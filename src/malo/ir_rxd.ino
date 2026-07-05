@@ -416,11 +416,125 @@ bool DecoderWS2812::get_message(uint8_t *message, uint16_t &message_length, uint
   return is_message;
 }
 
+// Decodes a 12-bit Hamming(12,8) codeword, corrects 1-bit errors, and extracts the 8-bit data.
+uint8_t decodeHamming128(uint16_t codeword){//}, bool &errorCorrected) {
+    //errorCorrected = false;
+
+    // Extract individual bits from the 12-bit received word (1-indexed mapping)
+    // Layout: P1 P2 D3 P4 D5 D6 D7 P8 D9 D10 D11 D12
+    bool p1  = (codeword >> 11) & 1;
+    bool p2  = (codeword >> 10) & 1;
+    bool d3  = (codeword >> 9)  & 1;
+    bool p4  = (codeword >> 8)  & 1;
+    bool d5  = (codeword >> 7)  & 1;
+    bool d6  = (codeword >> 6)  & 1;
+    bool d7  = (codeword >> 5)  & 1;
+    bool p8  = (codeword >> 4)  & 1;
+    bool d9  = (codeword >> 3)  & 1;
+    bool d10 = (codeword >> 2)  & 1;
+    bool d11 = (codeword >> 1)  & 1;
+    bool d12 = codeword         & 1;
+
+    // Calculate the 4-bit syndrome word (Checks parity groups)
+    uint8_t s1 = p1 ^ d3 ^ d5 ^ d7 ^ d9  ^ d11;
+    uint8_t s2 = p2 ^ d3 ^ d6 ^ d7 ^ d10 ^ d11;
+    uint8_t s4 = p4 ^ d5 ^ d6 ^ d7 ^ d12;
+    uint8_t s8 = p8 ^ d9 ^ d10 ^ d11 ^ d12;
+
+    uint8_t syndrome = (s8 << 3) | (s4 << 2) | (s2 << 1) | s1;
+
+    // If syndrome is non-zero, an error occurred at that specific bit position
+    if (syndrome != 0 && syndrome <= 12) {
+        //errorCorrected = true;
+        // Flip the corrupted bit back (converting 1-indexed syndrome to 0-indexed bitshift)
+        codeword ^= (1 << (12 - syndrome));
+        
+        // Re-extract data bits after fixing the error
+        d3  = (codeword >> 9)  & 1;
+        d5  = (codeword >> 7)  & 1;
+        d6  = (codeword >> 6)  & 1;
+        d7  = (codeword >> 5)  & 1;
+        d9  = (codeword >> 3)  & 1;
+        d10 = (codeword >> 2)  & 1;
+        d11 = (codeword >> 1)  & 1;
+        d12 = codeword         & 1;
+    }
+
+    // Reconstruct the original 8-bit data byte from the corrected positions
+    uint8_t data = (d3 << 7) | (d5 << 6) | (d6 << 5) | (d7 << 4) | 
+                   (d9 << 3) | (d10 << 2) | (d11 << 1) | d12;
+    return data;
+}
+
+uint8_t map_graycode8(uint8_t value, bool is_into_graycode) {
+    if (is_into_graycode) {
+        // Binary to Gray code
+        return value ^ (value >> 1);
+    } else {
+        // Gray code to Binary
+        uint8_t binary = 0;
+        for (binary = 0; value; value >>= 1) {
+            binary ^= value;
+        }
+        return binary;
+    }
+}
+
+uint8_t map_graycode4(uint8_t value, bool is_into_graycode) {
+    value &= 0x0F; // Ensure input is strictly constrained to 4 bits
+
+    if (is_into_graycode) {
+        // Binary to Gray code
+        return (value ^ (value >> 1)) & 0x0F;
+    } else {
+        // Gray code to Binary
+        uint8_t binary = 0;
+        for (binary = 0; value; value >>= 1) {
+            binary ^= value;
+        }
+        return binary & 0x0F;
+    }
+}
+
+uint8_t map_graycode6(uint8_t value, bool is_into_graycode) {
+    value &= 0x3F; // Ensure input is strictly constrained to 6 bits
+
+    if (is_into_graycode) {
+        // Binary to Gray code
+        return (value ^ (value >> 1)) & 0x3F;
+    } else {
+        // Gray code to Binary
+        uint8_t binary = 0;
+        for (binary = 0; value; value >>= 1) {
+            binary ^= value;
+        }
+        return binary & 0x3F;
+    }
+}
+
+uint8_t map_graycode2(uint8_t value, bool is_into_graycode) {
+    value &= 0x03; // Ensure input is strictly constrained to 2 bits
+
+    if (is_into_graycode) {
+        // Binary to Gray code
+        return (value ^ (value >> 1)) & 0x03;
+    } else {
+        // Gray code to Binary
+        uint8_t binary = 0;
+        for (binary = 0; value; value >>= 1) {
+            binary ^= value;
+        }
+        return binary & 0x03;
+    }
+}
+
+
+
 bool DecoderWS2812::get_message(bool is_ping_pong,uint8_t *message, uint16_t &message_length, uint32_t &period_cycles){
   if(_generic_decoder_ptr->get_ping_pong()==is_ping_pong) return false; //if asking for a message from a buffer that has already been read, then do nothing
   //found a message, now decode it...
   const uint16_t max_length=message_length;//max number of characters that can be written into output buffer
-  period_cycles=_get_median_signal_period();
+  period_cycles=1;//_get_median_signal_period();
   //period_us=period_cycles/25;
   const uint32_t generic_message_length=(_generic_decoder_ptr->get_message_length()/2)*2;//number of 1/0 pairs
   uint8_t decoded_byte=0;//the latest byte that is being decoded (for placement into _decode_buffer)
@@ -432,16 +546,23 @@ bool DecoderWS2812::get_message(bool is_ping_pong,uint8_t *message, uint16_t &me
     //Serial.printf("EPSILON: %d, %d, %d, %d\n",period_cycles,period_cycles/25,generic_message_length,out_index);
     uint32_t numerator=0;
     uint32_t denominator=0;
-    while(generic_index<generic_message_length)
+    //while(generic_index<generic_message_length)
     {
-      numerator+=_generic_decoder_ptr->get_message_at(generic_index);//legnth of 1's
-      denominator+=_generic_decoder_ptr->get_message_at(generic_index);
+      numerator=_generic_decoder_ptr->get_message_at(generic_index);//legnth of 1's
+      denominator=_generic_decoder_ptr->get_message_at(generic_index+1);//length of 0
       //if it's the last 0, it becomes ambiguous which part of the inactivity is from the silent part of the bit, vs the intra-message gap.  so put in placeholder value in that case
-      denominator+=generic_index==(generic_message_length-2)?min(_generic_decoder_ptr->get_message_at(generic_index+1),period_cycles-numerator):_generic_decoder_ptr->get_message_at(generic_index+1);//length of 1 and 0s
+      //denominator+=generic_index==(generic_message_length-2)?min(_generic_decoder_ptr->get_message_at(generic_index+1),period_cycles-numerator):_generic_decoder_ptr->get_message_at(generic_index+1);//length of 1 and 0s
       generic_index+=2;
-      if( ( denominator+_generic_decoder_ptr->get_message_at(generic_index)+_generic_decoder_ptr->get_message_at(generic_index+1) ) > (3*period_cycles/2) ) break;//if including the next pair would make the current section logner than 1.5 periods, then don't merge them //generic_index >= generic_message_length ||  is redunetnat with outer while loop
+      //if( ( denominator+_generic_decoder_ptr->get_message_at(generic_index)+_generic_decoder_ptr->get_message_at(generic_index+1) ) > (3*period_cycles/2) ) break;//if including the next pair would make the current section logner than 1.5 periods, then don't merge them //generic_index >= generic_message_length ||  is redunetnat with outer while loop
     }
-    bool decoded_bit=numerator>(denominator/8);//if 1 for more than half the time, consider this a 1, else 0 --> receive fatigue, need to keep 1 a small portion of the baud
+    uint16_t numerator_byte=0;//min(0x01,((numerator+25'000/38/2)*38/25'000 - 16)/4);//,false);
+    uint16_t denominator_byte=min(0x00FF,((denominator+numerator+25'000'00/38'11/2)*38'11/25'000'00 - 32)/1);//,false);
+    uint8_t decoded_byte=(numerator_byte<<8)|denominator_byte;
+        message[out_index]=decoded_byte;
+        decoded_byte=0;
+        bit_decode_count=0;
+        out_index++;
+    /*bool decoded_bit=numerator>(denominator/8);//if 1 for more than half the time, consider this a 1, else 0 --> receive fatigue, need to keep 1 a small portion of the baud
     for(uint16_t iter=0;iter<max(1,(denominator+(period_cycles/2))/period_cycles);iter++)
     {//if this bit is too long, push extra bits in to compensate
       decoded_byte=(decoded_byte<<1) | decoded_bit;
@@ -454,7 +575,7 @@ bool DecoderWS2812::get_message(bool is_ping_pong,uint8_t *message, uint16_t &me
         out_index++;
       }
       if(out_index>=(max_length-1)) break;
-    }
+    }*/
   }
   message_length=out_index;
   
@@ -469,8 +590,13 @@ void DecoderWS2812::debug(){
   if(is_message)
   {
     //message[message_length]='\0';
-    Serial.printf("IR WS2812 decode message [len: %d, period_us: %.1f, kHz: %.2f]: ",message_length,period_cycles/25.0,25'000.0/period_cycles);
-    for(uint16_t iter=0;iter<message_length;iter++) Serial.printf("0x%02X ",message[iter]);
+    Serial.printf("IR WS2812 decode message [len: %d, period_us: %.1f, kHz: %.2f]:\n",message_length,period_cycles/25.0,25'000.0/period_cycles);
+    for(uint16_t iter=0;iter<message_length;iter++)
+    {
+      if(iter%16==0 && iter>0) Serial.print("\n");
+      Serial.printf("0x%02X%c",message[iter],iter==message[iter]?' ':'*');
+      //Serial.printf("0x%02X%c",message[iter],(255-iter)==message[iter]?' ':'*');
+    }
     Serial.print("\n");
   }else{
     Serial.print("IR WS2812 decode message: No Message\n");
