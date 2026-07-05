@@ -42,11 +42,13 @@ public:
 };
 
 class ScatterGatherEngine : public IMultiDmaTransactionSource{
-private:
+protected:
     int _data_chan=-1;
+    int _ctrl_chan=-1;
+
+private:
     int _aux0_chan=-1;
     int _aux1_chan=-1;
-    int _ctrl_chan=-1;
     bool _is_data_ready=0;
     
     IMultiDmaTransactionSource* _registrants[MAX_DMA_CONTROL_REGISTRANTS];

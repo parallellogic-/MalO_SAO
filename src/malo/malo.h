@@ -12,6 +12,7 @@
 #include "microphone.h"
 #include <Wire.h>
 #include "ir_rxd.h"
+#include "ir_txd.h"
 
 // -- define --
 
@@ -36,9 +37,11 @@ struct SensorSuite{//bundle into an object to make easier to pass through graphi
   Microphone microphone;
   PIOProgramManager pio_charlieplex;
   PIOProgramManager pio_logic_analyzer;
+  PIOProgramManager pio_addr;
   ScatterGatherEngine scatterer_gatherer_engine_general;
   ScatterGatherEngine scatterer_gatherer_engine_screen;
   Screen screen;
   SharedDecoderBuffer shared_decoder_buffer;
   Touch touch;
+  TransmitIR ir_txd;
 };

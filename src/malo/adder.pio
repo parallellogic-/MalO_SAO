@@ -1,0 +1,16 @@
+.program pio_adder
+
+    ; Assumes Autopull is still active in your C/Arduino configuration
+    mov x, ~osr             ; 1) Invert automatically pulled value -> store in X
+    mov y, osr              ; 2) Store automatically pulled selector value in Y
+    
+    jmp x-- next_dec        ; 3) Decrement X (Adds 1)
+next_dec:
+    jmp y-- cleanup         ; 4) Decrement Y. If Y was 0 (now -1), skip next line
+    jmp x-- cleanup         ; 5) Decrement X again (Adds 2 if selector Y was > 0)
+
+cleanup:
+    mov isr, ~x             ; 6) Bitwise invert X into ISR (Autopush is disabled!)
+    push block              ; 7) NEW: Explicitly force execution to stall until 
+                            ;    the CPU reads the result out of the RX FIFO queue.
+

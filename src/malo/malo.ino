@@ -40,6 +40,7 @@
 #include "malo.h"
 #include "charlieplex.pio.h"
 #include "logic_analyzer.pio.h"
+#include "addr.pio.h"
 
 // -- objects --
 
@@ -50,17 +51,21 @@ SensorSuite sensor_suite = {
   .imu=IMU(),
   .led_lower=Charlieplex(0),
   .led_upper=Charlieplex(1),
-  .decoder_ir_rxd=DecoderGeneric(0,PIN_DEBUG_R),
+  .decoder_ir_rxd=DecoderGeneric(0,PIN_DEBUG_R), //monitor the 0th pin, starting at the default offset (IR input pin).
+  //.decoder_sao_gp1=DecoderGeneric(1), //FUTURE
+  //.decoder_sao_gp1=DecoderGeneric(2), //Note: beware heavy usage of RAM for decode buffers - there is opportunity for RAM usage optimization with more advance WS2812 decode state machine
   .decoder_ir_rxd_ws2812=DecoderWS2812(),
   .light_sensor=LightSensor(),
   .microphone=Microphone(),
   .pio_charlieplex=PIOProgramManager(pio0,&charlieplex_dma_program,0), //pio needs to be on lower bank to reach gp0.  duty cycle pairs of LEDs spread across 8 output pins
   .pio_logic_analyzer=PIOProgramManager(pio1,&logic_analyzer_program,16), //needs to be a separate pio to reach above pin 32 (configured at bank level.  run-length encoder of 11 pin states
+  .pio_addr=PIOProgramManager(pio0,&pio_adder_program,0), //support for DMA to do simple address math like +1 and +2
   .scatterer_gatherer_engine_general=ScatterGatherEngine(),
   .scatterer_gatherer_engine_screen=ScatterGatherEngine(),
   .screen=Screen(),
   .shared_decoder_buffer=SharedDecoderBuffer(),
-  .touch=Touch()
+  .touch=Touch(),
+  .ir_txd=TransmitIR(PIN_DEBUG_G) //indicate IR transmit activity on this debug LED
 };
 
 // -- variables --
@@ -75,6 +80,7 @@ void setup() {//core 0
 
   sensor_suite.pio_charlieplex.begin();
   sensor_suite.pio_logic_analyzer.begin();
+  sensor_suite.pio_addr.begin();
   sensor_suite.shared_decoder_buffer.begin(sensor_suite.pio_logic_analyzer);
 
   sensor_suite.decoder_ir_rxd.begin(&sensor_suite.shared_decoder_buffer);
@@ -101,6 +107,7 @@ void setup() {//core 0
   sensor_suite.led_upper.begin(sensor_suite.pio_charlieplex);
   sensor_suite.led_lower.begin(sensor_suite.pio_charlieplex);
   sensor_suite.touch.begin(sensor_suite.pio_logic_analyzer);
+  sensor_suite.ir_txd.begin(sensor_suite.pio_addr);
 
   setup0_complete=true;
   //Serial.println("SETUP0 DONE");
@@ -171,6 +178,7 @@ void __not_in_flash_func(loop1)(){ //core 1
       Serial.printf("accel: %0.2f, %0.2f, %0.2f, gyro: %0.2f, %0.2f, %0.2f, light: %d\n",sensor_suite.imu.get_accel(0),sensor_suite.imu.get_accel(1),sensor_suite.imu.get_accel(2),sensor_suite.imu.get_gyro(0),sensor_suite.imu.get_gyro(1),sensor_suite.imu.get_gyro(2),sensor_suite.light_sensor.getBrightness());
       sensor_suite.decoder_ir_rxd.debug();
       sensor_suite.decoder_ir_rxd_ws2812.debug();
+      sensor_suite.ir_txd.debug();
     }else{
       sensor_suite.graphics.end();
       sensor_suite.scatterer_gatherer_engine_screen.end();
