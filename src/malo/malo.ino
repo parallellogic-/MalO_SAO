@@ -141,7 +141,7 @@ void loop() { //core 0
     //if(sensor_suite.touch.get_down_button() && millis()>8000) UniversalSerialBus::set_mounted();
   }
   uint64_t end_us=time_us_64();
-  Serial.printf("core0 runtime us: %d, %.2f%%\n",(uint32_t)(end_us-frame_us),(float)(end_us-frame_us)/166.6);
+  Serial.printf("core0 runtime us: %u, %.2f%%\n",(uint32_t)(end_us-frame_us),(double)(end_us-frame_us)/166.6);
 }
 
 void __not_in_flash_func(setup1()){ //core 1
@@ -171,14 +171,15 @@ void __not_in_flash_func(loop1)(){ //core 1
       sensor_suite.touch.update(frame_id1);//kicked off very near the beginning of the frame, normally it takes core0 notably longer to compute what to display on the screen
       sensor_suite.microphone.update();
       sensor_suite.decoder_ir_rxd.update();
+      sensor_suite.ir_txd.update(); //status led of txd
 
       //sensor_suite.touch.debug();
       Serial.printf("imu_c: %.2f, fifo: %d, ",sensor_suite.imu.get_celsius(),sensor_suite.imu.get_fifo_sample_count());
       Serial.printf("mic: %.2f, ",sensor_suite.microphone.get_mean_square());
       Serial.printf("accel: %0.2f, %0.2f, %0.2f, gyro: %0.2f, %0.2f, %0.2f, light: %d\n",sensor_suite.imu.get_accel(0),sensor_suite.imu.get_accel(1),sensor_suite.imu.get_accel(2),sensor_suite.imu.get_gyro(0),sensor_suite.imu.get_gyro(1),sensor_suite.imu.get_gyro(2),sensor_suite.light_sensor.getBrightness());
-      sensor_suite.decoder_ir_rxd.debug();
+      //sensor_suite.decoder_ir_rxd.debug();
       sensor_suite.decoder_ir_rxd_ws2812.debug();
-      sensor_suite.ir_txd.debug();
+      sensor_suite.ir_txd.debug(frame_id1);
     }else{
       sensor_suite.graphics.end();
       sensor_suite.scatterer_gatherer_engine_screen.end();
@@ -198,5 +199,5 @@ void __not_in_flash_func(loop1)(){ //core 1
     Serial.println("core1 DONE");
   }
   uint64_t end_us=time_us_64();
-  Serial.printf("core1 runtime us: %d, %.2f%%, touch: %d\n",(uint32_t)(end_us-start_us),(float)(end_us-start_us)/166.6,sensor_suite.touch.get_down_button());
+  Serial.printf("core1 runtime us: %u, %.2f%%, touch: %d\n",(uint32_t)(end_us-start_us),(double)(end_us-start_us)/166.6f,sensor_suite.touch.get_down_button());
 }

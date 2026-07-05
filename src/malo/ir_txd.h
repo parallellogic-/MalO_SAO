@@ -22,5 +22,5 @@ public:
   bool push_message(uint8_t* message,uint16_t length);
   void set_activity(bool is_activity);
 
-  void debug();
+  void debug(uint32_t frame_id);
 };

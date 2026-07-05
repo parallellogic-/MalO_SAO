@@ -23,7 +23,7 @@ void SharedDecoderBuffer::begin(PIOProgramManager &pio_program_manager){
     gpio_disable_pulls(pin);
     if(pin==IR_RXD_PIN)
     {
-      gpio_set_pulls(pin, true, false); //set pull-up on IR RxD pin
+//      gpio_set_pulls(pin, true, false); //set pull-up on IR RxD pin - device just idles low until there's activity
       gpio_set_inover(pin, GPIO_OVERRIDE_INVERT);//periphreal idles high, so set to '0' when no 38 khz 940 nm light, set to '1' when 38 khz is present
     }
   }
@@ -343,10 +343,10 @@ void DecoderGeneric::debug()
   bool is_message=get_message(message,message_len);
   if(is_message)
   {
-    Serial.print("IR Message [us]: ");
+    Serial.printf("IR Message [us, state count: %d]: ",message_len);
     bool state=1; //38 khz present =1, no activity =0
     for(uint16_t iter=0;iter<message_len;iter++){
-      Serial.printf("%d: %.1f us, ",state,message[iter]/25.0);
+//      Serial.printf("%d: %.1f us, ",state,message[iter]/25.0);
       state=!state;
     }
     Serial.println();
@@ -441,7 +441,7 @@ bool DecoderWS2812::get_message(bool is_ping_pong,uint8_t *message, uint16_t &me
       generic_index+=2;
       if( ( denominator+_generic_decoder_ptr->get_message_at(generic_index)+_generic_decoder_ptr->get_message_at(generic_index+1) ) > (3*period_cycles/2) ) break;//if including the next pair would make the current section logner than 1.5 periods, then don't merge them //generic_index >= generic_message_length ||  is redunetnat with outer while loop
     }
-    bool decoded_bit=numerator>(denominator/2);//if 1 for more than half the time, consider this a 1, else 0
+    bool decoded_bit=numerator>(denominator/8);//if 1 for more than half the time, consider this a 1, else 0 --> receive fatigue, need to keep 1 a small portion of the baud
     for(uint16_t iter=0;iter<max(1,(denominator+(period_cycles/2))/period_cycles);iter++)
     {//if this bit is too long, push extra bits in to compensate
       decoded_byte=(decoded_byte<<1) | decoded_bit;

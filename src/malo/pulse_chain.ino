@@ -497,19 +497,49 @@ void PulseChain::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_star
 }
 
 
-void PulseChain::debug()
+void PulseChain::debug(uint32_t frame_id)
 {
+  if(frame_id%300!=0 || frame_id==0) return;//one activity per second
   //Serial.println("PulseChain debug...");
-  Serial.println("TODO: udpate dma instsruction count");
+  //Serial.println("TODO: udpate dma instsruction count");
   uint slice_num = pwm_gpio_to_slice_num(_pwm_pin);
 
   append_note(255,0,1);//initial sync clear
-  append_note(250,127,3);
-  append_note(251,10,4);
-  append_note(252,240,5);
-  append_note(255,1,1);
+  uint16_t expand=1;
+  for(int iter=0;iter<128;iter++)
+  {
+    //append_note(255,127,16+4*(iter%4));
+    //append_note(255,0,16+4*iter);
+    for(int bit=7;bit>=0;bit--)
+    {
+      if((iter>>bit)&0x01)
+      {
+        append_note(255,127,24);
+        append_note(255,0,16+20*2+20*4);
+      }else{
+        append_note(255,127,16);
+        append_note(255,0,24+20*2+20*4);
+      }
+    }
+    /*if(iter==64)
+    {
+      for(int iter=0;iter<4;iter++)
+      {//blanking chars at end
+        append_note(255,127,20);
+        append_note(255,0,20);
+      }
+      append_note(255,0,8*40*32);//waiting for inter-packet break point
+    }*/
+  }
+  for(int iter=0;iter<4;iter++)
+  {//blanking chars at end
+    append_note(255,127,20);
+    append_note(255,0,20);
+  }
+  append_note(255,0,1); //end clearing sync
+  append_note(255,0,40);
 
-  Serial.printf("_dma_addr_scratch_0: 0x%08X (val: %3d), _dma_value_scratch: %3u, start: 0x%08X, top: 0x%08X (val: %3u), cc: 0x%08X (val: %3u)\n",_dma_addr_scratch,*(uint8_t*)_dma_addr_scratch,_dma_value_scratch,(uint32_t)&_pwm_config[_is_ping_pong][0],(uint32_t)&pwm_hw->slice[slice_num].top,pwm_hw->slice[slice_num].top,(uint32_t)&pwm_hw->slice[slice_num].cc,pwm_hw->slice[slice_num].cc);
+  /*Serial.printf("_dma_addr_scratch_0: 0x%08X (val: %3d), _dma_value_scratch: %3u, start: 0x%08X, top: 0x%08X (val: %3u), cc: 0x%08X (val: %3u)\n",_dma_addr_scratch,*(uint8_t*)_dma_addr_scratch,_dma_value_scratch,(uint32_t)&_pwm_config[_is_ping_pong][0],(uint32_t)&pwm_hw->slice[slice_num].top,pwm_hw->slice[slice_num].top,(uint32_t)&pwm_hw->slice[slice_num].cc,pwm_hw->slice[slice_num].cc);
   Serial.printf("_pwm_config[][0].period      @0x%08X: %d\n",(uint32_t)&_pwm_config[_is_ping_pong][0].period,_pwm_config[_is_ping_pong][0].period);
   Serial.printf("_pwm_config[][0].duty        @0x%08X: %d\n",(uint32_t)&_pwm_config[_is_ping_pong][0].duty,_pwm_config[_is_ping_pong][0].duty);
   Serial.printf("_pwm_config[][0].cycle_count @0x%08X: %d\n",(uint32_t)&_pwm_config[_is_ping_pong][0].cycle_count,_pwm_config[_is_ping_pong][0].cycle_count);
@@ -518,21 +548,11 @@ void PulseChain::debug()
   Serial.printf("_pwm_config[][1].cycle_count @0x%08X: %d\n",(uint32_t)&_pwm_config[_is_ping_pong][1].cycle_count,_pwm_config[_is_ping_pong][1].cycle_count);
   Serial.printf("_pwm_config[][2].period      @0x%08X: %d\n",(uint32_t)&_pwm_config[_is_ping_pong][2].period,_pwm_config[_is_ping_pong][2].period);
   Serial.printf("_pwm_config[][2].duty        @0x%08X: %d\n",(uint32_t)&_pwm_config[_is_ping_pong][2].duty,_pwm_config[_is_ping_pong][2].duty);
-  Serial.printf("_pwm_config[][2].cycle_count @0x%08X: %d\n",(uint32_t)&_pwm_config[_is_ping_pong][2].cycle_count,_pwm_config[_is_ping_pong][2].cycle_count);
-  //append_note(251,30,41);
-  //append_note(252,220,42);
-  //append_note(254,0,8);
-  //append_note(254,127,8);
-  //append_note(254,0,4);
-  //append_note(253,10,5);
-  //append_note(252,240,6);
-  //append_note(255,1,40);
-  //append_note(252,1,7);
-  //append_note(251,33,8);
-  //append_note(250,2,9);
+  Serial.printf("_pwm_config[][2].cycle_count @0x%08X: %d\n",(uint32_t)&_pwm_config[_is_ping_pong][2].cycle_count,_pwm_config[_is_ping_pong][2].cycle_count);*/
+
   play();
-  Serial.printf("_dma_addr_scratch_1: 0x%08X (val: %3d), _dma_value_scratch: %3u\n",_dma_addr_scratch,*(uint8_t*)_dma_addr_scratch,_dma_value_scratch);
-  delay(1);
-  Serial.printf("_dma_addr_scratch_2: 0x%08X (val: %3d), _dma_value_scratch: %3u\n",_dma_addr_scratch,*(uint8_t*)_dma_addr_scratch,_dma_value_scratch);
+  //Serial.printf("_dma_addr_scratch_1: 0x%08X (val: %3d), _dma_value_scratch: %3u\n",_dma_addr_scratch,*(uint8_t*)_dma_addr_scratch,_dma_value_scratch);
+  //delay(1);
+  //Serial.printf("_dma_addr_scratch_2: 0x%08X (val: %3d), _dma_value_scratch: %3u\n",_dma_addr_scratch,*(uint8_t*)_dma_addr_scratch,_dma_value_scratch);
   //debug_dma_commands();
 }

@@ -49,5 +49,5 @@ public:
     bool append_note(uint8_t period, uint8_t duty, uint16_t cycle_count);
     bool play();
     bool is_busy();
-    void debug();
+    void debug(uint32_t frame_id);
 };

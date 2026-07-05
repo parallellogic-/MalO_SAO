@@ -42,6 +42,7 @@ void TransmitIR::update()
 {
   //update status indicator
   set_activity(is_busy());
+  Serial.printf("IR TxD busy: %d\n",is_busy());
 }
 
 void TransmitIR::end()
@@ -70,7 +71,7 @@ bool TransmitIR::push_message(uint8_t* message,uint16_t length)
   return true;
 }
 
-void TransmitIR::debug()
+void TransmitIR::debug(uint32_t frame_id)
 {
-    pulse_chain.debug();
+    pulse_chain.debug(frame_id);
 }
