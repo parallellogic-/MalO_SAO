@@ -62,6 +62,8 @@ bool PulseChain::play() {
     // Append terminating zero command to kill the sequence at completion
     bool write_buffer = _is_ping_pong;
     uint16_t idx = _pwm_command_length[write_buffer];
+    _pwm_config[write_buffer][idx].period = 255; 
+    _pwm_config[write_buffer][idx].duty = 0; 
     _pwm_config[write_buffer][idx].cycle_count = 0; 
     
 
@@ -122,14 +124,14 @@ void PulseChain::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_star
 
     dma_channel_config cfg;
     uint8_t dma_index=0;
-//    _is_ping_pong=!_is_ping_pong; //lock in the data that was being written is now being read from
+//    _is_ping_pong=!_is_ping_pong; //lock in the data that was being written is now being read from --> swap is done in super method
     _dma_addr_scratch=(uint32_t)&_pwm_config[!_is_ping_pong][0]; //initalize address to the 0th index.  dma's will increment from here
     uint slice_num = pwm_gpio_to_slice_num(_pwm_pin);
     uint channel = pwm_gpio_to_channel(_pwm_pin);
-    static uint32_t const_period_size=sizeof(_pwm_config[0][0].period);
-    static uint32_t const_duty_size=sizeof(_pwm_config[0][0].duty);
-    static uint32_t const_cycle_count_size=sizeof(_pwm_config[0][0].cycle_count);
-    volatile static const uint32_t dummy_read=0;//precon: is 0
+    static const uint32_t const_period_size=sizeof(_pwm_config[0][0].period);
+    static const uint32_t const_duty_size=sizeof(_pwm_config[0][0].duty);
+    static const uint32_t const_cycle_count_size=sizeof(_pwm_config[0][0].cycle_count);
+    static const uint32_t dummy_read=0;//precon: is 0
     volatile static uint8_t dummy_write=0;
 
     //initial clean to set _dma_value_scratch to 0
@@ -234,7 +236,7 @@ void PulseChain::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_star
     channel_config_set_write_increment(&cfg, false);
     channel_config_set_chain_to(&cfg, ctrl_channel);
     // Pace based on when PIO RX FIFO has data available (is_tx = false)
-    //channel_config_set_dreq(&cfg, pio_get_dreq(_pio, _sm, false));
+    channel_config_set_dreq(&cfg, pio_get_dreq(_pio, _sm, false));
     channel_config_set_enable(&cfg, true);
 
     pool_start[dma_index].read_addr      = (uint32_t*)&_pio->rxf[_sm];
@@ -349,7 +351,7 @@ void PulseChain::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_star
     channel_config_set_write_increment(&cfg, false);
     channel_config_set_chain_to(&cfg, ctrl_channel);
     // Pace based on when PIO RX FIFO has data available (is_tx = false)
-    //channel_config_set_dreq(&cfg, pio_get_dreq(_pio, _sm, false));
+    channel_config_set_dreq(&cfg, pio_get_dreq(_pio, _sm, false));
     channel_config_set_enable(&cfg, true);
 
     pool_start[dma_index].read_addr      = (uint32_t*)&_pio->rxf[_sm];
@@ -393,7 +395,7 @@ void PulseChain::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_star
     //dummy wait for PWM cycle to complete... NOTE: if cycle_count is 0, this step will halt the DMA here --> EXIT
 
     cfg = dma_channel_get_default_config(data_channel);
-    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_8);
     channel_config_set_read_increment(&cfg, false);
     channel_config_set_write_increment(&cfg, false);
     channel_config_set_chain_to(&cfg, ctrl_channel);
@@ -437,7 +439,6 @@ void PulseChain::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_star
     // Also paced by the exact same PIO TX FIFO availability
     //channel_config_set_dreq(&cfg, pio_get_dreq(_pio, _sm, true));
     channel_config_set_enable(&cfg, true);
-
     pool_start[dma_index].read_addr      = (const void*)&const_cycle_count_size; // Must point to a valid memory location containing 1
     pool_start[dma_index].write_addr     = (uint32_t*)&_pio->txf[_sm];
     pool_start[dma_index].transfer_count = 1;
@@ -453,7 +454,7 @@ void PulseChain::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_star
     channel_config_set_write_increment(&cfg, false);
     channel_config_set_chain_to(&cfg, ctrl_channel);
     // Pace based on when PIO RX FIFO has data available (is_tx = false)
-    //channel_config_set_dreq(&cfg, pio_get_dreq(_pio, _sm, false));
+    channel_config_set_dreq(&cfg, pio_get_dreq(_pio, _sm, false));
     channel_config_set_enable(&cfg, true);
 
     pool_start[dma_index].read_addr      = (uint32_t*)&_pio->rxf[_sm];
@@ -491,6 +492,8 @@ void PulseChain::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_star
     pool_start[dma_index].config         = cfg.ctrl;
     dma_index++;
 
+    //Serial.println(dma_index);//21
+
 }
 
 
@@ -499,16 +502,25 @@ void PulseChain::debug()
   //Serial.println("PulseChain debug...");
   Serial.println("TODO: udpate dma instsruction count");
   uint slice_num = pwm_gpio_to_slice_num(_pwm_pin);
+
+  append_note(255,0,1);//initial sync clear
+  append_note(250,127,3);
+  append_note(251,10,4);
+  append_note(252,240,5);
+  append_note(255,1,1);
+
   Serial.printf("_dma_addr_scratch_0: 0x%08X (val: %3d), _dma_value_scratch: %3u, start: 0x%08X, top: 0x%08X (val: %3u), cc: 0x%08X (val: %3u)\n",_dma_addr_scratch,*(uint8_t*)_dma_addr_scratch,_dma_value_scratch,(uint32_t)&_pwm_config[_is_ping_pong][0],(uint32_t)&pwm_hw->slice[slice_num].top,pwm_hw->slice[slice_num].top,(uint32_t)&pwm_hw->slice[slice_num].cc,pwm_hw->slice[slice_num].cc);
   Serial.printf("_pwm_config[][0].period      @0x%08X: %d\n",(uint32_t)&_pwm_config[_is_ping_pong][0].period,_pwm_config[_is_ping_pong][0].period);
   Serial.printf("_pwm_config[][0].duty        @0x%08X: %d\n",(uint32_t)&_pwm_config[_is_ping_pong][0].duty,_pwm_config[_is_ping_pong][0].duty);
   Serial.printf("_pwm_config[][0].cycle_count @0x%08X: %d\n",(uint32_t)&_pwm_config[_is_ping_pong][0].cycle_count,_pwm_config[_is_ping_pong][0].cycle_count);
   Serial.printf("_pwm_config[][1].period      @0x%08X: %d\n",(uint32_t)&_pwm_config[_is_ping_pong][1].period,_pwm_config[_is_ping_pong][1].period);
-  append_note(254,127,8);
-  append_note(254,0,6);
-  append_note(254,127,4);
-  append_note(254,0,2);
-  //append_note(254,127,4);
+  Serial.printf("_pwm_config[][1].duty        @0x%08X: %d\n",(uint32_t)&_pwm_config[_is_ping_pong][1].duty,_pwm_config[_is_ping_pong][1].duty);
+  Serial.printf("_pwm_config[][1].cycle_count @0x%08X: %d\n",(uint32_t)&_pwm_config[_is_ping_pong][1].cycle_count,_pwm_config[_is_ping_pong][1].cycle_count);
+  Serial.printf("_pwm_config[][2].period      @0x%08X: %d\n",(uint32_t)&_pwm_config[_is_ping_pong][2].period,_pwm_config[_is_ping_pong][2].period);
+  Serial.printf("_pwm_config[][2].duty        @0x%08X: %d\n",(uint32_t)&_pwm_config[_is_ping_pong][2].duty,_pwm_config[_is_ping_pong][2].duty);
+  Serial.printf("_pwm_config[][2].cycle_count @0x%08X: %d\n",(uint32_t)&_pwm_config[_is_ping_pong][2].cycle_count,_pwm_config[_is_ping_pong][2].cycle_count);
+  //append_note(251,30,41);
+  //append_note(252,220,42);
   //append_note(254,0,8);
   //append_note(254,127,8);
   //append_note(254,0,4);
@@ -520,7 +532,7 @@ void PulseChain::debug()
   //append_note(250,2,9);
   play();
   Serial.printf("_dma_addr_scratch_1: 0x%08X (val: %3d), _dma_value_scratch: %3u\n",_dma_addr_scratch,*(uint8_t*)_dma_addr_scratch,_dma_value_scratch);
-  delay(2);
+  delay(1);
   Serial.printf("_dma_addr_scratch_2: 0x%08X (val: %3d), _dma_value_scratch: %3u\n",_dma_addr_scratch,*(uint8_t*)_dma_addr_scratch,_dma_value_scratch);
   //debug_dma_commands();
 }
