@@ -1,4 +1,6 @@
 
+//FUTURE: refactor the sniff --> pio_addr to avoid using limited resource (better to keep free for checksum verification)
+
 #include "imu.h"
 
 IMU::IMU(i2c_inst_t* i2c_hardware) : _i2c(i2c_hardware)  {

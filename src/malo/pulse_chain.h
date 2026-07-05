@@ -18,11 +18,14 @@ struct PulseChainConfig{
 class PulseChain : public ScatterGatherEngine {
 private:
     // Example state: tracking data arrays we want the DMA to send/receive
+    DmaDescriptor _ctrl_loop_cfg __attribute__((aligned(sizeof(DmaDescriptor))));//reset ctrl_loop to loop back on itself - store that loo-back info here
     PIO _pio;
     int _sm;
+    int _initial_pc_offset;
     uint8_t _pwm_pin;
     PulseChainConfig _pwm_config[2][MAX_PWM_CHAIN_LENGTH] __attribute__((aligned(4)));
-    volatile uint32_t _dma_addr_scratch=0;
+    volatile uint32_t _dma_addr_scratch __attribute__((aligned(4)))=0;
+    volatile uint32_t _dma_value_scratch __attribute__((aligned(4)))=0;
     bool _is_ping_pong=false; //write to _is_ping_pong, read from !_is_ping_pong
     uint16_t _pwm_command_length[2]={0,0};//number of commands that are to be executed.  note: last command is for 0 cycle_count to kill dma chain
 public:

@@ -45,8 +45,11 @@ class ScatterGatherEngine : public IMultiDmaTransactionSource{
 protected:
     int _data_chan=-1;
     int _ctrl_chan=-1;
+    void debug_dma_commands();
 
 private:
+    int _debug_current_pool_index=0;
+
     int _aux0_chan=-1;
     int _aux1_chan=-1;
     bool _is_data_ready=0;
@@ -82,5 +85,6 @@ public:
     void populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) override;
 
     bool is_dma_success(uint64_t frame_id) const;
+
 };
 

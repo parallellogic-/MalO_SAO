@@ -9,7 +9,7 @@ void PulseChain::begin(PIOProgramManager &pio_program_manager,uint8_t pwm_pin,fl
   uint slice_num = pwm_gpio_to_slice_num(pwm_pin);
   uint channel = pwm_gpio_to_channel(pwm_pin);
   pwm_set_wrap(slice_num, 255);//need to init to 8-bit value (upper 24 bits 0) because downstream callers only update the LSByte
-  pwm_set_chan_level(slice_num, channel, 127); //downstream callers only update LSByte
+  pwm_set_chan_level(slice_num, channel, 0); //downstream callers only update LSByte
   // 1. Get the current system clock frequency dynamically
   float sys_clk_hz = (float)clock_get_hz(clk_sys);
   // 2. Compute the precise divider: sys_clk / (target_hz * (TOP + 1))
@@ -23,6 +23,7 @@ void PulseChain::begin(PIOProgramManager &pio_program_manager,uint8_t pwm_pin,fl
 
   _pio=pio_program_manager.get_pio();
   _sm=pio_program_manager.allocate_sm();
+  _initial_pc_offset=pio_program_manager.get_offset();
   int sm_offset=pio_program_manager.get_offset();
 
 
@@ -91,16 +92,7 @@ bool PulseChain::is_busy() {
 // ============================================================================
 
 int PulseChain::getRequiredDescriptorCount(uint64_t frame_id) {
-  //zzstophere, blinking green
-  /*while(true)
-  {
-    pinMode(38,OUTPUT);
-    digitalWrite(38,1);
-    delay(100);
-    digitalWrite(38,0);
-    delay(100);
-  }*/
-    return 7;
+    return 21;//4+3+4+3+3+3+1;//11;//16;
 }
 
 void PulseChain::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_start, 
@@ -117,14 +109,42 @@ void PulseChain::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_star
     //8 bit duty cycle pwm_duty, transaction_count number of times, gated by pwm dreq competion - control flow will halt here (no chain-to execution) on 0 transaction_count (cannot have ctrl_dma chain to data_dma and data_dma immediate chain-back to ctrl_dma)
     //set ctrl_dma config to point to pool_start[0] (no chain to, immedaite start on load)
 
+    // 1. Disable the state machine to freeze execution safely
+    pio_sm_set_enabled(_pio, _sm, false);
+    // 2. Wipe the TX and RX FIFOs entirely
+    pio_sm_clear_fifos(_pio, _sm);
+    // 3. Reset internal block states (clears stall conditions, OSR/ISR counters, IRQ blocks)
+    pio_sm_restart(_pio, _sm);
+    // 4. Force the Program Counter (PC) back to your initial loaded program offset
+    pio_sm_exec(_pio, _sm, pio_encode_jmp(_initial_pc_offset));
+    // 5. Re-enable the state machine to begin processing fresh data
+    pio_sm_set_enabled(_pio, _sm, true);
+
     dma_channel_config cfg;
     uint8_t dma_index=0;
 //    _is_ping_pong=!_is_ping_pong; //lock in the data that was being written is now being read from
     _dma_addr_scratch=(uint32_t)&_pwm_config[!_is_ping_pong][0]; //initalize address to the 0th index.  dma's will increment from here
     uint slice_num = pwm_gpio_to_slice_num(_pwm_pin);
-    const static uint32_t const_period_size=sizeof(_pwm_config[0][0].period);
-    const static uint32_t const_duty_size=sizeof(_pwm_config[0][0].duty);
-    const static uint32_t const_cycle_count_size=sizeof(_pwm_config[0][0].cycle_count);
+    uint channel = pwm_gpio_to_channel(_pwm_pin);
+    static uint32_t const_period_size=sizeof(_pwm_config[0][0].period);
+    static uint32_t const_duty_size=sizeof(_pwm_config[0][0].duty);
+    static uint32_t const_cycle_count_size=sizeof(_pwm_config[0][0].cycle_count);
+    volatile static const uint32_t dummy_read=0;//precon: is 0
+    volatile static uint8_t dummy_write=0;
+
+    //initial clean to set _dma_value_scratch to 0
+    cfg = dma_channel_get_default_config(data_channel);
+    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+    channel_config_set_read_increment(&cfg, false);
+    channel_config_set_write_increment(&cfg, false);
+    channel_config_set_chain_to(&cfg, ctrl_channel);
+    channel_config_set_enable(&cfg, true);
+
+    pool_start[dma_index].read_addr      = (const void*)&dummy_read;
+    pool_start[dma_index].write_addr     = (void*)(&_dma_value_scratch);
+    pool_start[dma_index].transfer_count = 1;
+    pool_start[dma_index].config         = cfg.ctrl;
+    dma_index++;
 
     //move the address into the next command source
     cfg = dma_channel_get_default_config(data_channel);
@@ -140,16 +160,29 @@ void PulseChain::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_star
     pool_start[dma_index].config         = cfg.ctrl;
     dma_index++;
 
-    //move data from _dma_addr_scratch to pwm period
+    //move data from _dma_addr_scratch to pwm period.  Note: value only accepted when MSByte is written, so need intermedaite step to pad 8 bits to 16 bits...
     cfg = dma_channel_get_default_config(data_channel);
-    channel_config_set_transfer_data_size(&cfg, (const_period_size == 4) ? DMA_SIZE_32 : (const_period_size == 2) ? DMA_SIZE_16 : DMA_SIZE_8);
+    channel_config_set_transfer_data_size(&cfg, (const_period_size == 2) ? DMA_SIZE_16 : DMA_SIZE_8);
     channel_config_set_read_increment(&cfg, false);
     channel_config_set_write_increment(&cfg, false);
     channel_config_set_chain_to(&cfg, ctrl_channel);
     channel_config_set_enable(&cfg, true);
 
     pool_start[dma_index].read_addr      = 0; //set by instruction above
-    pool_start[dma_index].write_addr     = (uint32_t*)(&pwm_hw->slice[slice_num].top+(4-const_period_size));
+    pool_start[dma_index].write_addr     = (void*)(&_dma_value_scratch);//(&pwm_hw->slice[slice_num].top);//+(2-const_period_size));
+    pool_start[dma_index].transfer_count = 1;
+    pool_start[dma_index].config         = cfg.ctrl;
+    dma_index++;
+
+    cfg = dma_channel_get_default_config(data_channel);
+    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
+    channel_config_set_read_increment(&cfg, false);
+    channel_config_set_write_increment(&cfg, false);
+    channel_config_set_chain_to(&cfg, ctrl_channel);
+    channel_config_set_enable(&cfg, true);
+
+    pool_start[dma_index].read_addr      = (const void*)&_dma_value_scratch;
+    pool_start[dma_index].write_addr     = (uint32_t*)&pwm_hw->slice[slice_num].top;
     pool_start[dma_index].transfer_count = 1;
     pool_start[dma_index].config         = cfg.ctrl;
     dma_index++;
@@ -157,7 +190,7 @@ void PulseChain::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_star
     //now increment _pwm_config address by 1... (3 commands)
 
     // ============================================================================
-    // STEP A: Feed 32-bit _dma_addr_scratch into PIO's TX FIFO
+    // STEP A1: Feed 32-bit _dma_addr_scratch into PIO's TX FIFO
     // ============================================================================
     cfg = dma_channel_get_default_config(data_channel);
     channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
@@ -165,7 +198,7 @@ void PulseChain::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_star
     channel_config_set_write_increment(&cfg, false);
     channel_config_set_chain_to(&cfg, ctrl_channel);
     // Pace based on when PIO TX FIFO has free room
-    channel_config_set_dreq(&cfg, pio_get_dreq(_pio, _sm, true)); 
+    //channel_config_set_dreq(&cfg, pio_get_dreq(_pio, _sm, true)); 
     channel_config_set_enable(&cfg, true);
 
     pool_start[dma_index].read_addr      = (uint32_t*)&_dma_addr_scratch;
@@ -175,7 +208,7 @@ void PulseChain::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_star
     dma_index++;
 
     // ============================================================================
-    // STEP B: Feed a constant 1 into PIO's TX FIFO
+    // STEP B1: Feed a constant 1 into PIO's TX FIFO
     // ============================================================================
     cfg = dma_channel_get_default_config(data_channel);
     channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
@@ -183,7 +216,7 @@ void PulseChain::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_star
     channel_config_set_write_increment(&cfg, false);
     channel_config_set_chain_to(&cfg, ctrl_channel);
     // Also paced by the exact same PIO TX FIFO availability
-    channel_config_set_dreq(&cfg, pio_get_dreq(_pio, _sm, true));
+    //channel_config_set_dreq(&cfg, pio_get_dreq(_pio, _sm, true));
     channel_config_set_enable(&cfg, true);
 
     pool_start[dma_index].read_addr      = (const void*)&const_period_size; // Must point to a valid memory location containing 1
@@ -193,7 +226,7 @@ void PulseChain::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_star
     dma_index++;
 
     // ============================================================================
-    // STEP C: Take output from PIO's RX FIFO and put into _dma_addr_scratch
+    // STEP C1: Take output from PIO's RX FIFO and put into _dma_addr_scratch
     // ============================================================================
     cfg = dma_channel_get_default_config(data_channel);
     channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
@@ -201,7 +234,7 @@ void PulseChain::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_star
     channel_config_set_write_increment(&cfg, false);
     channel_config_set_chain_to(&cfg, ctrl_channel);
     // Pace based on when PIO RX FIFO has data available (is_tx = false)
-    channel_config_set_dreq(&cfg, pio_get_dreq(_pio, _sm, false));
+    //channel_config_set_dreq(&cfg, pio_get_dreq(_pio, _sm, false));
     channel_config_set_enable(&cfg, true);
 
     pool_start[dma_index].read_addr      = (uint32_t*)&_pio->rxf[_sm];
@@ -212,6 +245,20 @@ void PulseChain::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_star
 
     //now repeat pwm configuration, but this time for the duty cycle rather than the period... (2 commands)
 
+    //initial clean to set _dma_value_scratch to 0
+    cfg = dma_channel_get_default_config(data_channel);
+    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+    channel_config_set_read_increment(&cfg, false);
+    channel_config_set_write_increment(&cfg, false);
+    channel_config_set_chain_to(&cfg, ctrl_channel);
+    channel_config_set_enable(&cfg, true);
+
+    pool_start[dma_index].read_addr      = (const void*)&dummy_read;
+    pool_start[dma_index].write_addr     = (void*)(&_dma_value_scratch);
+    pool_start[dma_index].transfer_count = 1;
+    pool_start[dma_index].config         = cfg.ctrl;
+    dma_index++;
+
     //move the address into the next command source
     cfg = dma_channel_get_default_config(data_channel);
     channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
@@ -226,21 +273,223 @@ void PulseChain::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_star
     pool_start[dma_index].config         = cfg.ctrl;
     dma_index++;
 
+
     //move data from _dma_addr_scratch to pwm duty cycle
     cfg = dma_channel_get_default_config(data_channel);
-    channel_config_set_transfer_data_size(&cfg, (const_duty_size == 4) ? DMA_SIZE_32 : (const_duty_size == 2) ? DMA_SIZE_16 : DMA_SIZE_8);
+    channel_config_set_transfer_data_size(&cfg, (const_duty_size == 2) ? DMA_SIZE_16 : DMA_SIZE_8);
     channel_config_set_read_increment(&cfg, false);
     channel_config_set_write_increment(&cfg, false);
     channel_config_set_chain_to(&cfg, ctrl_channel);
     channel_config_set_enable(&cfg, true);
 
     pool_start[dma_index].read_addr      = 0; //set by instruction above
-    pool_start[dma_index].write_addr     = (uint32_t*)(&pwm_hw->slice[slice_num].cc+(4-const_duty_size));
+    pool_start[dma_index].write_addr     = (uint32_t*)(&_dma_value_scratch+(2*channel));
+    pool_start[dma_index].transfer_count = 1;
+    pool_start[dma_index].config         = cfg.ctrl;
+    dma_index++;
+
+    //move data from _dma_addr_scratch to pwm duty cycle
+    cfg = dma_channel_get_default_config(data_channel);
+    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+    channel_config_set_read_increment(&cfg, false);
+    channel_config_set_write_increment(&cfg, false);
+    channel_config_set_chain_to(&cfg, ctrl_channel);
+    channel_config_set_enable(&cfg, true);
+
+    pool_start[dma_index].read_addr      = (const void*)(&_dma_value_scratch);
+    pool_start[dma_index].write_addr     = (uint32_t*)(&pwm_hw->slice[slice_num].cc);
     pool_start[dma_index].transfer_count = 1;
     pool_start[dma_index].config         = cfg.ctrl;
     dma_index++;
 
     //now do dummy transfer cycle_count times...  but first need to get cycle count by doing address math (3 commands)
+
+    // ============================================================================
+    // STEP A2: Feed 32-bit _dma_addr_scratch into PIO's TX FIFO
+    // ============================================================================
+    cfg = dma_channel_get_default_config(data_channel);
+    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+    channel_config_set_read_increment(&cfg, false);
+    channel_config_set_write_increment(&cfg, false);
+    channel_config_set_chain_to(&cfg, ctrl_channel);
+    // Pace based on when PIO TX FIFO has free room
+    //channel_config_set_dreq(&cfg, pio_get_dreq(_pio, _sm, true)); 
+    channel_config_set_enable(&cfg, true);
+
+    pool_start[dma_index].read_addr      = (uint32_t*)&_dma_addr_scratch;
+    pool_start[dma_index].write_addr     = (uint32_t*)&_pio->txf[_sm];
+    pool_start[dma_index].transfer_count = 1;
+    pool_start[dma_index].config         = cfg.ctrl;
+    dma_index++;
+
+    // ============================================================================
+    // STEP B2: Feed a constant 1 into PIO's TX FIFO
+    // ============================================================================
+    cfg = dma_channel_get_default_config(data_channel);
+    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+    channel_config_set_read_increment(&cfg, false);
+    channel_config_set_write_increment(&cfg, false);
+    channel_config_set_chain_to(&cfg, ctrl_channel);
+    // Also paced by the exact same PIO TX FIFO availability
+    //channel_config_set_dreq(&cfg, pio_get_dreq(_pio, _sm, true));
+    channel_config_set_enable(&cfg, true);
+
+    pool_start[dma_index].read_addr      = (const void*)&const_duty_size; // Must point to a valid memory location containing 1
+    pool_start[dma_index].write_addr     = (uint32_t*)&_pio->txf[_sm];
+    pool_start[dma_index].transfer_count = 1;
+    pool_start[dma_index].config         = cfg.ctrl;
+    dma_index++;
+
+    // ============================================================================
+    // STEP C2: Take output from PIO's RX FIFO and put into _dma_addr_scratch
+    // ============================================================================
+    cfg = dma_channel_get_default_config(data_channel);
+    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+    channel_config_set_read_increment(&cfg, false);
+    channel_config_set_write_increment(&cfg, false);
+    channel_config_set_chain_to(&cfg, ctrl_channel);
+    // Pace based on when PIO RX FIFO has data available (is_tx = false)
+    //channel_config_set_dreq(&cfg, pio_get_dreq(_pio, _sm, false));
+    channel_config_set_enable(&cfg, true);
+
+    pool_start[dma_index].read_addr      = (uint32_t*)&_pio->rxf[_sm];
+    pool_start[dma_index].write_addr     = (uint32_t*)&_dma_addr_scratch;
+    pool_start[dma_index].transfer_count = 1;
+    pool_start[dma_index].config         = cfg.ctrl;
+    dma_index++;
+
+    //now pointing at base of cycle_count
+    //so put the cycle count in the <future> dummy call to stall for PWM cycle dreq
+
+    //move the address into the next command source
+    cfg = dma_channel_get_default_config(data_channel);
+    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+    channel_config_set_read_increment(&cfg, false);
+    channel_config_set_write_increment(&cfg, false);
+    channel_config_set_chain_to(&cfg, ctrl_channel);
+    channel_config_set_enable(&cfg, true);
+
+    pool_start[dma_index].read_addr      = (const void*)&_dma_addr_scratch;
+    pool_start[dma_index].write_addr     = (void*)&pool_start[dma_index+1].read_addr;
+    pool_start[dma_index].transfer_count = 1;
+    pool_start[dma_index].config         = cfg.ctrl;
+    dma_index++;
+
+    //move the address into the next command source
+    cfg = dma_channel_get_default_config(data_channel);
+    channel_config_set_transfer_data_size(&cfg, (const_cycle_count_size == 4) ? DMA_SIZE_32 : (const_cycle_count_size == 2) ? DMA_SIZE_16 : DMA_SIZE_8);
+    channel_config_set_read_increment(&cfg, false);
+    channel_config_set_write_increment(&cfg, false);
+    channel_config_set_chain_to(&cfg, ctrl_channel);
+    channel_config_set_enable(&cfg, true);
+
+    pool_start[dma_index].read_addr      = 0; // set by previous instruction
+    pool_start[dma_index].write_addr     = (void*)(&pool_start[dma_index+1].transfer_count);
+    pool_start[dma_index].transfer_count = 1;
+    pool_start[dma_index].config         = cfg.ctrl;
+    dma_index++;
+
+
+    //dummy wait for PWM cycle to complete... NOTE: if cycle_count is 0, this step will halt the DMA here --> EXIT
+
+    cfg = dma_channel_get_default_config(data_channel);
+    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+    channel_config_set_read_increment(&cfg, false);
+    channel_config_set_write_increment(&cfg, false);
+    channel_config_set_chain_to(&cfg, ctrl_channel);
+    channel_config_set_dreq(&cfg, pwm_get_dreq(slice_num));
+    channel_config_set_enable(&cfg, true);
+
+    pool_start[dma_index].read_addr      = (uint32_t*)&dummy_read;
+    pool_start[dma_index].write_addr     = (uint32_t*)&dummy_write;
+    pool_start[dma_index].transfer_count = 0; //updated from command above
+    pool_start[dma_index].config         = cfg.ctrl;
+    dma_index++;
+
+    //cleanup to move the base pointer to point at the beginning of the next _pwm_config...
+
+    // ============================================================================
+    // STEP A3: Feed 32-bit _dma_addr_scratch into PIO's TX FIFO
+    // ============================================================================
+    cfg = dma_channel_get_default_config(data_channel);
+    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+    channel_config_set_read_increment(&cfg, false);
+    channel_config_set_write_increment(&cfg, false);
+    channel_config_set_chain_to(&cfg, ctrl_channel);
+    // Pace based on when PIO TX FIFO has free room
+    //channel_config_set_dreq(&cfg, pio_get_dreq(_pio, _sm, true)); 
+    channel_config_set_enable(&cfg, true);
+
+    pool_start[dma_index].read_addr      = (uint32_t*)&_dma_addr_scratch;
+    pool_start[dma_index].write_addr     = (uint32_t*)&_pio->txf[_sm];
+    pool_start[dma_index].transfer_count = 1;
+    pool_start[dma_index].config         = cfg.ctrl;
+    dma_index++;
+
+    // ============================================================================
+    // STEP B3: Feed a constant 1 into PIO's TX FIFO
+    // ============================================================================
+    cfg = dma_channel_get_default_config(data_channel);
+    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+    channel_config_set_read_increment(&cfg, false);
+    channel_config_set_write_increment(&cfg, false);
+    channel_config_set_chain_to(&cfg, ctrl_channel);
+    // Also paced by the exact same PIO TX FIFO availability
+    //channel_config_set_dreq(&cfg, pio_get_dreq(_pio, _sm, true));
+    channel_config_set_enable(&cfg, true);
+
+    pool_start[dma_index].read_addr      = (const void*)&const_cycle_count_size; // Must point to a valid memory location containing 1
+    pool_start[dma_index].write_addr     = (uint32_t*)&_pio->txf[_sm];
+    pool_start[dma_index].transfer_count = 1;
+    pool_start[dma_index].config         = cfg.ctrl;
+    dma_index++;
+
+    // ============================================================================
+    // STEP C3: Take output from PIO's RX FIFO and put into _dma_addr_scratch
+    // ============================================================================
+    cfg = dma_channel_get_default_config(data_channel);
+    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+    channel_config_set_read_increment(&cfg, false);
+    channel_config_set_write_increment(&cfg, false);
+    channel_config_set_chain_to(&cfg, ctrl_channel);
+    // Pace based on when PIO RX FIFO has data available (is_tx = false)
+    //channel_config_set_dreq(&cfg, pio_get_dreq(_pio, _sm, false));
+    channel_config_set_enable(&cfg, true);
+
+    pool_start[dma_index].read_addr      = (uint32_t*)&_pio->rxf[_sm];
+    pool_start[dma_index].write_addr     = (uint32_t*)&_dma_addr_scratch;
+    pool_start[dma_index].transfer_count = 1;
+    pool_start[dma_index].config         = cfg.ctrl;
+    dma_index++;
+
+    //now that everything is clean for the next cycle, command the data to re-load ctrl_dma back to start...
+    //prepare dummy packet in RAM for data channel to load into control channel
+
+    cfg = dma_channel_get_default_config(ctrl_channel);
+    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+    channel_config_set_read_increment(&cfg, true);
+    channel_config_set_write_increment(&cfg, true);
+    channel_config_set_ring(&cfg, true, 4); // Keep writes localized strictly to target registers
+    //channel_config_set_chain_to(&cfg, ctrl_channel);
+    channel_config_set_enable(&cfg, true);
+
+    _ctrl_loop_cfg.read_addr      = (const void*)&pool_start[0]; //restart read commands from beginning
+    _ctrl_loop_cfg.write_addr     = (void*)&dma_hw->ch[data_channel].read_addr;
+    _ctrl_loop_cfg.transfer_count = 4;
+    _ctrl_loop_cfg.config         = cfg.ctrl;
+
+    //now have control data load the data packet intro the control channel, resetting the control channel back to the beginning of the command list
+    cfg = dma_channel_get_default_config(data_channel);
+    channel_config_set_transfer_data_size(&cfg, DMA_SIZE_32);
+    channel_config_set_read_increment(&cfg, true);
+    channel_config_set_write_increment(&cfg, true);
+    channel_config_set_enable(&cfg, true);
+
+    pool_start[dma_index].read_addr      = (uint32_t*)&_ctrl_loop_cfg;
+    pool_start[dma_index].write_addr     = (uint32_t*)&dma_hw->ch[ctrl_channel].read_addr;
+    pool_start[dma_index].transfer_count = 4;
+    pool_start[dma_index].config         = cfg.ctrl;
+    dma_index++;
 
 }
 
@@ -248,12 +497,30 @@ void PulseChain::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_star
 void PulseChain::debug()
 {
   //Serial.println("PulseChain debug...");
+  Serial.println("TODO: udpate dma instsruction count");
   uint slice_num = pwm_gpio_to_slice_num(_pwm_pin);
-  Serial.printf("_dma_addr_scratch_0: 0x%08X (val: %d), start: 0x%08X, top: 0x%08X (val: %d), cc: 0x%08X (val: %d)\n",_dma_addr_scratch,*(uint8_t*)_dma_addr_scratch,(uint32_t)&_pwm_config[_is_ping_pong][0],(uint32_t)&pwm_hw->slice[slice_num].top,pwm_hw->slice[slice_num].top,(uint32_t)&pwm_hw->slice[slice_num].cc,pwm_hw->slice[slice_num].cc);
-  append_note(255,127,8);
-  append_note(255,0,4);
+  Serial.printf("_dma_addr_scratch_0: 0x%08X (val: %3d), _dma_value_scratch: %3u, start: 0x%08X, top: 0x%08X (val: %3u), cc: 0x%08X (val: %3u)\n",_dma_addr_scratch,*(uint8_t*)_dma_addr_scratch,_dma_value_scratch,(uint32_t)&_pwm_config[_is_ping_pong][0],(uint32_t)&pwm_hw->slice[slice_num].top,pwm_hw->slice[slice_num].top,(uint32_t)&pwm_hw->slice[slice_num].cc,pwm_hw->slice[slice_num].cc);
+  Serial.printf("_pwm_config[][0].period      @0x%08X: %d\n",(uint32_t)&_pwm_config[_is_ping_pong][0].period,_pwm_config[_is_ping_pong][0].period);
+  Serial.printf("_pwm_config[][0].duty        @0x%08X: %d\n",(uint32_t)&_pwm_config[_is_ping_pong][0].duty,_pwm_config[_is_ping_pong][0].duty);
+  Serial.printf("_pwm_config[][0].cycle_count @0x%08X: %d\n",(uint32_t)&_pwm_config[_is_ping_pong][0].cycle_count,_pwm_config[_is_ping_pong][0].cycle_count);
+  Serial.printf("_pwm_config[][1].period      @0x%08X: %d\n",(uint32_t)&_pwm_config[_is_ping_pong][1].period,_pwm_config[_is_ping_pong][1].period);
+  append_note(254,127,8);
+  append_note(254,0,6);
+  append_note(254,127,4);
+  append_note(254,0,2);
+  //append_note(254,127,4);
+  //append_note(254,0,8);
+  //append_note(254,127,8);
+  //append_note(254,0,4);
+  //append_note(253,10,5);
+  //append_note(252,240,6);
+  //append_note(255,1,40);
+  //append_note(252,1,7);
+  //append_note(251,33,8);
+  //append_note(250,2,9);
   play();
-  compileAndRun(0);
-  delay(1);
-  Serial.printf("_dma_addr_scratch_1: 0x%08X\n",_dma_addr_scratch);
+  Serial.printf("_dma_addr_scratch_1: 0x%08X (val: %3d), _dma_value_scratch: %3u\n",_dma_addr_scratch,*(uint8_t*)_dma_addr_scratch,_dma_value_scratch);
+  delay(2);
+  Serial.printf("_dma_addr_scratch_2: 0x%08X (val: %3d), _dma_value_scratch: %3u\n",_dma_addr_scratch,*(uint8_t*)_dma_addr_scratch,_dma_value_scratch);
+  //debug_dma_commands();
 }
