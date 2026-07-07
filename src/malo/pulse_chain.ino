@@ -1,5 +1,6 @@
 #include "pulse_chain.h"
 #include <hardware/pwm.h>
+#include "RS-FEC.h"
 
 void PulseChain::begin(PIOProgramManager &pio_program_manager,uint8_t pwm_pin,float base_frequency_hz)
 {
@@ -538,46 +539,42 @@ void PulseChain::debug(uint32_t frame_id)
   if(frame_id%300!=0 || frame_id==0) return;//one activity per second
   //Serial.println("PulseChain debug...");
   //Serial.println("TODO: udpate dma instsruction count");
-  uint slice_num = pwm_gpio_to_slice_num(_pwm_pin);
+  //uint slice_num = pwm_gpio_to_slice_num(_pwm_pin);
+
+  const uint8_t message_length=126;
+  const uint8_t ecc_length=127;
+    
+  uint8_t message[message_length]={};
+  for(uint8_t iter=0;iter<message_length;iter++)
+  {
+    message[iter]=iter;
+  }
+
+  RS::ReedSolomon<message_length, ecc_length> rs;
+  uint8_t encoded[message_length + ecc_length];
+  rs.Encode(message, encoded); 
+
 
   append_note(255,0,1);//initial sync clear
   uint16_t expand=1;
-  for(int iter=0;iter<256;iter++)
+  for(int iter=0;iter<sizeof(encoded)/sizeof(encoded[0]);iter++)
   //for(int iter=255;iter>=0;iter--)
   {
+    uint8_t value=encoded[iter];
     //uint16_t encoded=encodeHamming128(iter);
     //append_note(255,127,16+2*(map_graycode2(iter>>6,true)));
     //append_note(255,0,16+2*(map_graycode6(iter&0x003F,true)));
-    append_note(255,127,16);
-    append_note(255,0,16+1*(iter&0x00FF));
-    /*for(int bit=7;bit>=0;bit--)
-    {
-      if((iter>>bit)&0x01)
-      {
-        append_note(255,127,24);
-        append_note(255,0,16+20*2+20*4);
-      }else{
-        append_note(255,127,16);
-        append_note(255,0,24+20*2+20*4);
-      }
-    }*/
-    /*if(iter==64)
-    {
-      for(int iter=0;iter<4;iter++)
-      {//blanking chars at end
-        append_note(255,127,20);
-        append_note(255,0,20);
-      }
-      append_note(255,0,8*40*32);//waiting for inter-packet break point
-    }*/
+    append_note(255,127,16);//+1*((iter>>6)&0x0003));
+    append_note(255,0,24+value);
+    //if((iter%64==0) && (iter>0)) append_note(255,0,500);
   }
-  for(int iter=0;iter<4;iter++)
+  //for(int iter=0;iter<2;iter++)
   {//blanking chars at end
-    append_note(255,127,20);
-    append_note(255,0,20);
+    append_note(255,127,16);  //trailing pulse to denote end of message
+    append_note(255,0,1);
   }
-  append_note(255,0,1); //end clearing sync
-  append_note(255,0,40);
+  //append_note(255,0,1); //end clearing sync
+  //append_note(255,0,2000);
 
   /*Serial.printf("_dma_addr_scratch_0: 0x%08X (val: %3d), _dma_value_scratch: %3u, start: 0x%08X, top: 0x%08X (val: %3u), cc: 0x%08X (val: %3u)\n",_dma_addr_scratch,*(uint8_t*)_dma_addr_scratch,_dma_value_scratch,(uint32_t)&_pwm_config[_is_ping_pong][0],(uint32_t)&pwm_hw->slice[slice_num].top,pwm_hw->slice[slice_num].top,(uint32_t)&pwm_hw->slice[slice_num].cc,pwm_hw->slice[slice_num].cc);
   Serial.printf("_pwm_config[][0].period      @0x%08X: %d\n",(uint32_t)&_pwm_config[_is_ping_pong][0].period,_pwm_config[_is_ping_pong][0].period);

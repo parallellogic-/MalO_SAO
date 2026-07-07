@@ -1,23 +1,23 @@
-#include "screen.h"
+#include "oled.h"
 #include "hardware/clocks.h"
 
-Screen::Screen(spi_inst_t* spi_port,uint32_t baud,uint8_t dc_pin) : _spi(spi_port), _baud(baud) {
+OLED::OLED(spi_inst_t* spi_port,uint32_t baud,uint8_t dc_pin) : _spi(spi_port), _baud(baud) {
   _dc_pin_ctrl_reg_ptr=(uint32_t *)&io_bank0_hw->io[dc_pin].ctrl;
 }
 
-void Screen::begin() {
+void OLED::begin() {
   spi_init(spi1, SSD1327_SPI1_BAUD);
   gpio_set_function(SSD1327_SPI1_SCLK, GPIO_FUNC_SPI);
   gpio_set_function(SSD1327_SPI1_MOSI, GPIO_FUNC_SPI);
   gpio_set_function(SSD1327_SPI1_CS,   GPIO_FUNC_SPI);
-  gpio_init(SSD1327_SPI1_DC);//is needed for proper screen operation
+  gpio_init(SSD1327_SPI1_DC);//is needed for proper OLED operation
   gpio_set_dir(SSD1327_SPI1_DC, GPIO_OUT);
   gpio_put(SSD1327_SPI1_DC,HIGH);
 }
-void Screen::end() {
+void OLED::end() {
 }
 
-int Screen::getRequiredDescriptorCount(uint64_t frame_id) {
+int OLED::getRequiredDescriptorCount(uint64_t frame_id) {
 
     switch(_get_boot_state(frame_id))
     {
@@ -27,19 +27,19 @@ int Screen::getRequiredDescriptorCount(uint64_t frame_id) {
     }
 }
 
-uint8_t Screen::_get_boot_state(uint64_t frame_id) const
+uint8_t OLED::_get_boot_state(uint64_t frame_id) const
 {
-    if(frame_id==1) return 1;//initial boot, need >30ms for screen to boot up stable, otherwise comes up with inverted or offset colors (?).  WAS 7
+    if(frame_id==1) return 1;//initial boot, need >30ms for OLED to boot up stable, otherwise comes up with inverted or offset colors (?).  WAS 7
     if(frame_id==2) return 2;
     if(frame_id<3) return 0;//gap between boot steps.  WAS 14, IS 8
     return 3; //normal operation
 }
 
-uint8_t* Screen::get_frame_buffer(){ return _frame_buffer[_screen_ping_pong]; }
+uint8_t* OLED::get_frame_buffer(){ return _frame_buffer[_screen_ping_pong]; }
 
-void Screen::flush(){ _is_flush=true; }
+void OLED::flush(){ _is_flush=true; }
 
-void Screen::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) {
+void OLED::populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) {
 
     uint8_t boot_state= _get_boot_state(frame_id);
     if(boot_state==0) return;

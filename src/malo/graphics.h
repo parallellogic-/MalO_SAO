@@ -1,7 +1,7 @@
 #pragma once
 
 #include "malo.h"
-#include "screen.h"
+#include "oled.h"
 #include "led.h"
 //#include "level.h"
 
@@ -49,7 +49,7 @@ class Graphics{
     static void menu_focus_cb(lv_event_t * e);
     static void switch_menu(lv_obj_t * new_menu, bool remember_last_selection);
     void led_cb(bool is_menu_event);
-    void lvgl2spi(uint8_t* src,Screen &screen);
+    void lvgl2spi(uint8_t* src,OLED &oled);
   public:
     Graphics();
     void begin(SensorSuite &sensor_suite);

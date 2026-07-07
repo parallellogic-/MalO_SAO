@@ -10,7 +10,7 @@ void Graphics::display_flush_cb(lv_display_t * disp, const lv_area_t * area, uin
 
     Graphics* instance = (Graphics*)lv_display_get_user_data(disp);
     if (instance && instance->_sensor_suite) {
-      instance->lvgl2spi((uint8_t*)px_map,instance->_sensor_suite->screen);
+      instance->lvgl2spi((uint8_t*)px_map,instance->_sensor_suite->oled);
     }
     lv_display_flush_ready(disp);
 }
@@ -482,10 +482,10 @@ void Graphics::end()
 
 // Custom function to process the canvas buffer, pack upper nibbles, and transmit
 //850 us
-void Graphics::lvgl2spi(uint8_t* src,Screen &screen) {
+void Graphics::lvgl2spi(uint8_t* src,OLED &oled) {
     uint32_t packed_idx = 0;
     
-    uint8_t* tx_buffer=screen.get_frame_buffer();
+    uint8_t* tx_buffer=oled.get_frame_buffer();
     for (int32_t y = 0; y < SCREEN_HEIGHT_PX; y++) {
         for (int32_t x = 0; x < SCREEN_WIDTH_PX; x += 2) {
             
@@ -513,5 +513,5 @@ void Graphics::lvgl2spi(uint8_t* src,Screen &screen) {
     }
     
     // Transmit the fully optimized 4bpp block directly to your display controller
-    screen.flush();
+    oled.flush();
 }

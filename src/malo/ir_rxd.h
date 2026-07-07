@@ -2,6 +2,7 @@
 
 #include "hardware/pio.h"
 #include "logic_analyzer.pio.h"
+#include "ir_txd.h" //constant definitions for packet structure
 
 //shared class that handles both the ir_rxd, as well as ws2812 decode on gpio 1/2
 //choose ws2812 protocol for IR Tx/rx so simplify code base (but with different time scales - 38/4 khz minimum lenght for a '1' on ir rx)
@@ -12,13 +13,12 @@
 #define SHARED_BUFFER_LENGTH (256)//2 transitions, 8 bits = 16 bytes, assuming no actiivty on other channels.
 //800 kHz * 2 1/0 transitions * 16.6 ms = 26560 --> 32768 ring buffer size (max size) if doing real WS2812 decode.  but that's for continuous stream of WS2812.
 //Max should be 24 LEDs, *2 banks, *3 colors, *8 bits, *2 1/0 transitions = 2304 --> 4096 (PRECON: user sends max 1 frame of data per frame)
-#define IR_RXD_PIN 43 //need to assign pull-up on IR RxD pin
+#define IR_RXD_PIN 43 //need to assign pull-up on IR RxD pin --> OBE, not needed
 #define SHARED_BUFFER_FIRST_PIN 43
 #define SHARED_BUFFER_PIN_COUNT 3 //IR_RXD, SAO_GP1, SAO_GP2
-#define DECODER_MAX_GENERIC_MESSAGE_LENGTH (256*8*2*5/4) //256 characters, 8 buts, 2x 1/0 transitions, margin
-#define DECODER_MAX_WS2812_MESSAGE_LENGTH (257) //256 characters, margin
+#define DECODER_MAX_GENERIC_MESSAGE_LENGTH (256*2*5/4) //256 characters, 2x 1/0 transitions, margin
 #define DECODER_ACTIVITY_BRIGHTNESS (65535/10) //how long of 65535 should the PWM indicator be ON for each cycle (less is dimmer)
-#define DECODER_TIMEOUT_US 10'000 //IR remote has 25 ms blanking between end of trnamissions and beginning of next one, so key off this
+#define DECODER_TIMEOUT_US 10'000 //IR remote has 25 ms blanking between end of trnamissions and beginning of next one, so key off this.  need to be >7 ms to pick up on a 0xFF transmission
 
 class SharedDecoderBuffer{
   private: 
@@ -69,8 +69,8 @@ class DecoderGeneric{
     const bool get_ping_pong(){ return !_is_ping_pong; } //where to read out of
     const uint16_t get_buffer_length(){ return sizeof(_decode_buffer[0])/sizeof(_decode_buffer[0][0]); }
     void set_activity(bool is_activity);//flush activity state to PWM LED
-    uint16_t get_message_length(){ return _decode_index[!_is_ping_pong]; }
-    uint32_t get_message_at(uint32_t index){ if(index>=_decode_index[!_is_ping_pong]) return 0; return _decode_buffer[!_is_ping_pong][index]; } //query the ping_pong buffer.  result is in _cycles (counts at 25 MHz)
+    const uint16_t get_message_length(){ return _decode_index[!_is_ping_pong]; }
+    const uint32_t get_message_at(uint32_t index){ if(index>=_decode_index[!_is_ping_pong]) return 0; return _decode_buffer[!_is_ping_pong][index]; } //query the ping_pong buffer.  result is in _cycles (counts at 25 MHz)
     bool get_message(uint32_t *message, uint16_t &message_length);//make a deep copy of the message out fothe ping_pong buffer.  result is in _cycles (counts at 25 MHz
 };
 
@@ -85,14 +85,16 @@ class DecoderWS2812{
 
     void set_activity(bool is_activity);//flush activity state to PWM LED
     uint32_t _get_median_signal_period(); //helper to determine the spacing between bits
+    float _get_exact_frequency(float base_frequency_hz,uint8_t period);//account for the round-off shift in the configuration timing.  38 vs 38.1 kHz loses lock after ~64 bytes
+    void _decompress78(const uint8_t* in_arr,char* out_arr);//compress 8 characters into 7 bytes
   public:
     DecoderWS2812();
     void begin(DecoderGeneric* buffer);
     void debug();
 
     //const uint16_t get_buffer_length(){ return sizeof(_decode_buffer[0])/sizeof(_decode_buffer[0][0]); }
-    bool get_message(bool is_ping_pong,uint8_t *message, uint16_t &message_length, uint32_t &period_cycles); //if message is found, store into &message (expect max 256 character size).  period_cycles is counts at 25 MHz (40 ns per count)
-    bool get_message(uint8_t *message, uint16_t &message_length, uint32_t &period_cycles); //assumes single consumer
+    bool get_message(bool is_ping_pong,char *username,char *message, uint16_t &message_length); //if message is found, store into &message (expect max 256 character size).  period_cycles is counts at 25 MHz (40 ns per count)
+    bool get_message(char *username,char *message, uint16_t &message_length); //assumes single consumer
 };
 
 

@@ -78,7 +78,7 @@ class Sprite{
   uint8_t* pixel_list; //for c04 and c14, there are half as many bytes as c48
 };*/
 
-class Screen : public IMultiDmaTransactionSource {
+class OLED : public IMultiDmaTransactionSource {
 private:
     static constexpr uint8_t init_128x128[] = {
           // Init sequence for 128x32 OLED module
@@ -138,7 +138,7 @@ private:
 
     uint8_t _get_boot_state(uint64_t frame_id) const; //detemrine what stage of commands to send we're at
 public:
-    Screen(spi_inst_t* spi_port = spi1, uint32_t baud = SSD1327_SPI1_BAUD, uint8_t dc_pin = SSD1327_SPI1_DC);
+    OLED(spi_inst_t* spi_port = spi1, uint32_t baud = SSD1327_SPI1_BAUD, uint8_t dc_pin = SSD1327_SPI1_DC);
     
     void begin();
     void end();

@@ -57,12 +57,12 @@ SensorSuite sensor_suite = {
   .decoder_ir_rxd_ws2812=DecoderWS2812(),
   .light_sensor=LightSensor(),
   .microphone=Microphone(),
+  .oled=OLED(),
   .pio_charlieplex=PIOProgramManager(pio0,&charlieplex_dma_program,0), //pio needs to be on lower bank to reach gp0.  duty cycle pairs of LEDs spread across 8 output pins
   .pio_logic_analyzer=PIOProgramManager(pio1,&logic_analyzer_program,16), //needs to be a separate pio to reach above pin 32 (configured at bank level.  run-length encoder of 11 pin states
   .pio_addr=PIOProgramManager(pio0,&pio_adder_program,0), //support for DMA to do simple address math like +1 and +2
   .scatterer_gatherer_engine_general=ScatterGatherEngine(),
   .scatterer_gatherer_engine_screen=ScatterGatherEngine(),
-  .screen=Screen(),
   .shared_decoder_buffer=SharedDecoderBuffer(),
   .touch=Touch(),
   .ir_txd=TransmitIR(PIN_DEBUG_G) //indicate IR transmit activity on this debug LED
@@ -100,14 +100,15 @@ void setup() {//core 0
   sensor_suite.microphone.begin();
   sensor_suite.scatterer_gatherer_engine_general.begin(true); //I2C needs aux channels to perform sync'd reads.  also uses sniff0 to compute the length of the imu fifo
   sensor_suite.scatterer_gatherer_engine_screen.begin(false); //limit to only 2 channels for screen
-  sensor_suite.screen.begin();
-  sensor_suite.scatterer_gatherer_engine_screen.registerSource(&sensor_suite.screen);
+  sensor_suite.oled.begin();
+  sensor_suite.scatterer_gatherer_engine_screen.registerSource(&sensor_suite.oled);
   sensor_suite.scatterer_gatherer_engine_general.registerSource(&sensor_suite.scatterer_gatherer_engine_general);
   sensor_suite.scatterer_gatherer_engine_screen.registerSource(&sensor_suite.scatterer_gatherer_engine_screen);//register self to perform end-of-cycle completion check
   sensor_suite.led_upper.begin(sensor_suite.pio_charlieplex);
   sensor_suite.led_lower.begin(sensor_suite.pio_charlieplex);
   sensor_suite.touch.begin(sensor_suite.pio_logic_analyzer);
   sensor_suite.ir_txd.begin(sensor_suite.pio_addr);
+  //pinMode(VIBRATION_MOTOR_PIN,OUTPUT);
 
   setup0_complete=true;
   //Serial.println("SETUP0 DONE");
@@ -172,14 +173,16 @@ void __not_in_flash_func(loop1)(){ //core 1
       sensor_suite.microphone.update();
       sensor_suite.decoder_ir_rxd.update();
       sensor_suite.ir_txd.update(); //status led of txd
+      //digitalWrite(VIBRATION_MOTOR_PIN,ensor_suite.touch.get_down_button()>0);
 
       //sensor_suite.touch.debug();
       Serial.printf("imu_c: %.2f, fifo: %d, ",sensor_suite.imu.get_celsius(),sensor_suite.imu.get_fifo_sample_count());
-      Serial.printf("mic: %.2f, ",sensor_suite.microphone.get_mean_square());
+      Serial.printf("mic: %.2f, touch: %d, ",sensor_suite.microphone.get_mean_square(),sensor_suite.touch.get_down_button());
       Serial.printf("accel: %0.2f, %0.2f, %0.2f, gyro: %0.2f, %0.2f, %0.2f, light: %d\n",sensor_suite.imu.get_accel(0),sensor_suite.imu.get_accel(1),sensor_suite.imu.get_accel(2),sensor_suite.imu.get_gyro(0),sensor_suite.imu.get_gyro(1),sensor_suite.imu.get_gyro(2),sensor_suite.light_sensor.getBrightness());
       //sensor_suite.decoder_ir_rxd.debug();
       sensor_suite.decoder_ir_rxd_ws2812.debug();
       sensor_suite.ir_txd.debug(frame_id1);
+
     }else{
       sensor_suite.graphics.end();
       sensor_suite.scatterer_gatherer_engine_screen.end();

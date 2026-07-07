@@ -50,28 +50,65 @@ void TransmitIR::end()
 
 }
 
-bool TransmitIR::push_message(uint8_t* message,uint16_t length)
+void TransmitIR::_push_byte(uint8_t value)
+{
+  pulse_chain.append_note(255,127,16);
+  pulse_chain.append_note(255,0,24+value);//max 40% duty cycle
+}
+
+void TransmitIR::_compress87(const char* in_arr,uint8_t* out_arr)
+{ // Read 8 characters (7 bits each = 56 bits total) and pack into 7 bytes
+  uint64_t out = 0;
+
+  // 1. Pack 8 characters into a 64-bit integer (7 bits per char)
+  for (uint8_t iter = 0; iter < 8; iter++) // Fixed: added iter++
+  {
+    out = (out << 7) | (in_arr[iter] & 0x7F);
+  }
+
+  // 2. Extract 7 bytes from the top down to keep correct string order
+  uint8_t out_index=0;
+  for (int8_t shift = 48; shift >= 0; shift -= 8) 
+  {
+    uint8_t tx = (out >> shift) & 0xFF;
+    out_arr[out_index]=tx;
+    out_index++;
+  }
+}
+
+bool TransmitIR::push_message(const char* username,const char* message,uint8_t length)
 {
   if(pulse_chain.is_busy()) return false;
-  for(uint16_t iter=0;iter<length;iter++)
+
+  uint8_t compressed[DECODER_MAX_WS2812_MESSAGE_LENGTH]={};
+  compressed[0]=length;//not currently used
+
+  for(uint8_t iter=0;(iter*8)<USERNAME_MAX_LENGTH;iter++) _compress87(&username[iter*8],&compressed[1+iter*7]);
+  for(uint8_t iter=0;(iter*8)<MESSAGE_MAX_LENGTH;iter++) _compress87(&message[iter*8],&compressed[1+USERNAME_MAX_LENGTH*7/8+iter*7]);
+
+  RS::ReedSolomon<DECODER_MAX_WS2812_MESSAGE_LENGTH, RS_ECC_LENGTH> rs;
+  uint8_t encoded[DECODER_MAX_WS2812_MESSAGE_LENGTH + RS_ECC_LENGTH];
+  rs.Encode(compressed, encoded);
+
+  //Serial.printf("yodel:\n");
+  for(uint16_t iter=0;iter<sizeof(encoded)/sizeof(encoded[0]);iter++)
   {
-    for(int8_t bit=7;bit>=0;bit--)
-    {
-      bool bit_to_send=message[iter]>>bit;//send most significant bit first
-      uint8_t  period=255;
-      uint8_t  duty=127;
-      uint16_t cycle_count=bit_to_send?(2*IR_TXD_FREQUENCY_HZ/_baud_hz/3):(  IR_TXD_FREQUENCY_HZ/_baud_hz/3); // 2/3 ON for a 1 (1/3 ON for a 0)
-      pulse_chain.append_note(period,duty,cycle_count);
-               duty=0;
-               cycle_count=bit_to_send?(  IR_TXD_FREQUENCY_HZ/_baud_hz/3):(2*IR_TXD_FREQUENCY_HZ/_baud_hz/3); // 2/3 OFF for a 1 (2/3 OFF for a 0)
-      pulse_chain.append_note(period,duty,cycle_count);
-    }
+    _push_byte(encoded[iter]);
+    //if(iter>0 && iter%16==0) Serial.printf("\n");
+    //Serial.printf("IR TxD byte yodel: %02X",encoded[iter]);
   }
+  pulse_chain.append_note(255,127,16);//final pulse to allow receiver to get timing on the previous byte
+  pulse_chain.append_note(255,0,1000);//>25 ms clearing at end of message to ensure receiver timeout
+
   pulse_chain.play();
   return true;
 }
 
 void TransmitIR::debug(uint32_t frame_id)
 {
-    pulse_chain.debug(frame_id);
+  if(frame_id%300!=0 || frame_id==0) return;
+  //pulse_chain.debug(frame_id);
+  const char username[USERNAME_MAX_LENGTH]="MalO_1234";
+  const char message[MESSAGE_MAX_LENGTH]="Hello World";
+  push_message(username,message,sizeof(message)/sizeof(message[0])+sizeof(username)/sizeof(username[0])+1);
 }

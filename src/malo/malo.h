@@ -4,7 +4,7 @@
 #include "pio_program_manager.h"
 #include "universal_serial_bus.h"
 #include "dma_control_block.h"
-#include "screen.h"
+#include "oled.h"
 #include "led.h"
 #include "imu.h"
 #include "light_sensor.h"
@@ -23,6 +23,7 @@
 #define I2C0_SCL 13
 #define I2C0_BAUD 400'000
 
+#define VIBRATION_MOTOR_PIN 39
 
 struct SensorSuite{//bundle into an object to make easier to pass through graphics handling
   uint32_t frame_id;
@@ -35,12 +36,12 @@ struct SensorSuite{//bundle into an object to make easier to pass through graphi
   DecoderWS2812 decoder_ir_rxd_ws2812;
   LightSensor light_sensor;
   Microphone microphone;
+  OLED oled;
   PIOProgramManager pio_charlieplex;
   PIOProgramManager pio_logic_analyzer;
   PIOProgramManager pio_addr;
   ScatterGatherEngine scatterer_gatherer_engine_general;
   ScatterGatherEngine scatterer_gatherer_engine_screen;
-  Screen screen;
   SharedDecoderBuffer shared_decoder_buffer;
   Touch touch;
   TransmitIR ir_txd;
