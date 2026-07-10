@@ -15,29 +15,6 @@ void ScreenManager::begin(SensorSuite &sensor_suite)
   Serial.printf("lv_group_create DONE: %p\n",(void*)_shared_input_group); delay(10);
   diag();
 
-  Screen* test_ptr = new Screen("Main", _shared_input_group);
-  Serial.printf("Screen DONE\n"); delay(10);
-  diag();
-
-  auto main_screen       = std::make_shared<MenuScreen>("Main",_shared_input_group);
-
-  Serial.printf("MenuScreen DONE\n"); delay(10);
-  diag();
-  return;
-
-  auto animations_screen = std::make_shared<MenuScreen>("Animations",_shared_input_group);
-  auto levels_screen     = std::make_shared<MenuScreen>("Levels",_shared_input_group);
-  auto messages_screen   = std::make_shared<MenuScreen>("Messages",_shared_input_group);
-  auto settings_screen   = std::make_shared<MenuScreen>("Settings",_shared_input_group);
-  Serial.printf("make_shared DONE\n"); delay(10);
-
-  main_screen->add_subscreen(animations_screen);
-  main_screen->add_subscreen(levels_screen);
-  main_screen->add_subscreen(messages_screen);
-  main_screen->add_subscreen(settings_screen);
-
-  Serial.printf("add_subscreen DONE\n"); delay(10);
-
   // Configure Display Setup
   lv_display_t * disp = lv_display_create(SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX);
   lv_display_set_buffers(disp, _canvas_buffer, NULL, sizeof(_canvas_buffer), LV_DISPLAY_RENDER_MODE_PARTIAL);
@@ -71,6 +48,19 @@ void ScreenManager::begin(SensorSuite &sensor_suite)
 
   lv_group_set_default(_shared_input_group);
   lv_indev_set_group(indev, _shared_input_group);
+
+  // -- make menu relationships --
+
+  auto main_screen       = std::make_shared<MenuScreen>("Main",_shared_input_group);
+  auto animations_screen = std::make_shared<MenuScreen>("Animations",_shared_input_group);
+  auto levels_screen     = std::make_shared<MenuScreen>("Levels",_shared_input_group);
+  auto messages_screen   = std::make_shared<MenuScreen>("Messages",_shared_input_group);
+  auto settings_screen   = std::make_shared<MenuScreen>("Settings",_shared_input_group);
+
+  main_screen->add_subscreen(animations_screen);
+  main_screen->add_subscreen(levels_screen);
+  main_screen->add_subscreen(messages_screen);
+  main_screen->add_subscreen(settings_screen);
 
   Serial.printf("screen_manager.begin() DONE\n"); delay(10);
 }

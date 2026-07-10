@@ -76,8 +76,8 @@ uint64_t frame_us=0;
 volatile bool setup0_complete=false;
 void setup() {//core 0
   UniversalSerialBus::begin();
-  //pinMode(PIN_DEBUG_R,OUTPUT);//if unset, then ir rxd/txd will default to putting out pwm signals here to show ir status
-  //pinMode(PIN_DEBUG_G,OUTPUT);
+  pinMode(PIN_DEBUG_R,OUTPUT);//if unset, then ir rxd/txd will default to putting out pwm signals here to show ir status
+  pinMode(PIN_DEBUG_G,OUTPUT);
   Serial.printf("UniversalSerialBus::begin DONE\n");
 
   sensor_suite.pio_charlieplex.begin();
@@ -147,7 +147,7 @@ void loop() { //core 0
   if(!UniversalSerialBus::get_mounted())
   {
     sensor_suite.screen_manager.diag();
-//    sensor_suite.screen_manager.update();
+    sensor_suite.screen_manager.update();
     //if(sensor_suite.touch.get_down_button() && millis()>8000) UniversalSerialBus::set_mounted();
   }
   uint64_t end_us=time_us_64();
