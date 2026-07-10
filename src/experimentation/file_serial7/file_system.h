@@ -1,15 +1,62 @@
-#include "universal_serial_bus.h"
+#pragma once
 
+#include <SdFat.h>
 
-Adafruit_USBD_MSC usb_msc; //usb-flash file system interface
+#define USB_BLOCK_SIZE    512
+//#define FLASH_SECTOR_SIZE 4096
+
 // Custom 16MB hardware layout boundaries
+const uint32_t FLASH_TARGET_OFFSET = 2 * 1024 * 1024; 
+const uint32_t DISK_SIZE_BYTES     = 14 * 1024 * 1024; 
+
 // RAM cache staging layouts
 static uint8_t sector_cache[FLASH_SECTOR_SIZE] __attribute__((aligned(4)));
 static int32_t cached_sector_id = -1;
 static bool cache_is_dirty = false;
 
+// ====================================================================
+// FORWARD DECLARATIONS (CRITICAL FIX FOR SCOPING ERRORS)
+// ====================================================================
+int32_t msc_read_cb(uint32_t lba, void* buffer, uint32_t bufsize);
+int32_t msc_write_cb(uint32_t lba, uint8_t* buffer, uint32_t bufsize);
+void msc_flush_cb(void);
+// ====================================================================
+
+// Inherit from FsBlockDevice to perfectly match the RP2040/RP2350 core config
+class RP2350CustomFlashDriver : public FsBlockDevice {
+public:
+    // Core SdFat v2 uses readSector & writeSector with an optional uint32_t count parameter
+    bool readSector(uint32_t sector, uint8_t* dst) override {
+        return msc_read_cb(sector, dst, 512) == 512;
+    }
+
+    bool writeSector(uint32_t sector, const uint8_t* src) override {
+        return msc_write_cb(sector, (uint8_t*)src, 512) == 512;
+    }
+
+    bool readSectors(uint32_t sector, uint8_t* dst, size_t count) override {
+        return msc_read_cb(sector, dst, count * 512) == (int32_t)(count * 512);
+    }
+
+    bool writeSectors(uint32_t sector, const uint8_t* src, size_t count) override {
+        return msc_write_cb(sector, (uint8_t*)src, count * 512) == (int32_t)(count * 512);
+    }
+
+    bool syncDevice() override {
+        msc_flush_cb();
+        return true;
+    }
+
+    // Required pure virtual functions for FsBlockDevice in this core configuration
+    bool isBusy() override { return false; }
+    uint32_t sectorCount() override { return DISK_SIZE_BYTES / USB_BLOCK_SIZE; }
+};
+
+// Instantiate the file system blocks using core-compliant Types
 static RP2350CustomFlashDriver hardware_block_driver;
-static FatVolume fat_fs;
+static FatVolume fat_fs; 
+static File32 sprite_sheet_file;
+
 
 // CRITICAL FIX: __no_inline_not_in_flash_func forces this code to run purely out of RAM 
 // This allows safe writing to the flash while the XIP cache mapping engine is disabled.
@@ -46,7 +93,6 @@ void __no_inline_not_in_flash_func(flush_sector_cache)() {
   // Release the hardware gate so the other core/thread can safely interact with flash again
   spin_unlock(spin_lock_instance(31), spin_status);
 }
-
 
 
 int32_t msc_read_cb(uint32_t lba, void* buffer, uint32_t bufsize) {
@@ -99,76 +145,8 @@ bool msc_ready_cb(void) {
   return true; 
 }
 
-void UniversalSerialBus::begin()
-{
-  usb_msc.setID("MalO", "Flash Drive", "1.0");
-  usb_msc.setReadWriteCallback(msc_read_cb, msc_write_cb, msc_flush_cb); 
-  usb_msc.setReadyCallback(msc_ready_cb);
-  usb_msc.setCapacity(DISK_SIZE_BYTES / USB_BLOCK_SIZE, USB_BLOCK_SIZE);
-  usb_msc.setUnitReady(false);
-
-  //usb_msc.setUnitReady(true);
-  //usb_msc.begin();
-
-  Serial.begin(1'000'000);
-  long start_tms=millis();
-  while(!Serial && (millis()-start_tms)<7000) delay(1);//wait for terminal to connect or timeout, whichever is first
-  Serial.println("START");
-
-  FlashInterface::begin();
-  FlashInterface::ls();
-}
-
-void UniversalSerialBus::update(bool is_core1_shutdown)
-{
-  //if(Serial.available()>0) set_mounted(); //character received over terminal prompts reqeust to mount as usb mass storage device
-  //if any character received over Serial terminal, drop into mounted mode
-  if(_is_mount_request && is_core1_shutdown && !_is_mounted)
-  {//if core1 has stopped interacting with Flash, then servie the mount request on core0
 
 
 
-  
-    usb_msc.setUnitReady(true);
-    usb_msc.begin();
 
-        // 3. Force the USB hardware to re-handshake with the PC
-    #if defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_RP2350)
-        // For RP2040/RP2350 core implementations
-        USBDevice.detach();
-        delay(500); // Give the host OS time to realize it disconnected
-        USBDevice.attach();
-    #endif
 
-    _is_mounted=true;
-  }
-  if(_is_mounted && is_core1_shutdown)
-  {//polling service of file system
-
-  }
-}
-
-//true = manifest as USB mass storage drive on computer
-void UniversalSerialBus::set_mounted(){ _is_mount_request=true; }
-bool UniversalSerialBus::get_mounted(){ return _is_mounted; }
-bool UniversalSerialBus::get_mount_request(){ return _is_mount_request; }
-
-void FlashInterface::begin(){
-    // Mount the FAT library safely over your custom driver logic
-  Serial.println("Mounting FatVolume library framework layer...");
-  if (!fat_fs.begin(&hardware_block_driver, true, 0)) {
-      Serial.println("CRITICAL ERROR: SdFat failed to mount your internal drive partition layout!");
-  } else {
-      Serial.println("SdFat File System successfully initialized!");
-  }
-}
-
-void FlashInterface::ls()
-{
-    Serial.println("\n=====================================");
-    Serial.println("   SDFAT: PRINTING FILE SYSTEM LIST  ");
-    Serial.println("=====================================");
-
-    uint8_t flags = LS_R | LS_SIZE;
-    fat_fs.ls(&Serial, flags);
-}

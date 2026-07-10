@@ -1,4 +1,4 @@
-#include "graphics.h"
+/*#include "graphics.h"
 #include "universal_serial_bus.h"
 
 Graphics::Graphics()
@@ -149,28 +149,6 @@ void Graphics::menu_event_cb(lv_event_t * e) {
             //for(int iter=0;iter<500;iter++) instance->_level_buffer[iter]=0xFF;//temp display
             return; 
         }
-        /*else if(parent_panel==instance->_menu_animations_screen && strcmp(text, "Dance") == 0)
-        {//request to blank the display
-            instance->_is_in_level = true;
-            
-            // Hide the active menu interface 
-            if (instance->_active_menu) {
-                lv_obj_add_flag(instance->_active_menu, LV_OBJ_FLAG_HIDDEN);
-            }
-            
-            // Unhide the raw canvas object interface wrapper
-            lv_obj_remove_flag(instance->_level_canvas, LV_OBJ_FLAG_HIDDEN);
-            
-            // Clear or seed the screen array before rendering begins
-            if(_active_level==nullptr)
-            {
-                _active_level=new LevelUnlock(0);
-                _active_level.update(instance->_sensor_suite);
-            }
-
-            //for(int iter=0;iter<500;iter++) instance->_level_buffer[iter]=0xFF;//temp display
-            return; 
-        }*/
         //--- Deep Tree Forward Routers ---
         // Level 1 -> Level 2
         if (strcmp(text, "Settings") == 0) {
@@ -368,8 +346,7 @@ void Graphics::begin(SensorSuite &sensor_suite)
         lv_obj_add_style(lbl, &style_menu_item_focused, LV_STATE_FOCUSED); \
         lv_obj_add_event_cb(lbl, menu_focus_cb, LV_EVENT_FOCUSED, NULL); \
         lv_obj_add_event_cb(lbl, menu_event_cb, LV_EVENT_ALL, NULL); \
-        \
-        /* LINK TRICK: Embed the backwards menu pointer right inside the item! */ \
+        \\
         lv_obj_set_user_data(lbl, escape_dest_panel); \
     }
 
@@ -385,38 +362,9 @@ void Graphics::begin(SensorSuite &sensor_suite)
     // Items inside these submenus will link back to the Root Main Menu on ESC
     ADD_LINKED_ITEM(_menu_levels, "Tic Tac Toe",      _menu_main);
     ADD_LINKED_ITEM(_menu_levels, "Pong",             _menu_main);
-    ADD_LINKED_ITEM(_menu_levels, "Box",              _menu_main);
-    ADD_LINKED_ITEM(_menu_levels, "Snake",            _menu_main);
-    ADD_LINKED_ITEM(_menu_levels, "Platformer",       _menu_main);
-    ADD_LINKED_ITEM(_menu_levels, "Back",             _menu_main);
-
-    ADD_LINKED_ITEM(_menu_settings, "Alert Type",     _menu_main);
-    ADD_LINKED_ITEM(_menu_settings, "LED Brightness", _menu_main);
-    ADD_LINKED_ITEM(_menu_settings, "Periphreal Test",_menu_main);
-    ADD_LINKED_ITEM(_menu_settings, "IR Transmit Rate",_menu_main); //bit clock rate
-    ADD_LINKED_ITEM(_menu_settings, "Mount USB",      _menu_main);
-    ADD_LINKED_ITEM(_menu_settings, "Back",           _menu_main);
-
-    ADD_LINKED_ITEM(_menu_animations, "Upper LEDs",   _menu_main);
-    ADD_LINKED_ITEM(_menu_animations, "Lower LEDs",   _menu_main);
-    ADD_LINKED_ITEM(_menu_animations, "Screen",       _menu_main);
-    ADD_LINKED_ITEM(_menu_animations, "Back",         _menu_main);
-
-    ADD_LINKED_ITEM(_menu_messages, "Received",       _menu_main);
+    ...
     ADD_LINKED_ITEM(_menu_messages, "Send",           _menu_main);
     ADD_LINKED_ITEM(_menu_messages, "Back",           _menu_main);
-
-    ADD_LINKED_ITEM(_menu_periphreal_test, "Buzzer",           _menu_settings);
-    ADD_LINKED_ITEM(_menu_periphreal_test, "IMU",           _menu_settings);
-    ADD_LINKED_ITEM(_menu_periphreal_test, "Light Sensor",           _menu_settings);
-    ADD_LINKED_ITEM(_menu_periphreal_test, "Vibration Motor",           _menu_settings);
-    ADD_LINKED_ITEM(_menu_periphreal_test, "Back",           _menu_settings);
-
-    ADD_LINKED_ITEM(_menu_animations_screen, "Off",             _menu_animations);
-    ADD_LINKED_ITEM(_menu_animations_screen, "Dance",           _menu_animations);
-    ADD_LINKED_ITEM(_menu_animations_screen, "Name",            _menu_animations);
-    ADD_LINKED_ITEM(_menu_animations_screen, "Spectrogram",      _menu_animations);
-    ADD_LINKED_ITEM(_menu_animations_screen, "Back",             _menu_animations);
 
     // --- LEVEL 3 (DEEP SUB-SUBMENUS) ---
     // Items inside this leaf menu will link back to the Animations Panel on ESC
@@ -424,15 +372,7 @@ void Graphics::begin(SensorSuite &sensor_suite)
     {
         ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Off",           _menu_animations);
         ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Auto Cycle",    _menu_animations);//change every X seconds
-        ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Blink",         _menu_animations);
-        ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Fire",          _menu_animations);//note google search animation for 'Meteor'
-        ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Gyroscope",     _menu_animations);
-        ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Microphone",    _menu_animations);
-        //ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Pulse",         _menu_animations);
-        ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Rainbow Fade",  _menu_animations);
-        ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Static Green",  _menu_animations);
-        ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Static Red",    _menu_animations);
-        ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Steeple Chase", _menu_animations);
+        ...
         ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Stars",         _menu_animations);
         ADD_LINKED_ITEM(is_upper?_menu_animations_upper_leds:_menu_animations_lower_leds, "Back",          _menu_animations);
     }
@@ -515,3 +455,4 @@ void Graphics::lvgl2spi(uint8_t* src,OLED &oled) {
     // Transmit the fully optimized 4bpp block directly to your display controller
     oled.flush();
 }
+*/

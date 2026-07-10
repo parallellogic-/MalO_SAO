@@ -1,4 +1,4 @@
-#pragma once
+/*#pragma once
 
 #include "malo.h"
 #include "oled.h"
@@ -56,4 +56,4 @@ class Graphics{
     void update();
     void end();
 
-};
+};*/

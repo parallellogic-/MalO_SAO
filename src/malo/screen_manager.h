@@ -1,33 +1,41 @@
-/*#pragma once
+#pragma once
 #include <vector>
 #include <cstdint>
-#include "Screen.h"
+#include "malo.h"
+#include "oled.h"
+#include "led.h"
+#include <memory>
+#include "screen.h"
+
 
 // Forward declaration of LVGL object type to avoid including lvgl.h in the header
-struct _lv_obj_t;
-typedef struct _lv_obj_t lv_obj_t;
+//struct _lv_obj_t;
+//typedef struct _lv_obj_t lv_obj_t;
+
 
 class ScreenManager {
 private:
-    std::vector<Screen*> screenStack;
-    Screen* activeScreen = nullptr;
-    Screen* overlayScreen = nullptr;
+    SensorSuite* _sensor_suite;
+    uint8_t _canvas_buffer[SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX] __attribute__((aligned(4)));
+    uint8_t _screen_buffer[SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX] __attribute__((aligned(4)));
+    uint32_t _last_update_ms=0;
 
-    // Header LVGL objects
-    lv_obj_t* headerContainer = nullptr;
-    lv_obj_t* batteryLabel = nullptr;
-    lv_obj_t* tickerLabel = nullptr;
-
-    void updateHeaderData();
-
+    std::vector<Screen*> _screen_stack;
+    Screen* _active_screen = nullptr;
+    lv_obj_t* _screen_canvas = nullptr;
+    lv_obj_t* _header = nullptr;
+    lv_group_t* _shared_input_group = nullptr; 
+    
+    static void _display_flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map);
+    static void _button_read_cb(lv_indev_t * indev, lv_indev_data_t * data);
+    void _lvgl2spi(uint8_t* src,OLED &oled);
+    void _pop_screen();
+    void _push_screen(std::shared_ptr<Screen> new_screen);
 public:
-    void initHeader();
-    void navigateTo(Screen* newScreen);
-    void goBack();
-    void goToRoot();
-    void showOverlay(Screen* overlay);
-    void closeOverlay();
-    void tick();
-    void dispatchButton(uint8_t buttonId, bool pressed);
+  ScreenManager();
+  void begin(SensorSuite &sensor_suite);
+  void update();
+  void end();
+  void diag();
+
 };
-*/

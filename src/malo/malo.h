@@ -8,7 +8,8 @@
 #include "led.h"
 #include "imu.h"
 #include "light_sensor.h"
-#include "graphics.h"
+//#include "graphics.h"
+#include "screen_manager.h"
 #include "microphone.h"
 #include <Wire.h>
 #include "ir_rxd.h"
@@ -28,7 +29,7 @@
 struct SensorSuite{//bundle into an object to make easier to pass through graphics handling
   uint32_t frame_id;
 
-  Graphics graphics;
+  //Graphics graphics;
   IMU imu;
   Charlieplex led_lower;
   Charlieplex led_upper;
@@ -42,6 +43,7 @@ struct SensorSuite{//bundle into an object to make easier to pass through graphi
   PIOProgramManager pio_addr;
   ScatterGatherEngine scatterer_gatherer_engine_general;
   ScatterGatherEngine scatterer_gatherer_engine_screen;
+  ScreenManager screen_manager;
   SharedDecoderBuffer shared_decoder_buffer;
   Touch touch;
   TransmitIR ir_txd;

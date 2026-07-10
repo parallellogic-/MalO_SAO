@@ -47,7 +47,7 @@
 SensorSuite sensor_suite = {
   .frame_id=0xFFFFFFFF,
 
-  .graphics=Graphics(),
+  //.graphics=Graphics(),
   .imu=IMU(),
   .led_lower=Charlieplex(0),
   .led_upper=Charlieplex(1),
@@ -63,6 +63,7 @@ SensorSuite sensor_suite = {
   .pio_addr=PIOProgramManager(pio0,&pio_adder_program,0), //support for DMA to do simple address math like +1 and +2
   .scatterer_gatherer_engine_general=ScatterGatherEngine(),
   .scatterer_gatherer_engine_screen=ScatterGatherEngine(),
+  .screen_manager=ScreenManager(),
   .shared_decoder_buffer=SharedDecoderBuffer(),
   .touch=Touch(),
   .ir_txd=TransmitIR(PIN_DEBUG_G) //indicate IR transmit activity on this debug LED
@@ -77,15 +78,22 @@ void setup() {//core 0
   UniversalSerialBus::begin();
   //pinMode(PIN_DEBUG_R,OUTPUT);//if unset, then ir rxd/txd will default to putting out pwm signals here to show ir status
   //pinMode(PIN_DEBUG_G,OUTPUT);
+  Serial.printf("UniversalSerialBus::begin DONE\n");
 
   sensor_suite.pio_charlieplex.begin();
   sensor_suite.pio_logic_analyzer.begin();
   sensor_suite.pio_addr.begin();
+  Serial.printf("sensor_suite.shared_decoder_buffer.begin\n");
   sensor_suite.shared_decoder_buffer.begin(sensor_suite.pio_logic_analyzer);
 
+  Serial.printf("sensor_suite.decoder_ir_rxd.begin\n");
   sensor_suite.decoder_ir_rxd.begin(&sensor_suite.shared_decoder_buffer);
+  Serial.printf("sensor_suite.decoder_ir_rxd_ws2812.begin\n");
   sensor_suite.decoder_ir_rxd_ws2812.begin(&sensor_suite.decoder_ir_rxd);
-  sensor_suite.graphics.begin(sensor_suite);
+  //sensor_suite.graphics.begin(sensor_suite);
+  Serial.printf("sensor_suite.screen_manager.begin\n");
+  sensor_suite.screen_manager.begin(sensor_suite);
+  Serial.printf("sensor_suite.screen_manager.begin DONE\n");
 
   Wire.setSDA(I2C0_SDA);
   Wire.setSCL(I2C0_SCL);
@@ -118,7 +126,7 @@ void setup() {//core 0
 volatile bool is_core1_shutdown_request=false; //core0 flag to core1 to begin shutdown
 volatile bool is_core1_shutdown=false; //core1 flag to core0 that shutdown is complete
 void loop() { //core 0
-  //digitalWrite(PIN_DEBUG_R,millis()%200>=100);
+  digitalWrite(PIN_DEBUG_R,millis()%200>=100);
   //Serial.printf("core0 loop done: %d\n",sensor_suite.frame_id0);
   if(is_core1_shutdown && UniversalSerialBus::get_mounted())
   {//in usb mode, file system exposed only, all other activity silenced
@@ -138,7 +146,8 @@ void loop() { //core 0
   UniversalSerialBus::update(is_core1_shutdown);
   if(!UniversalSerialBus::get_mounted())
   {
-    sensor_suite.graphics.update();
+    sensor_suite.screen_manager.diag();
+//    sensor_suite.screen_manager.update();
     //if(sensor_suite.touch.get_down_button() && millis()>8000) UniversalSerialBus::set_mounted();
   }
   uint64_t end_us=time_us_64();
@@ -153,7 +162,7 @@ void __not_in_flash_func(setup1()){ //core 1
 
 volatile uint32_t frame_id1=0xFFFFFFFF;
 void __not_in_flash_func(loop1)(){ //core 1
-  //digitalWrite(PIN_DEBUG_G,millis()%200<100);
+  digitalWrite(PIN_DEBUG_G,millis()%200<100);
 //  Serial.printf("core1 loop done: %d, %d\n",sensor_suite.frame_id1,sensor_suite.touch.get_down_button());
 
   do{
@@ -184,7 +193,7 @@ void __not_in_flash_func(loop1)(){ //core 1
       sensor_suite.ir_txd.debug(frame_id1);
 
     }else{
-      sensor_suite.graphics.end();
+      sensor_suite.screen_manager.end();
       sensor_suite.scatterer_gatherer_engine_screen.end();
       sensor_suite.scatterer_gatherer_engine_general.end();
       sensor_suite.touch.end();
