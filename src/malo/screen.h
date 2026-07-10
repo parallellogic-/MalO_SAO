@@ -10,14 +10,16 @@
 
 class Screen;
 
+enum class ScreenActionType : uint8_t { 
+    NONE, 
+    PUSH_SUBMENU, 
+    POP_BACK,
+    POP_TO_MENU,
+    POP_TO_TOP
+};
+
 struct ScreenAction {
-    enum Type { 
-        NONE, 
-        PUSH_SUBMENU, 
-        POP_BACK,
-        POP_TO_MENU
-    } type = NONE;
-    
+    ScreenActionType type = ScreenActionType::NONE;
     std::shared_ptr<Screen> next_screen = nullptr;
 };
 
@@ -30,6 +32,7 @@ class Screen{
     std::vector<std::shared_ptr<Screen>> _screen_stack; //pointers to lower-level menus
     // FIXED: Changed to weak_ptr to break the circular reference loop.
     // This is a temporary transition slot, NOT a permanent owner link.
+    ScreenActionType _next_screen_action;
     std::weak_ptr<Screen> _next_screen;
     lv_obj_t* _lv_panel = nullptr;
     lv_group_t* _input_group = nullptr; //unify user inputs into single locale
@@ -63,6 +66,7 @@ class MenuScreen : public Screen{
     void _handle_button(uint32_t key, bool pressed);
     static void _menu_focus_cb(lv_event_t * e);
     static void _menu_event_cb(lv_event_t * e);
+    bool _is_top_menu(){ std::string main_title = "Main"; return main_title==_title; };
   public:
     MenuScreen(const std::string& title, lv_group_t* shared_input_group);
     virtual ~MenuScreen();

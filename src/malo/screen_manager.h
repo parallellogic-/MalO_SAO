@@ -21,7 +21,7 @@ private:
     uint32_t _last_update_ms=0;
 
     std::vector<std::shared_ptr<Screen>> _screen_stack;
-    std::shared_ptr<Screen> _active_screen = nullptr;
+    //std::shared_ptr<Screen> _active_screen = nullptr;
     lv_obj_t* _screen_canvas = nullptr;
     lv_obj_t* _header = nullptr;
     lv_group_t* _shared_input_group = nullptr; 
@@ -32,6 +32,7 @@ private:
     void _lvgl2spi(uint8_t* src,OLED &oled);
     void _pop_screen();
     void _push_screen(std::shared_ptr<Screen> new_screen);
+    std::shared_ptr<Screen> _get_active_screen(){ if (_screen_stack.empty()) return nullptr; return _screen_stack.back(); }
 public:
   ScreenManager();
   void begin(SensorSuite &sensor_suite);

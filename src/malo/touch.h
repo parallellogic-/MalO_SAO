@@ -11,6 +11,20 @@
 #define CAPACITIVE_TOUCH_MAX_IDLE_RANGE 5 //max-min when the screen is idle
 #define CAPACITIVE_TOUCH_SENSITIVITY 32 //lower is more sensitive and prone to false alarms
 
+enum class TOUCH_KEY : uint8_t{
+  SECRET,
+  MENU,
+  NO,
+  YES,
+  CCW,
+  UP,
+  CW,
+  LEFT,
+  DOWN,
+  RIGHT,
+  NONE
+};
+
 class Touch{
   private:
     uint32_t _capture_buffer[CAPACITIVE_TOUCH_RING_BUFFER_SIZE] __attribute__((aligned(CAPACITIVE_TOUCH_RING_BUFFER_SIZE*sizeof(uint32_t))));

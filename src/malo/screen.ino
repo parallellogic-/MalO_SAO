@@ -25,8 +25,7 @@ void Screen::begin(bool is_enter_from_above)
 
 ScreenAction Screen::update()
 {
-  
-  return { ScreenAction::NONE }; // Stay on this screen
+  return { ScreenActionType::NONE }; // Stay on this screen
 }
 
 void Screen::end(bool is_leaving_upward)
@@ -57,6 +56,11 @@ MenuScreen::MenuScreen(const std::string& title, lv_group_t* shared_input_group)
   lv_obj_set_style_bg_color(_lv_panel, lv_color_black(), LV_PART_MAIN); 
   lv_obj_set_style_border_width(_lv_panel, 0, LV_PART_MAIN); 
   lv_obj_set_style_pad_all(_lv_panel, 0, LV_PART_MAIN); 
+
+  // FIX: Prevent objects from violently forcing adjustments onto your viewport coordinates
+  //lv_obj_remove_flag(_lv_panel, LV_OBJ_FLAG_SCROLL_ON_FOCUS); 
+  // Ensure snap behaviors are entirely deactivated
+  //lv_obj_set_scroll_snap_y(_lv_panel, LV_SCROLL_SNAP_NONE);
   
   // Hide panel initially until requested via begin()
   lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_HIDDEN);
@@ -81,12 +85,6 @@ void MenuScreen::begin(bool is_enter_from_above)
         lv_obj_add_style(lbl, &_style_focused, LV_STATE_FOCUSED); 
         lv_obj_add_event_cb(lbl, _menu_focus_cb, LV_EVENT_FOCUSED, NULL);
         lv_obj_add_event_cb(lbl, _menu_event_cb, LV_EVENT_ALL, NULL);
-        
-        // Map reference links: the text row stores its target screen destination pointer
-        //lv_obj_set_user_data(lbl, static_cast<void*>(subscreen.get()));
-        // Also store this menu object context instance to catch routing adjustments safely
-        //lv_obj_set_style_user_data(lbl, this, LV_PART_MAIN); 
-        //lv_obj_set_user_data(lbl, this);
 
         // 2. Allocate it on the heap and bundle your pointers
         //ScreenContext* context = new ScreenContext{ subscreen.get(), this };
@@ -104,6 +102,11 @@ void MenuScreen::begin(bool is_enter_from_above)
         _menu_items.push_back(lbl);
     }
 
+    if(!_is_top_menu())
+    {//add back button if there is somewhere up the user can go
+
+    }
+
     // Focus the initial topmost list option
     if (lv_obj_get_child_cnt(_lv_panel) > 0 && _input_group) {
         lv_group_focus_obj(lv_obj_get_child(_lv_panel, 0));
@@ -119,12 +122,18 @@ ScreenAction MenuScreen::update()
       // Instantiate the submenu
       auto sub = std::make_shared<BrightnessScreen>(); 
       return { ScreenAction::PUSH_SUBMENU, sub };
-  }
-
-  if (user_pressed_back_button) {
-      return { ScreenAction::POP_BACK }; // Signal to go up one level
   }*/
-  return { ScreenAction::NONE }; // Stay on this screen
+
+  //POP_BACK
+  ScreenAction action;
+  action.type=_next_screen_action;
+  _next_screen_action=ScreenActionType::NONE;
+  if(action.type==ScreenActionType::PUSH_SUBMENU)
+  {
+      action.next_screen=_next_screen.lock();
+      _next_screen.reset();//release pointer
+  }
+  return action; // Stay on this screen
 }
 
 void MenuScreen::end(bool is_leaving_upward)
@@ -178,6 +187,7 @@ void MenuScreen::_lv_menu_item_event_cb(lv_event_t * e) {
         
             if (target_screen && parent_menu) {
                 //parent_menu->handle_selection(target_screen);
+                parent_menu->_next_screen_action=ScreenActionType::PUSH_SUBMENU;
                 parent_menu->_next_screen=target_screen;
             }
         }
@@ -230,27 +240,31 @@ void MenuScreen::_menu_event_cb(lv_event_t * e) {
     // ==========================================
     MenuScreen* instance = (MenuScreen*)lv_display_get_user_data(NULL);
     if (!instance) return;
-    /*if (code == LV_EVENT_KEY) {
+
+    if (code == LV_EVENT_KEY) {
         uint32_t key = lv_event_get_key(e);
 
         if (key == LV_KEY_ESC) {
             // Fetch our embedded back-link hidden inside this label's user data
-            lv_obj_t * parent_menu = (lv_obj_t*)lv_obj_get_user_data(obj);
+            //lv_obj_t * parent_menu = (lv_obj_t*)lv_obj_get_user_data(obj);
             
             // If a link exists, seamlessly back up exactly 1 level deep, preserving history
-            if (parent_menu) {
+            /*if (parent_menu) {
                 instance->switch_menu(parent_menu, true);
                 instance->led_cb(true); //turn off leds if leaving the Animations menu
-            }
+            }*/
+            if(!instance->_is_top_menu()) instance->_next_screen_action=ScreenActionType::POP_BACK;
             return;
         }
         
         if (key == LV_KEY_HOME) {
             // Direct escape straight to the root menu frame from any depth layer
-            if (instance->_active_menu != instance->_menu_main) {
-                instance->switch_menu(instance->_menu_main, true);
-                instance->led_cb(true); //turn off leds if leaving the Animations menu
-            }
+            /*if (instance->_active_menu != instance->_menu_main) {
+                //instance->switch_menu(instance->_menu_main, true);
+                //instance->led_cb(true); //turn off leds if leaving the Animations menu
+                
+            }*/
+            if(!instance->_is_top_menu()) instance->_next_screen_action=ScreenActionType::POP_TO_TOP;
             return;
         }
     }
@@ -258,7 +272,7 @@ void MenuScreen::_menu_event_cb(lv_event_t * e) {
     // ==========================================
     // 2. ITEM CLICK MANAGEMENT (FORWARDS)
     // ==========================================
-    if (code == LV_EVENT_CLICKED) {
+    /*if (code == LV_EVENT_CLICKED) {
         const char * text = lv_label_get_text(obj);
 
         lv_obj_t * parent_panel = lv_obj_get_parent(obj);
@@ -327,6 +341,7 @@ void MenuScreen::_menu_event_cb(lv_event_t * e) {
     }
     instance->led_cb(true); //turn off leds if leaving the Animations menu */
 }
+
 
 //gameScreen:
 /*   

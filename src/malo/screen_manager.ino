@@ -42,6 +42,8 @@ void ScreenManager::begin(SensorSuite &sensor_suite)
   lv_indev_set_type(indev, LV_INDEV_TYPE_KEYPAD);
   lv_indev_set_user_data(indev, this); 
   lv_indev_set_read_cb(indev, ScreenManager::_button_read_cb);
+  //lv_timer_t * read_timer = lv_indev_get_read_timer(indev);
+  //if (read_timer != nullptr) lv_timer_set_period(read_timer, 16); 
 
   lv_obj_set_style_bg_color(lv_screen_active(), lv_color_black(), LV_PART_MAIN);
   lv_obj_set_style_bg_opa(lv_screen_active(), LV_OPA_COVER, LV_PART_MAIN);
@@ -52,21 +54,19 @@ void ScreenManager::begin(SensorSuite &sensor_suite)
   // -- make menu relationships --
 
   auto main_screen       = std::make_shared<MenuScreen>("Main",_shared_input_group);
-  auto animations_screen = std::make_shared<MenuScreen>("Animations",_shared_input_group);
-  auto levels_screen     = std::make_shared<MenuScreen>("Levels",_shared_input_group);
-  auto messages_screen   = std::make_shared<MenuScreen>("Messages",_shared_input_group);
-  auto settings_screen   = std::make_shared<MenuScreen>("Settings",_shared_input_group);
-  auto extra_screen      = std::make_shared<MenuScreen>("Extra",_shared_input_group);
-  auto extra2_screen      = std::make_shared<MenuScreen>("Extra2",_shared_input_group);
-  auto extra3_screen      = std::make_shared<MenuScreen>("Extra3",_shared_input_group);
 
-  main_screen->add_subscreen(animations_screen);
-  main_screen->add_subscreen(levels_screen);
-  main_screen->add_subscreen(messages_screen);
-  main_screen->add_subscreen(settings_screen);
-  main_screen->add_subscreen(extra_screen);
-  main_screen->add_subscreen(extra2_screen);
-  main_screen->add_subscreen(extra3_screen);
+  auto animations_screen = std::make_shared<MenuScreen>("Animations",_shared_input_group);  main_screen->add_subscreen(animations_screen);
+  auto levels_screen     = std::make_shared<MenuScreen>("Levels",_shared_input_group);      main_screen->add_subscreen(levels_screen);
+  auto messages_screen   = std::make_shared<MenuScreen>("Messages",_shared_input_group);    main_screen->add_subscreen(messages_screen);
+  auto settings_screen   = std::make_shared<MenuScreen>("Settings",_shared_input_group);    main_screen->add_subscreen(settings_screen);
+
+  auto upper_led_screen  = std::make_shared<MenuScreen>("Upper LEDs",_shared_input_group);  animations_screen->add_subscreen(upper_led_screen);
+  auto lower_led_screen  = std::make_shared<MenuScreen>("Lower LEDs",_shared_input_group);  animations_screen->add_subscreen(lower_led_screen);
+  auto screen_screen     = std::make_shared<MenuScreen>("Screen",_shared_input_group);      animations_screen->add_subscreen(screen_screen);
+  
+  
+  
+
 
 
 Serial.printf("screen_manager._push_screen\n");
@@ -88,6 +88,9 @@ void ScreenManager::_button_read_cb(lv_indev_t * indev, lv_indev_data_t * data) 
     ScreenManager* instance = (ScreenManager*)lv_indev_get_user_data(indev);
     if (!instance || !instance->_sensor_suite) return;
 
+    std::shared_ptr<Screen> active_screen=instance->_get_active_screen();
+    if(!active_screen) return;
+
     uint8_t current_button = instance->_sensor_suite->touch.get_down_button();
 
     if (current_button == 0) {
@@ -99,22 +102,22 @@ void ScreenManager::_button_read_cb(lv_indev_t * indev, lv_indev_data_t * data) 
     data->state = LV_INDEV_STATE_PRESSED;
 
     // Prevent autofire repeat streams from breaking menu position transitions
-    if (current_button == instance->_last_raw_button) {
+    /*if (current_button == instance->_last_raw_button) {
         return; 
-    }
+    }*/
     instance->_last_raw_button = current_button;
 
     switch (current_button) {
-        case 1:  data->key = LV_KEY_NEXT;  break;
-        case 2:  data->key = LV_KEY_HOME;  break;
-        case 3:  data->key = LV_KEY_ESC;   break;
-        case 4:  data->key = LV_KEY_ENTER; break;
-        case 5:  data->key = LV_KEY_ESC;   break;
-        case 6:  data->key = LV_KEY_PREV;  break; 
-        case 7:  data->key = LV_KEY_ENTER; break;
-        case 8:  data->key = LV_KEY_LEFT;   break;
-        case 9:  data->key = LV_KEY_NEXT;  break; 
-        case 10: data->key = LV_KEY_RIGHT; break;
+        case 1:  data->key = LV_KEY_NEXT;  break;//hidden
+        case 2:  data->key = LV_KEY_HOME;  break;//menu
+        case 3:  data->key = LV_KEY_ESC;   break;//no
+        case 4:  data->key = LV_KEY_ENTER; break;//yes
+        case 5:  data->key = LV_KEY_ESC;   break;//CCW
+        case 6:  data->key = LV_KEY_PREV;  break;//up
+        case 7:  data->key = LV_KEY_ENTER; break;//CW
+        case 8:  data->key = LV_KEY_LEFT;  break;//left
+        case 9:  data->key = LV_KEY_NEXT;  break;//down
+        case 10: data->key = LV_KEY_RIGHT; break;//right
         default: break;
     }
     lv_obj_invalidate(lv_screen_active());//work-around for sticky menu that shows selected option at the top of the screen instead of the middle where it should be
@@ -177,15 +180,15 @@ void ScreenManager::update()
 
   ScreenAction action = _screen_stack.back()->update();
 
-  if (action.type == ScreenAction::PUSH_SUBMENU) {
+  if (action.type == ScreenActionType::PUSH_SUBMENU) {
       //_screen_stack.back()->end(false);
       _push_screen(action.next_screen);
       //action.next_screen->begin(true);
   } 
-  else if (action.type == ScreenAction::POP_BACK) {
+  else if (action.type == ScreenActionType::POP_BACK) {
       _pop_screen();
   }
-  else if (action.type == ScreenAction::POP_TO_MENU) {
+  else if (action.type == ScreenActionType::POP_TO_MENU) {
       // 1. Pop the active screen (the Pause Screen) immediately
       _pop_screen(); 
 
@@ -226,22 +229,22 @@ Serial.printf("screen_manager._push_screen 1\n");
 
 Serial.printf("screen_manager._push_screen 2\n");
   // 2. Lifecycle teardown for the outgoing screen
-  if (_active_screen != nullptr) 
+  if (_get_active_screen() != nullptr) 
   {
     // Tell the current screen it is losing top-level visibility
     // Pass 'false' to indicate user is going deeper into menu structure
-    _active_screen->end(false); 
+    _get_active_screen()->end(false); 
   }
 
 Serial.printf("screen_manager._push_screen 3\n");
   // 3. Track the new screen inside your stack architecture
   // Extract the raw address pointer using .get() to match the vector type
-  _active_screen = new_screen;//.get();
-  _screen_stack.push_back(_active_screen);
+  //_active_screen = new_screen;//.get();
+  _screen_stack.push_back(new_screen);
 
   // 4. Lifecycle startup for the fresh screen
   // Pass 'true' to signal it's entering from above (a fresh push)
-  _active_screen->begin(true);
+  _get_active_screen()->begin(true);
 Serial.printf("screen_manager._push_screen 4\n");
 }
 
