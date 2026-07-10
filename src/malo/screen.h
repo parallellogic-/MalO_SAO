@@ -61,6 +61,8 @@ class MenuScreen : public Screen{
     static void _lv_menu_item_event_cb(lv_event_t * e);
     void _on_focus(lv_group_t* input_group);
     void _handle_button(uint32_t key, bool pressed);
+    static void _menu_focus_cb(lv_event_t * e);
+    static void _menu_event_cb(lv_event_t * e);
   public:
     MenuScreen(const std::string& title, lv_group_t* shared_input_group);
     virtual ~MenuScreen();

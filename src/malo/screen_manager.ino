@@ -56,11 +56,17 @@ void ScreenManager::begin(SensorSuite &sensor_suite)
   auto levels_screen     = std::make_shared<MenuScreen>("Levels",_shared_input_group);
   auto messages_screen   = std::make_shared<MenuScreen>("Messages",_shared_input_group);
   auto settings_screen   = std::make_shared<MenuScreen>("Settings",_shared_input_group);
+  auto extra_screen      = std::make_shared<MenuScreen>("Extra",_shared_input_group);
+  auto extra2_screen      = std::make_shared<MenuScreen>("Extra2",_shared_input_group);
+  auto extra3_screen      = std::make_shared<MenuScreen>("Extra3",_shared_input_group);
 
   main_screen->add_subscreen(animations_screen);
   main_screen->add_subscreen(levels_screen);
   main_screen->add_subscreen(messages_screen);
   main_screen->add_subscreen(settings_screen);
+  main_screen->add_subscreen(extra_screen);
+  main_screen->add_subscreen(extra2_screen);
+  main_screen->add_subscreen(extra3_screen);
 
 
 Serial.printf("screen_manager._push_screen\n");
@@ -79,7 +85,7 @@ void ScreenManager::_display_flush_cb(lv_display_t * disp, const lv_area_t * are
 }
 
 void ScreenManager::_button_read_cb(lv_indev_t * indev, lv_indev_data_t * data) {
-    /*ScreenManager* instance = (ScreenManager*)lv_indev_get_user_data(indev);
+    ScreenManager* instance = (ScreenManager*)lv_indev_get_user_data(indev);
     if (!instance || !instance->_sensor_suite) return;
 
     uint8_t current_button = instance->_sensor_suite->touch.get_down_button();
@@ -112,7 +118,6 @@ void ScreenManager::_button_read_cb(lv_indev_t * indev, lv_indev_data_t * data) 
         default: break;
     }
     lv_obj_invalidate(lv_screen_active());//work-around for sticky menu that shows selected option at the top of the screen instead of the middle where it should be
-    */
 }
 
 // Custom function to process the canvas buffer, pack upper nibbles, and transmit
@@ -163,12 +168,12 @@ void ScreenManager::update()
   _last_update_ms=current_time_ms;
 
   Serial.printf("lv_obj_invalidate\n");
-lv_obj_invalidate(lv_screen_active());//FORCE DRAW every frame
+//lv_obj_invalidate(lv_screen_active());//FORCE DRAW every frame
 
   // Ticks physical interface engine processing every loop frame pass
   uint32_t time_till_next = lv_timer_handler();
 
-Serial.printf("Next internal task in: %d ms\n", time_till_next); 
+//Serial.printf("Next internal task in: %d ms\n", time_till_next); 
 
   ScreenAction action = _screen_stack.back()->update();
 

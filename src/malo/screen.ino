@@ -79,6 +79,8 @@ void MenuScreen::begin(bool is_enter_from_above)
         lv_obj_add_flag(lbl, LV_OBJ_FLAG_CLICKABLE); 
         lv_obj_add_style(lbl, &_style_main, LV_STATE_DEFAULT); 
         lv_obj_add_style(lbl, &_style_focused, LV_STATE_FOCUSED); 
+        lv_obj_add_event_cb(lbl, _menu_focus_cb, LV_EVENT_FOCUSED, NULL);
+        lv_obj_add_event_cb(lbl, _menu_event_cb, LV_EVENT_ALL, NULL);
         
         // Map reference links: the text row stores its target screen destination pointer
         //lv_obj_set_user_data(lbl, static_cast<void*>(subscreen.get()));
@@ -202,6 +204,130 @@ void MenuScreen::_on_focus(lv_group_t* input_group) {
     }
 }
 
+void MenuScreen::_menu_focus_cb(lv_event_t * e) {
+    lv_obj_t * child = (lv_obj_t*)lv_event_get_target(e);
+    lv_obj_t * parent_list = lv_obj_get_parent(child);
+    
+    // MEMORY FEATURE: Save this item pointer as the last focused element inside the parent container!
+    // This uses zero dynamic heap memory allocations.
+    lv_obj_set_user_data(parent_list, child);
+
+    // Calculate centering scroll offset exactly like before
+    int32_t item_y = lv_obj_get_y(child);
+    int32_t item_height = lv_obj_get_height(child);
+    int32_t container_height = lv_obj_get_height(parent_list);
+    int32_t target_scroll_y = item_y + (item_height / 2) - (container_height / 2);
+
+    lv_obj_scroll_to_y(parent_list, target_scroll_y, LV_ANIM_ON);
+}
+
+void MenuScreen::_menu_event_cb(lv_event_t * e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    lv_obj_t * obj = (lv_obj_t*)lv_event_get_target(e); 
+
+    // ==========================================
+    // 1. DYNAMIC NAVIGATION TRAVERSAL ENGINE
+    // ==========================================
+    MenuScreen* instance = (MenuScreen*)lv_display_get_user_data(NULL);
+    if (!instance) return;
+    /*if (code == LV_EVENT_KEY) {
+        uint32_t key = lv_event_get_key(e);
+
+        if (key == LV_KEY_ESC) {
+            // Fetch our embedded back-link hidden inside this label's user data
+            lv_obj_t * parent_menu = (lv_obj_t*)lv_obj_get_user_data(obj);
+            
+            // If a link exists, seamlessly back up exactly 1 level deep, preserving history
+            if (parent_menu) {
+                instance->switch_menu(parent_menu, true);
+                instance->led_cb(true); //turn off leds if leaving the Animations menu
+            }
+            return;
+        }
+        
+        if (key == LV_KEY_HOME) {
+            // Direct escape straight to the root menu frame from any depth layer
+            if (instance->_active_menu != instance->_menu_main) {
+                instance->switch_menu(instance->_menu_main, true);
+                instance->led_cb(true); //turn off leds if leaving the Animations menu
+            }
+            return;
+        }
+    }
+
+    // ==========================================
+    // 2. ITEM CLICK MANAGEMENT (FORWARDS)
+    // ==========================================
+    if (code == LV_EVENT_CLICKED) {
+        const char * text = lv_label_get_text(obj);
+
+        lv_obj_t * parent_panel = lv_obj_get_parent(obj);
+        if (!parent_panel) return;
+
+        if (instance->_active_menu != nullptr && instance->_active_menu == instance->_menu_animations_upper_leds) {
+            if (instance->_sensor_suite->led_upper.get_animation_by_name(text, instance->_active_animation_upper)) return;
+        }
+        if (instance->_active_menu != nullptr && instance->_active_menu == instance->_menu_animations_lower_leds) {
+            if (instance->_sensor_suite->led_lower.get_animation_by_name(text, instance->_active_animation_lower)) return;
+        }
+
+        if(parent_panel==instance->_menu_animations_screen && strcmp(text, "Off") == 0)
+        {//request to blank the display
+            instance->_is_in_level = true;
+            
+            // Hide the active menu interface 
+            if (instance->_active_menu) {
+                lv_obj_add_flag(instance->_active_menu, LV_OBJ_FLAG_HIDDEN);
+            }
+            
+            // Unhide the raw canvas object interface wrapper
+            lv_obj_remove_flag(instance->_level_canvas, LV_OBJ_FLAG_HIDDEN);
+            
+            // Clear or seed the screen array before rendering begins
+            memset(instance->_level_buffer, 0, sizeof(instance->_level_buffer));
+            //for(int iter=0;iter<500;iter++) instance->_level_buffer[iter]=0xFF;//temp display
+            return; 
+        }
+        //--- Deep Tree Forward Routers ---
+        // Level 1 -> Level 2
+        if (strcmp(text, "Settings") == 0) {
+            instance->switch_menu(instance->_menu_settings, true);
+        }
+        else if (strcmp(text, "Animations") == 0) {
+            instance->switch_menu(instance->_menu_animations, false);
+        }
+        // Level 2 -> Level 3 (Deep nested leaf node branch)
+        else if (strcmp(text, "Upper LEDs") == 0) {
+            instance->switch_menu(instance->_menu_animations_upper_leds, false);
+        }
+        else if (strcmp(text, "Lower LEDs") == 0) {
+            instance->switch_menu(instance->_menu_animations_lower_leds, false);
+        }
+        else if (strcmp(text, "Screen") == 0) {
+            instance->switch_menu(instance->_menu_animations_screen, false);
+        }
+        else if (strcmp(text, "Levels") == 0) {
+            instance->switch_menu(instance->_menu_levels, false);
+        }
+        else if (strcmp(text, "Messages") == 0) {
+            instance->switch_menu(instance->_menu_messages, false);
+        }
+        else if (strcmp(text, "Periphreal Test") == 0) {
+            instance->switch_menu(instance->_menu_periphreal_test, false);
+        }
+        else if (strcmp(text, "Mount USB") == 0) {
+            //TODO: show graphic of USB symbol = mounted
+            UniversalSerialBus::set_mounted();
+        }
+        // Unified Back string tracker handles older menu formats seamlessly
+        else if (strcmp(text, "Back") == 0) {
+            lv_obj_t * parent_menu = (lv_obj_t*)lv_obj_get_user_data(obj);
+            if (parent_menu) instance->switch_menu(parent_menu, true);
+        }
+    }
+    instance->led_cb(true); //turn off leds if leaving the Animations menu */
+}
+
 //gameScreen:
 /*   
  void on_focus(lv_group_t* input_group) override {
@@ -218,3 +344,4 @@ void MenuScreen::_on_focus(lv_group_t* input_group) {
         }
     }
 */
+

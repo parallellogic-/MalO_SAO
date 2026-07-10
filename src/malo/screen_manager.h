@@ -25,6 +25,7 @@ private:
     lv_obj_t* _screen_canvas = nullptr;
     lv_obj_t* _header = nullptr;
     lv_group_t* _shared_input_group = nullptr; 
+    uint8_t _last_raw_button=0;
     
     static void _display_flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map);
     static void _button_read_cb(lv_indev_t * indev, lv_indev_data_t * data);
