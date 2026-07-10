@@ -62,11 +62,15 @@ void ScreenManager::begin(SensorSuite &sensor_suite)
   main_screen->add_subscreen(messages_screen);
   main_screen->add_subscreen(settings_screen);
 
+
+Serial.printf("screen_manager._push_screen\n");
+  _push_screen(main_screen); //set root menu
+
   Serial.printf("screen_manager.begin() DONE\n"); delay(10);
 }
 
 void ScreenManager::_display_flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map) {
-
+  Serial.printf("ScreenManager._display_flush_cb called\n");
     ScreenManager* instance = (ScreenManager*)lv_display_get_user_data(disp);
     if (instance && instance->_sensor_suite) {
       instance->_lvgl2spi((uint8_t*)px_map,instance->_sensor_suite->oled);
@@ -114,6 +118,7 @@ void ScreenManager::_button_read_cb(lv_indev_t * indev, lv_indev_data_t * data) 
 // Custom function to process the canvas buffer, pack upper nibbles, and transmit
 //850 us
 void ScreenManager::_lvgl2spi(uint8_t* src,OLED &oled) {
+  Serial.printf("ScreenManager._lvgl2spi called\n");
     uint32_t packed_idx = 0;
     
     uint8_t* tx_buffer=oled.get_frame_buffer();
@@ -149,6 +154,7 @@ void ScreenManager::_lvgl2spi(uint8_t* src,OLED &oled) {
 
 void ScreenManager::update()
 {
+  Serial.printf("ScreenManager.update called\n");
   if (_screen_stack.empty()) return;
 
   if(_last_update_ms==0) _last_update_ms=millis();//bootup
@@ -156,8 +162,13 @@ void ScreenManager::update()
   lv_tick_inc(current_time_ms-_last_update_ms);
   _last_update_ms=current_time_ms;
 
+  Serial.printf("lv_obj_invalidate\n");
+lv_obj_invalidate(lv_screen_active());//FORCE DRAW every frame
+
   // Ticks physical interface engine processing every loop frame pass
-  lv_timer_handler();
+  uint32_t time_till_next = lv_timer_handler();
+
+Serial.printf("Next internal task in: %d ms\n", time_till_next); 
 
   ScreenAction action = _screen_stack.back()->update();
 
@@ -176,7 +187,7 @@ void ScreenManager::update()
       // 2. Keep popping until the new top screen is a MenuScreen
       while (_screen_stack.size() > 1) {
           // Peek at the current top screen
-          Screen* top_screen = _screen_stack.back();
+          std::shared_ptr<Screen> top_screen = _screen_stack.back();
           
           // Try to safely cast it to a MenuScreen pointer
           if (top_screen != nullptr && top_screen->is_menu()) {
@@ -204,9 +215,11 @@ void ScreenManager::_pop_screen() {
 
 void ScreenManager::_push_screen(std::shared_ptr<Screen> new_screen)
 {
+Serial.printf("screen_manager._push_screen 1\n");
   // 1. Safety check to prevent null insertions
   if (new_screen == nullptr) return;
 
+Serial.printf("screen_manager._push_screen 2\n");
   // 2. Lifecycle teardown for the outgoing screen
   if (_active_screen != nullptr) 
   {
@@ -215,14 +228,16 @@ void ScreenManager::_push_screen(std::shared_ptr<Screen> new_screen)
     _active_screen->end(false); 
   }
 
+Serial.printf("screen_manager._push_screen 3\n");
   // 3. Track the new screen inside your stack architecture
   // Extract the raw address pointer using .get() to match the vector type
-  _active_screen = new_screen.get();
+  _active_screen = new_screen;//.get();
   _screen_stack.push_back(_active_screen);
 
   // 4. Lifecycle startup for the fresh screen
   // Pass 'true' to signal it's entering from above (a fresh push)
   _active_screen->begin(true);
+Serial.printf("screen_manager._push_screen 4\n");
 }
 
 void ScreenManager::diag(){

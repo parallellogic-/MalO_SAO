@@ -20,8 +20,8 @@ private:
     uint8_t _screen_buffer[SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX] __attribute__((aligned(4)));
     uint32_t _last_update_ms=0;
 
-    std::vector<Screen*> _screen_stack;
-    Screen* _active_screen = nullptr;
+    std::vector<std::shared_ptr<Screen>> _screen_stack;
+    std::shared_ptr<Screen> _active_screen = nullptr;
     lv_obj_t* _screen_canvas = nullptr;
     lv_obj_t* _header = nullptr;
     lv_group_t* _shared_input_group = nullptr; 

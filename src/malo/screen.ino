@@ -10,6 +10,7 @@ Screen::Screen(const std::string& title, lv_group_t* shared_input_group): _title
 
 void Screen::begin(bool is_enter_from_above)
 {
+  Serial.printf("Screen::begin called\n");
   if (_lv_panel)
   {
     lv_obj_remove_flag(_lv_panel, LV_OBJ_FLAG_HIDDEN);
@@ -33,18 +34,16 @@ void Screen::end(bool is_leaving_upward)
   if (_lv_panel) lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_HIDDEN);
 }
 
-void Screen::_on_focus(lv_group_t* input_group){}
-void Screen::_handle_button(uint32_t key, bool pressed){}
+//void Screen::_on_focus(lv_group_t* input_group){}
+//void Screen::_handle_button(uint32_t key, bool pressed){}
 
 // ---- Menu ----
 
 MenuScreen::MenuScreen(const std::string& title, lv_group_t* shared_input_group): Screen(title,shared_input_group)
 {
-  Serial.printf("MenuScreen START\n"); delay(10);
 
   _is_menu=true;
   _init_styles();
-  Serial.printf("_init_styles DONE\n"); delay(10);
 
   // Create the baseline container panel matching your layout specifications
   _lv_panel = lv_obj_create(lv_screen_active()); 
@@ -61,12 +60,11 @@ MenuScreen::MenuScreen(const std::string& title, lv_group_t* shared_input_group)
   
   // Hide panel initially until requested via begin()
   lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_HIDDEN);
-
-  Serial.printf("MenuScreen DONE\n"); delay(10);
 }
 
 void MenuScreen::begin(bool is_enter_from_above)
 {
+  Serial.printf("MenuScreen.begin called %d\n",is_enter_from_above);
   Screen::begin(is_enter_from_above);
 
   if(is_enter_from_above)
