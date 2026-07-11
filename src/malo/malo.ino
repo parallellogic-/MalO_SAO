@@ -76,29 +76,24 @@ uint64_t frame_us=0;
 volatile bool setup0_complete=false;
 void setup() {//core 0
   UniversalSerialBus::begin();
-  pinMode(PIN_DEBUG_R,OUTPUT);//if unset, then ir rxd/txd will default to putting out pwm signals here to show ir status
-  pinMode(PIN_DEBUG_G,OUTPUT);
-  Serial.printf("UniversalSerialBus::begin DONE\n");
+  //pinMode(PIN_DEBUG_R,OUTPUT);//if unset, then ir rxd/txd will default to putting out pwm signals here to show ir status
+  //pinMode(PIN_DEBUG_G,OUTPUT);
 
   sensor_suite.pio_charlieplex.begin();
   sensor_suite.pio_logic_analyzer.begin();
   sensor_suite.pio_addr.begin();
-  Serial.printf("sensor_suite.shared_decoder_buffer.begin\n");
   sensor_suite.shared_decoder_buffer.begin(sensor_suite.pio_logic_analyzer);
 
-  Serial.printf("sensor_suite.decoder_ir_rxd.begin\n");
   sensor_suite.decoder_ir_rxd.begin(&sensor_suite.shared_decoder_buffer);
-  Serial.printf("sensor_suite.decoder_ir_rxd_ws2812.begin\n");
   sensor_suite.decoder_ir_rxd_ws2812.begin(&sensor_suite.decoder_ir_rxd);
   //sensor_suite.graphics.begin(sensor_suite);
-  Serial.printf("sensor_suite.screen_manager.begin\n");
   sensor_suite.screen_manager.begin(sensor_suite);
-  Serial.printf("sensor_suite.screen_manager.begin DONE\n");
 
   Wire.setSDA(I2C0_SDA);
   Wire.setSCL(I2C0_SCL);
   Wire.begin();
   Wire.setClock(I2C0_BAUD);
+
   sensor_suite.light_sensor.begin();
   sensor_suite.scatterer_gatherer_engine_general.registerSource(&sensor_suite.light_sensor);
   sensor_suite.imu.begin();
@@ -126,7 +121,7 @@ void setup() {//core 0
 volatile bool is_core1_shutdown_request=false; //core0 flag to core1 to begin shutdown
 volatile bool is_core1_shutdown=false; //core1 flag to core0 that shutdown is complete
 void loop() { //core 0
-  digitalWrite(PIN_DEBUG_R,millis()%200>=100);
+//  digitalWrite(PIN_DEBUG_R,millis()%200>=100);
   //Serial.printf("core0 loop done: %d\n",sensor_suite.frame_id0);
   if(is_core1_shutdown && UniversalSerialBus::get_mounted())
   {//in usb mode, file system exposed only, all other activity silenced
@@ -162,7 +157,7 @@ void __not_in_flash_func(setup1()){ //core 1
 
 volatile uint32_t frame_id1=0xFFFFFFFF;
 void __not_in_flash_func(loop1)(){ //core 1
-  digitalWrite(PIN_DEBUG_G,millis()%200<100);
+//  digitalWrite(PIN_DEBUG_G,millis()%200<100);
 //  Serial.printf("core1 loop done: %d, %d\n",sensor_suite.frame_id1,sensor_suite.touch.get_down_button());
 
   do{
@@ -176,8 +171,8 @@ void __not_in_flash_func(loop1)(){ //core 1
     if(!is_core1_shutdown_request)
     {
       sensor_suite.imu.update(); //before scatterer-gather enginer resets buffers (does introduce some additional timing jitter on the scatterer-gatherers...)
-      sensor_suite.scatterer_gatherer_engine_screen.compileAndRun(frame_id1);
-      sensor_suite.scatterer_gatherer_engine_general.compileAndRun(frame_id1);
+      sensor_suite.scatterer_gatherer_engine_screen.compileAndRun();//frame_id1);
+      sensor_suite.scatterer_gatherer_engine_general.compileAndRun();//frame_id1);
       sensor_suite.touch.update(frame_id1);//kicked off very near the beginning of the frame, normally it takes core0 notably longer to compute what to display on the screen
       sensor_suite.microphone.update();
       sensor_suite.decoder_ir_rxd.update();
@@ -186,8 +181,8 @@ void __not_in_flash_func(loop1)(){ //core 1
 
       //sensor_suite.touch.debug();
       Serial.printf("imu_c: %.2f, fifo: %d, ",sensor_suite.imu.get_celsius(),sensor_suite.imu.get_fifo_sample_count());
-      Serial.printf("mic: %.2f, touch: %d, ",sensor_suite.microphone.get_mean_square(),sensor_suite.touch.get_down_button());
-      Serial.printf("accel: %0.2f, %0.2f, %0.2f, gyro: %0.2f, %0.2f, %0.2f, light: %d\n",sensor_suite.imu.get_accel(0),sensor_suite.imu.get_accel(1),sensor_suite.imu.get_accel(2),sensor_suite.imu.get_gyro(0),sensor_suite.imu.get_gyro(1),sensor_suite.imu.get_gyro(2),sensor_suite.light_sensor.getBrightness());
+      Serial.printf("mic: %5.2f, touch: %d, ",sensor_suite.microphone.get_mean_square(),sensor_suite.touch.get_down_button());
+      Serial.printf("accel [%d]: %0.2f, %0.2f, %0.2f, gyro: %0.2f, %0.2f, %0.2f, light: %d\n",sensor_suite.imu.get_fifo_sample_count(),sensor_suite.imu.get_accel(0),sensor_suite.imu.get_accel(1),sensor_suite.imu.get_accel(2),sensor_suite.imu.get_gyro(0),sensor_suite.imu.get_gyro(1),sensor_suite.imu.get_gyro(2),sensor_suite.light_sensor.getBrightness());
       //sensor_suite.decoder_ir_rxd.debug();
       sensor_suite.decoder_ir_rxd_ws2812.debug();
       sensor_suite.ir_txd.debug(frame_id1);

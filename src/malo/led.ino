@@ -2,6 +2,22 @@
 
 //uint Charlieplex::_sm_offset = -1; //define static (upload pio program only one time)
 
+const AnimationMapping animation_table[] = {
+    {"Off",             &Charlieplex::animation_off},
+    {"Auto Cycle",      &Charlieplex::animation_cycle},
+    {"Blink",           &Charlieplex::animation_blink},
+    {"Fire",            &Charlieplex::animation_fire},
+    {"Gyroscope",       &Charlieplex::animation_gyroscope},
+    //{"Menu Depth",      &Charlieplex::animation_menu_depth},
+    {"Microphone",      &Charlieplex::animation_microphone},
+    //{"Pulse",           &Charlieplex::animation_pulse},
+    {"Rainbow Fade",    &Charlieplex::animation_rainbow_fade},
+    {"Stars",           &Charlieplex::animation_stars},
+    {"Static Green",    &Charlieplex::animation_static_green},
+    {"Static Red",      &Charlieplex::animation_static_red},
+    {"Steeple Chase",   &Charlieplex::animation_steeple_chase}
+};
+
 Charlieplex::Charlieplex(bool is_upper)
 {
   _pio_index=is_upper;
@@ -282,6 +298,27 @@ void Charlieplex::animation_gyroscope(SensorSuite &sensor_suite)
     }
 }
 
+void Charlieplex::animation_menu_depth(SensorSuite &sensor_suite)
+{//show how deep the user is in the menu structure
+    int8_t menu_depth=sensor_suite.screen_manager.get_screen_stack_depth();
+    const uint8_t green=55;
+    const uint8_t red=0;
+    const uint8_t MAX_MENU_DEPTH=5;
+    uint8_t min_led=min(max(0,(uint8_t)(1.0f*(menu_depth-1)*(CHARLIPLEX_LED_COUNT/2)/MAX_MENU_DEPTH)),(CHARLIPLEX_LED_COUNT/2)-1);
+    uint8_t max_led=min(max(0,(uint8_t)(1.0f*(menu_depth+0)*(CHARLIPLEX_LED_COUNT/2)/MAX_MENU_DEPTH)),(CHARLIPLEX_LED_COUNT/2)-1);
+    for(uint8_t iter=0;iter<CHARLIPLEX_LED_COUNT/2;iter++)
+    {
+        if(iter>=min_led && iter<max_led)
+        {
+            set_brightness(iter,red);
+            set_brightness(iter+CHARLIPLEX_LED_COUNT/2,green);
+        }else{
+            set_brightness(iter,0);
+            set_brightness(iter+CHARLIPLEX_LED_COUNT/2,0);
+        }
+    }
+}
+
 void Charlieplex::animation_microphone(SensorSuite &sensor_suite)
 {
     set_max_effective_led_count(CHARLIPLEX_LED_COUNT/4+1);
@@ -385,7 +422,7 @@ void Charlieplex::animation_steeple_chase(SensorSuite &sensor_suite)
 
 // given a string "name" of the animation to play, update the dest_func with a pointer to the above application-specific animation to play in response
 //Note: also need to update menu options in graphics.ino to make new options visible to the user
-bool Charlieplex::get_animation_by_name(const char * name, AnimationFunc &dest_func) {
+/*bool Charlieplex::get_animation_by_name(const char * name, AnimationFunc &dest_func) {
     if (!name) return false;
 
     if (strcmp(name, "Off") == 0) {
@@ -439,4 +476,20 @@ bool Charlieplex::get_animation_by_name(const char * name, AnimationFunc &dest_f
 
     // String not recognized by this class instance
     return false; 
+}*/
+
+bool Charlieplex::get_animation_by_name(const std::string name, AnimationFunc &dest_func) {
+    if (name.empty()) return false;
+
+    size_t count = get_animation_count();
+    for (size_t i = 0; i < count; i++) {
+        if (name==animation_table[i].name) {
+            dest_func = animation_table[i].func;
+            return true;
+        }
+    }
+    return false;
 }
+
+uint8_t Charlieplex::get_animation_count() { return sizeof(animation_table) / sizeof(animation_table[0]); }
+std::string Charlieplex::get_animation_at(uint8_t index){ if (index >= get_animation_count()) return "Unknown"; return animation_table[index].name; }

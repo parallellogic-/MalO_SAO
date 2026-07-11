@@ -3,6 +3,31 @@
 
 ScreenManager::ScreenManager(){}
 
+void ScreenManager::_set_menu_structure()
+{
+  auto main_screen       = std::make_shared<MenuScreen>("Main",_shared_input_group);
+
+  auto animations_screen = std::make_shared<MenuScreen>("Animations",_shared_input_group,ScreenConfig::ANIMATIONS);  main_screen->add_subscreen(animations_screen);
+  auto levels_screen     = std::make_shared<MenuScreen>("Levels",_shared_input_group);                               main_screen->add_subscreen(levels_screen);
+  auto messages_screen   = std::make_shared<MenuScreen>("Messages",_shared_input_group);                             main_screen->add_subscreen(messages_screen);
+  auto settings_screen   = std::make_shared<MenuScreen>("Settings",_shared_input_group);                             main_screen->add_subscreen(settings_screen);
+
+  auto upper_led_screen  = std::make_shared<MenuScreen>("Upper LEDs",_shared_input_group,ScreenConfig::LED_UPPER);  animations_screen->add_subscreen(upper_led_screen);
+  auto lower_led_screen  = std::make_shared<MenuScreen>("Lower LEDs",_shared_input_group,ScreenConfig::LED_LOWER);  animations_screen->add_subscreen(lower_led_screen);
+  auto screen_screen     = std::make_shared<MenuScreen>("Screen",_shared_input_group,ScreenConfig::SCREEN_SAVER);   animations_screen->add_subscreen(screen_screen);
+  
+  auto tictactoe_screen  = std::make_shared<MenuScreen>("TicTacToe",_shared_input_group);   levels_screen->add_subscreen(tictactoe_screen);
+  auto box_screen        = std::make_shared<MenuScreen>("Box",_shared_input_group);         levels_screen->add_subscreen(box_screen);
+  auto site19_screen     = std::make_shared<MenuScreen>("Site 19",_shared_input_group);     levels_screen->add_subscreen(site19_screen);
+  
+  
+
+
+
+Serial.printf("screen_manager._push_screen\n");
+  _push_screen(main_screen); //set root menu
+}
+
 void ScreenManager::begin(SensorSuite &sensor_suite)
 {
   _sensor_suite = &sensor_suite;
@@ -53,24 +78,7 @@ void ScreenManager::begin(SensorSuite &sensor_suite)
 
   // -- make menu relationships --
 
-  auto main_screen       = std::make_shared<MenuScreen>("Main",_shared_input_group);
-
-  auto animations_screen = std::make_shared<MenuScreen>("Animations",_shared_input_group);  main_screen->add_subscreen(animations_screen);
-  auto levels_screen     = std::make_shared<MenuScreen>("Levels",_shared_input_group);      main_screen->add_subscreen(levels_screen);
-  auto messages_screen   = std::make_shared<MenuScreen>("Messages",_shared_input_group);    main_screen->add_subscreen(messages_screen);
-  auto settings_screen   = std::make_shared<MenuScreen>("Settings",_shared_input_group);    main_screen->add_subscreen(settings_screen);
-
-  auto upper_led_screen  = std::make_shared<MenuScreen>("Upper LEDs",_shared_input_group);  animations_screen->add_subscreen(upper_led_screen);
-  auto lower_led_screen  = std::make_shared<MenuScreen>("Lower LEDs",_shared_input_group);  animations_screen->add_subscreen(lower_led_screen);
-  auto screen_screen     = std::make_shared<MenuScreen>("Screen",_shared_input_group);      animations_screen->add_subscreen(screen_screen);
-  
-  
-  
-
-
-
-Serial.printf("screen_manager._push_screen\n");
-  _push_screen(main_screen); //set root menu
+  _set_menu_structure();
 
   Serial.printf("screen_manager.begin() DONE\n"); delay(10);
 }
@@ -181,6 +189,27 @@ void ScreenManager::update()
   ScreenAction action = _screen_stack.back()->update();
   Serial.printf("ScreenManager.update type %d\n",action.type);
 
+  //fetch update to led generation function, if any
+  if(action.led_upper_func != nullptr) _led_upper_func=action.led_upper_func;
+  if(action.led_lower_func != nullptr) _led_lower_func=action.led_lower_func;
+
+  Serial.printf("ScreenManager LED: %p, %p\n",_led_upper_func,_led_lower_func);
+
+  //push function live to leds on every frame
+  // 2. Handle Upper LED Animation Channel Execution
+  if (_led_upper_func != nullptr) {
+      // Call the function pointer directly on the object instance using .*
+      (_sensor_suite->led_upper.*(_led_upper_func))(*_sensor_suite);
+      _sensor_suite->led_upper.flush();
+  }
+
+  // 1. Handle Lower LED Animation Channel Execution
+  if (_led_lower_func != nullptr) {
+      // Call the function pointer directly on the object instance using .*
+      (_sensor_suite->led_lower.*(_led_lower_func))(*_sensor_suite);
+      _sensor_suite->led_lower.flush();
+  }
+
   if (action.type == ScreenActionType::PUSH_SUBMENU) {
       //_screen_stack.back()->end(false);
       _push_screen(action.next_screen);
@@ -189,7 +218,7 @@ void ScreenManager::update()
   else if (action.type == ScreenActionType::POP_BACK) {
       _pop_screen();
   }
-  else if (action.type == ScreenActionType::POP_TO_MENU) {
+  else if (action.type == ScreenActionType::POP_TO_MENU || action.type == ScreenActionType::POP_TO_TOP) {
       // 1. Pop the active screen (the Pause Screen) immediately
       _pop_screen(); 
 
@@ -199,7 +228,7 @@ void ScreenManager::update()
           std::shared_ptr<Screen> top_screen = _screen_stack.back();
           
           // Try to safely cast it to a MenuScreen pointer
-          if (top_screen != nullptr && top_screen->is_menu()) {
+          if (action.type == ScreenActionType::POP_TO_MENU && top_screen != nullptr && top_screen->is_menu()) {
               // Success! Found the menu. Stop popping.
               break; 
           }

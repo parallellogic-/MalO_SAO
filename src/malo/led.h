@@ -7,6 +7,7 @@
 #include "hardware/structs/padsbank0.h"
 #include "malo.h"
 #include "pio_program_manager.h"
+#include <string>
 
 #define LED_UPPER_START_PIN 0
 #define LED_LOWER_START_PIN 17
@@ -37,6 +38,11 @@ struct SensorSuite;
 class Charlieplex;
 typedef void (Charlieplex::*AnimationFunc)(SensorSuite &);
 
+struct AnimationMapping {
+    std::string name;
+    AnimationFunc func;
+};
+
 class Charlieplex{
   private:
     uint8_t _api_brightness[CHARLIPLEX_LED_COUNT];//write brightness values here for the frame currently being developed (red in lower 24 indexes, green in the upper 24)
@@ -64,6 +70,7 @@ class Charlieplex{
     void animation_cycle(SensorSuite &sensor_suite);
     void animation_fire(SensorSuite &sensor_suite);
     void animation_gyroscope(SensorSuite &sensor_suite);
+    void animation_menu_depth(SensorSuite &sensor_suite);
     void animation_microphone(SensorSuite &sensor_suite);
     void animation_pulse(SensorSuite &sensor_suite);
     void animation_rainbow_fade(SensorSuite &sensor_suite);
@@ -72,5 +79,7 @@ class Charlieplex{
     void animation_static_red(SensorSuite &sensor_suite);
     void animation_steeple_chase(SensorSuite &sensor_suite);
 
-    bool get_animation_by_name(const char * name, AnimationFunc &dest_func);
+    static bool get_animation_by_name(const std::string name, AnimationFunc &dest_func);
+    static uint8_t get_animation_count(); //{ return sizeof(animation_table) / sizeof(animation_table[0]); }
+    static std::string get_animation_at(uint8_t index);
 };

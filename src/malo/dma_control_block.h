@@ -71,6 +71,7 @@ private:
     //pass 2 element from list through it
     //store output as runtime
     //ignore roll-over adge case since that'd require aux0 and aux1 to kick off a simultaneous read of high and low uint32_t
+    uint32_t frame_id=0;
 public:
     ScatterGatherEngine() {}
 
@@ -79,7 +80,8 @@ public:
 
     bool registerSource(IMultiDmaTransactionSource* source);
 
-    void compileAndRun(uint64_t frame_id);
+    void compileAndRun();
+    void compileAndRun(uint64_t in_frame_id){ frame_id=in_frame_id; compileAndRun(); }
 
     int getRequiredDescriptorCount(uint64_t frame_id) override;
     void populateDescriptors(uint64_t frame_id, DmaDescriptor* pool_start, int data_channel, int aux0_channel, int aux1_channel, int ctrl_channel) override;

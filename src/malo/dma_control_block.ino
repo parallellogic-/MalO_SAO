@@ -120,7 +120,7 @@ bool ScatterGatherEngine::registerSource(IMultiDmaTransactionSource* source) {
         return true;
     }
 
-void ScatterGatherEngine::compileAndRun(uint64_t frame_id) {
+void ScatterGatherEngine::compileAndRun(){//uint64_t frame_id) {
     //Serial.print("frame_id");  Serial.print(": "); Serial.println(frame_id);
     dma_channel_abort(_data_chan);
     dma_channel_abort(_ctrl_chan);
@@ -221,6 +221,7 @@ void ScatterGatherEngine::compileAndRun(uint64_t frame_id) {
         }
         if(_aux0_chan>=0) debug_adc_dma_registers(_data_chan,_aux0_chan);
     }
+    frame_id++;
 }
 
 void ScatterGatherEngine::debug_dma_commands()

@@ -4,8 +4,8 @@ lv_style_t MenuScreen::_style_main;
 lv_style_t MenuScreen::_style_focused;
 bool MenuScreen::_styles_initialized = false;
 
-Screen::Screen(const std::string& title, lv_group_t* shared_input_group): _title(title), _input_group(shared_input_group) {
-  Serial.printf("Screen START\n"); delay(10);
+Screen::Screen(const std::string& title, lv_group_t* shared_input_group,ScreenConfig screen_config): _title(title), _input_group(shared_input_group), _screen_config(screen_config) {
+  //Serial.printf("Screen START\n"); delay(10);
 }
 
 /*void Screen::begin(bool is_enter_from_above)
@@ -25,8 +25,19 @@ Screen::Screen(const std::string& title, lv_group_t* shared_input_group): _title
 
 void Screen::begin(bool is_enter_from_above)
 {
-  Serial.printf("Screen::begin called\n");
+  //Serial.printf("Screen::begin called\n");
   
+  if(
+    _screen_config!=ScreenConfig::ANIMATIONS &&
+    _screen_config!=ScreenConfig::LED_UPPER &&
+    _screen_config!=ScreenConfig::LED_LOWER &&
+    _screen_config!=ScreenConfig::SCREEN_SAVER
+    )
+  {
+    _update_action.led_upper_func=&Charlieplex::animation_off;
+    _update_action.led_lower_func=&Charlieplex::animation_menu_depth;
+  }
+
   // 1. Only handle visibility flags here
   if (_lv_panel != nullptr)
   {
@@ -54,7 +65,7 @@ ScreenAction Screen::update()
 
 void Screen::end(bool is_leaving_upward)
 {
-  Serial.printf("Screen::end called %d\n", is_leaving_upward);
+  //Serial.printf("Screen::end called %d\n", is_leaving_upward);
 
   // 1. Hide the panel container immediately
   // This removes it from the active rendering tree so it stops drawing
@@ -78,7 +89,7 @@ void Screen::end(bool is_leaving_upward)
 
 // ---- Menu ----
 
-MenuScreen::MenuScreen(const std::string& title, lv_group_t* shared_input_group): Screen(title,shared_input_group)
+MenuScreen::MenuScreen(const std::string& title, lv_group_t* shared_input_group,ScreenConfig screen_config): Screen(title,shared_input_group,screen_config)
 {
 
   _is_menu=true;
@@ -133,7 +144,7 @@ void MenuScreen::_append_menu_item(const std::shared_ptr<Screen>& subscreen,cons
 
 void MenuScreen::begin(bool is_enter_from_above)
 {
-  Serial.printf("MenuScreen.begin called %d\n",is_enter_from_above);
+  //Serial.printf("MenuScreen.begin called %d\n",is_enter_from_above);
   Screen::begin(is_enter_from_above);
 
   if(is_enter_from_above)
@@ -143,6 +154,11 @@ void MenuScreen::begin(bool is_enter_from_above)
     // 2. Loop through child pointers and dynamically instantiate UI elements
     for (const std::shared_ptr<Screen>& subscreen : _screen_stack) {
         _append_menu_item(subscreen,subscreen->get_title());
+    }
+
+    if(_screen_config==ScreenConfig::LED_UPPER || _screen_config==ScreenConfig::LED_LOWER)
+    {
+      for(uint8_t iter=0;iter<Charlieplex::get_animation_count();iter++) _append_menu_item(nullptr,Charlieplex::get_animation_at(iter));
     }
 
     if(_is_pause_menu())
@@ -188,13 +204,15 @@ ScreenAction MenuScreen::update()
 
   //POP_BACK
   ScreenAction action;
-  action.type=_next_screen_action;
-  _next_screen_action=ScreenActionType::NONE;
+  memcpy(&action,&_update_action,sizeof(_update_action));
+  //update_action.type=_next_screen_action;
+  //_next_screen_action=ScreenActionType::NONE;
   if(action.type==ScreenActionType::PUSH_SUBMENU)
   {
       action.next_screen=_next_screen.lock();
       _next_screen.reset();//release pointer
   }
+  _update_action={ScreenActionType::NONE}; //reset for next frame
   return action; // Stay on this screen
 }
 
@@ -210,7 +228,7 @@ ScreenAction MenuScreen::update()
 
 void MenuScreen::end(bool is_leaving_upward)
 {
-    Serial.printf("MenuScreen.end called %d\n", is_leaving_upward);
+    //Serial.printf("MenuScreen.end called %d\n", is_leaving_upward);
     
     // 1. Call base class end() lifecycle logic first
     Screen::end(is_leaving_upward);
@@ -295,21 +313,34 @@ void MenuScreen::_lv_menu_item_event_cb(lv_event_t * e) {
 
             if(button_text=="Back" || button_text=="Resume")
             {
-                parent_menu->_next_screen_action=ScreenActionType::POP_BACK;
+                //parent_menu->_next_screen_action=ScreenActionType::POP_BACK;
+                parent_menu->_update_action.type=ScreenActionType::POP_BACK;
                 return;
             }
             if(button_text=="Exit")
             {
-                parent_menu->_next_screen_action=ScreenActionType::POP_TO_MENU;
+                //parent_menu->_next_screen_action=ScreenActionType::POP_TO_MENU;
+                parent_menu->_update_action.type=ScreenActionType::POP_TO_MENU;
                 return;
+            }
+            if(parent_menu->_screen_config==ScreenConfig::LED_UPPER || parent_menu->_screen_config==ScreenConfig::LED_LOWER)
+            {
+                AnimationFunc afunc=nullptr;
+                bool is_found=Charlieplex::get_animation_by_name(button_text,afunc);
+                if(is_found)
+                {
+                  if(parent_menu->_screen_config==ScreenConfig::LED_UPPER) parent_menu->_update_action.led_upper_func=afunc;
+                  else                                                     parent_menu->_update_action.led_lower_func=afunc;
+                }
             }
 
             // Use your screens here safely!
         
             if (target_screen && parent_menu) {
                 //parent_menu->handle_selection(target_screen);
-                parent_menu->_next_screen_action=ScreenActionType::PUSH_SUBMENU;
+                //parent_menu->_next_screen_action=ScreenActionType::PUSH_SUBMENU;
                 parent_menu->_next_screen=target_screen;
+                parent_menu->_update_action.type=ScreenActionType::PUSH_SUBMENU;
             }
         }
     }
@@ -359,8 +390,17 @@ void MenuScreen::_menu_event_cb(lv_event_t * e) {
     // ==========================================
     // 1. DYNAMIC NAVIGATION TRAVERSAL ENGINE
     // ==========================================
-    MenuScreen* instance = (MenuScreen*)lv_display_get_user_data(NULL);
-    if (!instance) return;
+
+    //MenuScreen* instance = (MenuScreen*)lv_display_get_user_data(NULL);
+    //if (!instance) return;
+
+    ScreenContext* context = static_cast<ScreenContext*>(lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
+    if (!context) return;
+
+    // 2. Extract the targets safely using arrow (->) syntax
+    // Since target_subscreen is a shared_ptr, use .get() for a raw Screen*
+    //std::shared_ptr<Screen> target_screen   = context->target_subscreen;//.get(); 
+    MenuScreen* instance = context->host_menu;
 
     if (code == LV_EVENT_KEY) {
         uint32_t key = lv_event_get_key(e);
@@ -374,7 +414,8 @@ void MenuScreen::_menu_event_cb(lv_event_t * e) {
                 instance->switch_menu(parent_menu, true);
                 instance->led_cb(true); //turn off leds if leaving the Animations menu
             }*/
-            if(!instance->_is_top_menu()) instance->_next_screen_action=ScreenActionType::POP_BACK;
+            if(!instance->_is_top_menu())//instance->_next_screen_action=ScreenActionType::POP_BACK;
+                instance->_update_action.type=ScreenActionType::POP_BACK;
             return;
         }
         
@@ -385,7 +426,8 @@ void MenuScreen::_menu_event_cb(lv_event_t * e) {
                 //instance->led_cb(true); //turn off leds if leaving the Animations menu
                 
             }*/
-            if(!instance->_is_top_menu()) instance->_next_screen_action=ScreenActionType::POP_TO_TOP;
+            if(!instance->_is_top_menu()) //instance->_next_screen_action=ScreenActionType::POP_TO_TOP;
+                instance->_update_action.type=ScreenActionType::POP_TO_TOP;
             return;
         }
     }

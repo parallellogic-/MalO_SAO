@@ -544,7 +544,7 @@ bool IMU::update()
   while(update_to_index>=IMU_BUFFER_SIZE) update_to_index-=IMU_BUFFER_SIZE;
   _update_from_index=update_to_index;
 
-  //hold off on updating the ping-pong buffer until the frame boundary to avoid shearing state estaimte mid-frame
+  //hold off on updating the ping-pong buffer until the frame boundary to avoid shearing state estimate mid-frame
 
   _is_data_ready=false;//clear data-ready flag
   return true;
