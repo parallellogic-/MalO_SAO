@@ -182,7 +182,7 @@ void ScreenManager::update()
   lv_tick_inc(current_time_ms-_last_update_ms);
   _last_update_ms=current_time_ms;
 
-  Serial.printf("lv_obj_invalidate\n");
+  //Serial.printf("lv_obj_invalidate\n");
 //lv_obj_invalidate(lv_screen_active());//FORCE DRAW every frame
 
   // Ticks physical interface engine processing every loop frame pass

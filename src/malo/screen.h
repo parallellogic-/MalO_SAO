@@ -105,6 +105,7 @@ struct ScreenContext {
 
 class ScreenSaver : public Screen { //display a looping animation
   private:
+    //lv_obj_t* _lv_canvas; //_lv_panel absorbs button pushes, _lv_canvas is the pixel draw buffer
     std::vector<uint8_t> _frame_duration;//how many frames at 60 FPS to show this image on the screen for (1= 16.6 ms, 2=30 ms, 4=60 ms...)
     std::vector<uint8_t> _frame_order;//list of which frames to show in what order (can show the same frame multiple times in one animation).  last value is which index within THIS list to jump to on completion
     //std::string _root_name=nullptr;//base name of the animation being shown.  will append "_%03d.cmp" at end to get image filename, and ".txt" to get config file

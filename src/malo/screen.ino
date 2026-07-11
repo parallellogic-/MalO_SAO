@@ -8,21 +8,6 @@ Screen::Screen(const std::string& title, lv_group_t* shared_input_group,ScreenCo
   //Serial.printf("Screen START\n"); delay(10);
 }
 
-/*void Screen::begin(bool is_enter_from_above)
-{
-  Serial.printf("Screen::begin called\n");
-  if (_lv_panel)
-  {
-    lv_obj_remove_flag(_lv_panel, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_clean(_lv_panel);
-  }
-  if(_input_group)
-  {
-    lv_group_remove_all_objs(_input_group);
-    _on_focus(_input_group); 
-  }
-}*/
-
 void Screen::begin(bool is_enter_from_above)
 {
   //Serial.printf("Screen::begin called\n");
@@ -39,6 +24,9 @@ void Screen::begin(bool is_enter_from_above)
   {
     lv_group_remove_all_objs(_input_group);
   }
+  _update_action.type=ScreenActionType::NONE;
+  _update_action.led_upper_func=nullptr;
+  _update_action.led_lower_func=nullptr;
 
   //_on_focus(_input_group);
   //lv_group_focus_obj(_lv_panel);
@@ -60,11 +48,6 @@ ScreenAction Screen::update()
   //return { ScreenActionType::NONE }; // Stay on this screen
 }
 
-/*void Screen::end(bool is_leaving_upward)
-{
-  Serial.printf("Screen::end called\n");
-  if (_lv_panel) lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_HIDDEN);
-}*/
 
 void Screen::end(bool is_leaving_upward)
 {
@@ -86,7 +69,7 @@ void Screen::end(bool is_leaving_upward)
   }
 
   //_on_blur(_input_group);
-  lv_group_focus_obj(nullptr);
+  //lv_group_focus_obj(nullptr);
 }
 
 
@@ -462,6 +445,7 @@ ScreenSaver::ScreenSaver(const std::string& title, lv_group_t* shared_input_grou
 
   // Create the baseline container panel matching your layout specifications
   //_lv_panel = lv_obj_create(lv_screen_active()); 
+  //_lv_panel = lv_obj_create(lv_screen_active());  //lv_canvas_create  lv_obj_create
   _lv_panel = lv_canvas_create(lv_screen_active());  //lv_canvas_create  lv_obj_create
   lv_obj_set_size(_lv_panel, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX); 
 
@@ -481,39 +465,71 @@ ScreenSaver::ScreenSaver(const std::string& title, lv_group_t* shared_input_grou
   lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_add_event_cb(_lv_panel, _screensaver_event_cb, LV_EVENT_ALL, this);
 
+    /*_lv_canvas = lv_canvas_create(_lv_panel); 
+    lv_obj_set_size(_lv_canvas, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX);
+    lv_obj_center(_lv_canvas);
+
+    // CRITICAL: Strip clickable flags from canvas so touches fall directly through to the parent panel!
+    lv_obj_remove_flag(_lv_canvas, LV_OBJ_FLAG_CLICKABLE);*/
+
   // Hide panel initially until requested via begin()
   lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_HIDDEN);
 
-  if(shared_input_group != nullptr) lv_group_add_obj(shared_input_group, _lv_panel);
+  
 }
 
 void ScreenSaver::_screensaver_event_cb(lv_event_t * e) {
     lv_event_code_t code = lv_event_get_code(e);
-
-    if(!(code!=50 && code!=27 && code!=53     && code!=26 && code!=28 && code!=29 && code!=30 && code!=31 && code!=32 && code!=33)) return;
-    while(1) { Serial.printf("ScreenSaver: _screensaver_event_cb %d\n",code); delay(100);  }
-
     ScreenSaver* screen = (ScreenSaver*)lv_event_get_user_data(e);
         
-    // Catch button presses, encoder clicks, or general key releases
-    if (screen!=nullptr)
-    {
-      //while(code!=50 && code!=27 && code!=53     && code!=26 && code!=28 && code!=29 && code!=30 && code!=31 && code!=32 && code!=33){ Serial.printf("ScreenSaver: _screensaver_event_cb %d\n",code); delay(100); }
-      Serial.printf("ScreenSaver: _screensaver_event_cb %d\n",code);
-      if(code == LV_EVENT_CLICKED || code == LV_EVENT_KEY || code == LV_EVENT_PRESSED) { //code == LV_EVENT_PRESSED || code == LV_EVENT_KEY ||  //LV_EVENT_SCREEN_UNLOAD_START
-        Serial.println("ScreenSaver: Interaction detected! Exiting...");
-        
-        screen->_update_action.type=ScreenActionType::POP_BACK;
+    if (screen != nullptr) {
+        Serial.printf("ScreenSaver Event Code: %d\n", code);
 
-        //TODO: also claim success on achivement here, and save to disk
-      }
+        bool should_exit = false;
 
+        // 1. IF IT'S A GENERIC KEY EVENT (Fires for PREV, NEXT, and early ENTER)
+        if (code == LV_EVENT_KEY) {
+            uint32_t key = lv_event_get_key(e);
+            Serial.printf("ScreenSaver Key Intercepted: %u\n", key);
+
+            if (key != LV_KEY_ENTER) {
+                // If it's a navigation key (PREV/NEXT), it only ever generates this single event.
+                // It is 100% safe to exit immediately.
+                Serial.println("Wake up triggered by safe navigation key.");
+                should_exit = true;
+            } else {
+                // It is the ENTER key! We explicitly IGNORE its early generic key loop.
+                // This lets it pass quietly without triggering a premature screen swap.
+                Serial.println("ENTER key loop 1 ignored. Waiting for definitive click...");
+            }
+        }
+
+        // 2. IF IT'S A CLIMACTIC CLICK EVENT (Fires ONLY for the final phase of ENTER)
+        if (code == LV_EVENT_CLICKED) {
+            Serial.println("Wake up triggered by definitive ENTER click completion.");
+            should_exit = true;
+        }
+
+        // 3. EXECUTE EXHAUSTIVE TERMINATION AND EXIT
+        if (should_exit) {
+            lv_indev_t * indev = lv_event_get_indev(e);
+            if (indev != nullptr) {
+                // Kills the processing token for this frame slice completely, 
+                // leaving zero trailing artifacts for downstream consumers.
+                lv_indev_stop_processing(indev);
+            }
+
+            Serial.println("ScreenSaver: Screen exiting cleanly.");
+            screen->_update_action.type = ScreenActionType::POP_BACK;
+        }
     }
 }
+
 
 void ScreenSaver::begin(bool is_enter_from_above)
 {
   Screen::begin(is_enter_from_above);
+  if(_input_group != nullptr) lv_group_add_obj(_input_group, _lv_panel); //register button pushes
 
   _update_action.led_upper_func=&Charlieplex::animation_off; //default to all ledds OFF, can be overriden depending on the animation
   _update_action.led_lower_func=&Charlieplex::animation_off;
@@ -525,11 +541,8 @@ void ScreenSaver::begin(bool is_enter_from_above)
     // 2. Clear out our pixel list vector data fields back to flat black
     //std::fill(_pixel_list.begin(), _pixel_list.end(), 0);
     _pixel_list.resize(SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX); //init's dirty
+    //if (_lv_canvas != nullptr) lv_canvas_set_buffer(_lv_canvas, _pixel_list.data(), SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX, LV_COLOR_FORMAT_L8);
     if (_lv_panel != nullptr) lv_canvas_set_buffer(_lv_panel, _pixel_list.data(), SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX, LV_COLOR_FORMAT_L8);
-    /*lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_PRESS_LOCK);
-    lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_CHECKABLE);
-    lv_obj_add_event_cb(_lv_panel, _screensaver_event_cb, LV_EVENT_ALL, this);*/
 
     // 3. Open configuration file path using the parent _title string
     char config_filename[128];
@@ -612,7 +625,7 @@ ScreenAction ScreenSaver::update()
       }
   }
 
-  _update_current_frame();
+  _update_current_frame(); //increment frame index state machine
 
   return _update_action;
 }
@@ -643,12 +656,6 @@ void ScreenSaver::end(bool is_leaving_upward)
   if (is_leaving_upward)
   {
     Serial.printf("ScreenSaver Shutting Down Animation: %s\n", _title.c_str());
-
-    // 2. Disconnect the LVGL canvas buffer if needed before clearing memory
-    if (_lv_panel != nullptr) {
-        // Set to nullptr to ensure LVGL doesn't try to draw to the vector we are about to clear/shrink
-        lv_canvas_set_buffer(_lv_panel, nullptr, 0, 0, LV_COLOR_FORMAT_L8);
-    }
 
     // 3. Clear out and shrink dynamic vector memory to avoid heap fragmentation
     _pixel_list.clear();
