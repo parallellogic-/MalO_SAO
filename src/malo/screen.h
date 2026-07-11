@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include "universal_serial_bus.h" //file operations
 
 //WAS ~/Arduino/libraries/lv_conf.h
 //IS ~/Arduino/libraries/lvgl/src/lv_conf.h
@@ -30,7 +31,8 @@ enum class ScreenConfig{
   ANIMATIONS,//if in this menu or one lower, will show the led and screen saver selected (persistent)
   LED_UPPER, //selecting menu items will change LED state
   LED_LOWER,
-  SCREEN_SAVER//screen savers
+  SCREEN_SAVER,//screen savers
+  MOUNT_USB
 };
 
 struct ScreenAction {
@@ -68,6 +70,7 @@ class Screen{
     bool is_menu(){ return _is_menu; }//user to catch flag when popping back to "POP_TO_MENU" without dynamic casting functionality avaialble
     const std::string& get_title(){ return _title; }
     void add_subscreen(std::shared_ptr<Screen> subscreen){ _screen_stack.push_back(subscreen); };
+    ScreenConfig get_screen_config(){ return _screen_config; }
     //led_function get_led_pattern(bool is_top);//return pointer to function to set leds.  if nullptr, defaults to OFF.
 };
 
@@ -102,12 +105,26 @@ struct ScreenContext {
     MenuScreen* host_menu; 
 };
 
-class ScreenSaver : public Screen{ //display a looping animation
+class ScreenSaver : public Screen { //display a looping animation
   private:
-
+    std::vector<uint8_t> _frame_duration;//how many frames at 60 FPS to show this image on the screen for (1= 16.6 ms, 2=30 ms, 4=60 ms...)
+    std::vector<uint8_t> _frame_order;//list of which frames to show in what order (can show the same frame multiple times in one animation).  last value is which index within THIS list to jump to on completion
+    //std::string _root_name=nullptr;//base name of the animation being shown.  will append "_%03d.cmp" at end to get image filename, and ".txt" to get config file
+    std::vector<uint8_t> _pixel_list;//SCREEN_WIDTH_PX*SCREEN_HEIGHT_PX
+    uint8_t _frame_index=255;//position within _frame_duration list
+    uint8_t _frame_order_index=0;//position within the _frame_order list
+    uint8_t _frame_elapsed=0;//how many 60 FPS periods have elapsed in the current aniamtion frame
+  protected:
+    void _on_focus(lv_group_t* input_group) override;
+    void _handle_button(uint32_t key, bool pressed) override;
   public:
-    ScreenSaver()//list of files, list of frame timings, frame order
-}
+    ScreenSaver(const std::string& title, lv_group_t* shared_input_group);//list of files, list of frame timings, frame order.  or enunm for internal config.  of have as config file in flash.
+    void begin(bool is_enter_from_above) override;
+    ScreenAction update() override;
+    void end(bool is_leaving_upward) override;
+    uint8_t _get_current_frame();
+    void _update_current_frame();
+};
 
 /*class Header{
 

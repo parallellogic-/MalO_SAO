@@ -20,6 +20,10 @@ void ScreenManager::_set_menu_structure()
   auto box_screen        = std::make_shared<MenuScreen>("Box",_shared_input_group);         levels_screen->add_subscreen(box_screen);
   auto site19_screen     = std::make_shared<MenuScreen>("Site 19",_shared_input_group);     levels_screen->add_subscreen(site19_screen);
   
+  auto test_screen     = std::make_shared<ScreenSaver>("NSFW",_shared_input_group);     screen_screen->add_subscreen(test_screen);
+
+
+  auto mount_usb_screen  = std::make_shared<MenuScreen>("Mount USB",_shared_input_group,ScreenConfig::MOUNT_USB);     settings_screen->add_subscreen(mount_usb_screen);
   
 
 

@@ -9,7 +9,7 @@ static int32_t cached_sector_id = -1;
 static bool cache_is_dirty = false;
 
 static RP2350CustomFlashDriver hardware_block_driver;
-static FatVolume fat_fs;
+FatVolume FlashInterface::fat_fs; 
 
 // CRITICAL FIX: __no_inline_not_in_flash_func forces this code to run purely out of RAM 
 // This allows safe writing to the flash while the XIP cache mapping engine is disabled.

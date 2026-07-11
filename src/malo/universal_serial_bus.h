@@ -54,6 +54,7 @@ class FlashInterface{
   public:
     static void begin();
     static void ls();
+    static FatVolume fat_fs;
 };
 
 class UniversalSerialBus{

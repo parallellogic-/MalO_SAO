@@ -54,7 +54,18 @@ void Screen::begin(bool is_enter_from_above)
 
 ScreenAction Screen::update()
 {
-  return { ScreenActionType::NONE }; // Stay on this screen
+  ScreenAction action;
+  memcpy(&action,&_update_action,sizeof(_update_action));
+  //update_action.type=_next_screen_action;
+  //_next_screen_action=ScreenActionType::NONE;
+  if(action.type==ScreenActionType::PUSH_SUBMENU)
+  {
+      action.next_screen=_next_screen.lock();
+      _next_screen.reset();//release pointer
+  }
+  _update_action={ScreenActionType::NONE}; //reset for next frame
+  return action; // Stay on this screen
+  //return { ScreenActionType::NONE }; // Stay on this screen
 }
 
 /*void Screen::end(bool is_leaving_upward)
@@ -203,7 +214,7 @@ ScreenAction MenuScreen::update()
   }*/
 
   //POP_BACK
-  ScreenAction action;
+  /*ScreenAction action;
   memcpy(&action,&_update_action,sizeof(_update_action));
   //update_action.type=_next_screen_action;
   //_next_screen_action=ScreenActionType::NONE;
@@ -213,7 +224,8 @@ ScreenAction MenuScreen::update()
       _next_screen.reset();//release pointer
   }
   _update_action={ScreenActionType::NONE}; //reset for next frame
-  return action; // Stay on this screen
+  return action; // Stay on this screen*/
+  return Screen::update();
 }
 
 /*void MenuScreen::end(bool is_leaving_upward)
@@ -333,8 +345,13 @@ void MenuScreen::_lv_menu_item_event_cb(lv_event_t * e) {
                   else                                                     parent_menu->_update_action.led_lower_func=afunc;
                 }
             }
+            if(target_screen->get_screen_config()==ScreenConfig::MOUNT_USB)
+            {
+              UniversalSerialBus::set_mounted();
+              //while(1){ Serial.printf("HERE: %s, %d\n",target_screen->get_title().c_str(),target_screen->get_screen_config()); delay(100); }
+            }
 
-            // Use your screens here safely!
+
         
             if (target_screen && parent_menu) {
                 //parent_menu->handle_selection(target_screen);
@@ -505,6 +522,174 @@ void MenuScreen::_menu_event_cb(lv_event_t * e) {
     instance->led_cb(true); //turn off leds if leaving the Animations menu */
 }
 
+
+// ---- screen saver (achievemnt animation) ----
+
+ScreenSaver::ScreenSaver(const std::string& title, lv_group_t* shared_input_group): Screen(title,shared_input_group)
+{
+  _is_menu=false;
+  _is_header = false;
+
+  // Create the baseline container panel matching your layout specifications
+  //_lv_panel = lv_obj_create(lv_screen_active()); 
+  _lv_panel = lv_canvas_create(lv_screen_active()); 
+  lv_obj_set_size(_lv_panel, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX); 
+
+  // 3. FORCE NO SCROLLBARS: Remove scroll-monitoring overheads completely
+  lv_obj_remove_flag(_lv_panel, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_remove_flag(_lv_panel, LV_OBJ_FLAG_SCROLL_ELASTIC);
+  lv_obj_set_scrollbar_mode(_lv_panel, LV_SCROLLBAR_MODE_OFF);
+
+  // 4. CLEAN GEOMETRY ALIGNMENT: Strip padding, borders, and margins to prevent offsets
+  lv_obj_set_style_pad_all(_lv_panel, 0, LV_PART_MAIN);
+  lv_obj_set_style_border_width(_lv_panel, 0, LV_PART_MAIN);
+  lv_obj_set_style_margin_all(_lv_panel, 0, LV_PART_MAIN);
+
+  lv_obj_set_style_bg_color(_lv_panel, lv_color_black(), LV_PART_MAIN); 
+  
+  // Hide panel initially until requested via begin()
+  lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_HIDDEN);
+}
+
+void ScreenSaver::begin(bool is_enter_from_above)
+{
+  Screen::begin(is_enter_from_above);
+
+  if (is_enter_from_above)
+  {
+    Serial.printf("ScreenSaver Booting Animation: %s\n", _title.c_str());
+
+    // 2. Clear out our pixel list vector data fields back to flat black
+    //std::fill(_pixel_list.begin(), _pixel_list.end(), 0);
+    _pixel_list.resize(SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX); //init's dirty
+    if (_lv_panel != nullptr) lv_canvas_set_buffer(_lv_panel, _pixel_list.data(), SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX, LV_COLOR_FORMAT_L8);
+
+    // 3. Open configuration file path using the parent _title string
+    char config_filename[128];
+    snprintf(config_filename, sizeof(config_filename), "/animations/%s.dur", _title.c_str());
+
+    File32 duration_file = FlashInterface::fat_fs.open(config_filename, O_RDONLY);
+    if (duration_file) {
+        // Fetch raw file size properties to allocate vectors exactly to target specs
+        uint32_t file_size = duration_file.size();
+        _frame_duration.resize(file_size);
+        duration_file.read(_frame_duration.data(), file_size);
+        Serial.println("ScreenSaver Vectors Config Loaded Perfectly");
+    } else {
+        Serial.printf("ScreenSaver Warning: Missing layout config file %s\n", config_filename);
+        
+        // Dynamic Safe Fallback allocations
+        _frame_duration = { 6, 6 };   // Hold 1st frame for 6 ticks (100 ms)
+    }
+
+    snprintf(config_filename, sizeof(config_filename), "/animations/%s.ord", _title.c_str());
+
+    File32 order_file = FlashInterface::fat_fs.open(config_filename, O_RDONLY);
+    if (order_file) {
+        // Fetch raw file size properties to allocate vectors exactly to target specs
+        uint32_t file_size = order_file.size();
+        _frame_order.resize(file_size);
+        order_file.read(_frame_order.data(), file_size);
+        Serial.println("ScreenSaver Vectors Config Loaded Perfectly");
+    } else {
+        Serial.printf("ScreenSaver Warning: Missing layout config file %s\n", config_filename);
+        
+        // Dynamic Safe Fallback allocations
+        _frame_order = { 0, 1, 0 }; // Play index 0, then flag structural loop end
+    }
+  }
+
+  _frame_index=255;//trigger an immediaate redraw upon entering frame
+
+  if (_input_group) {
+      _on_focus(_input_group); 
+  }
+}
+
+
+ScreenAction ScreenSaver::update()
+{
+  //fat_fs.chvol(); //unclear if needed?
+
+  Serial.printf("ScreenSaver update\n");
+  uint8_t current_frame_index=_get_current_frame();//what should the frame index be within _duration_list?
+  bool is_redraw=false;
+  if(_frame_index!=current_frame_index)
+  {//if mismatch from waht it was, trigger a redraw
+    is_redraw=true;
+    _frame_index=current_frame_index;//remember which frame was draw for future reference
+  }
+
+  if(is_redraw)
+  {
+    char filename_buffer[64];
+    snprintf(filename_buffer, sizeof(filename_buffer), "/animations/%s_%03d.cmp", _title.c_str(), current_frame_index);
+
+    File32 local_file = FlashInterface::fat_fs.open(filename_buffer, O_RDONLY);
+    if (local_file) {
+          /*if (local_file.size() > (SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX)) {
+              local_file.seek(12); //skip lvgl header
+          }*/
+          //Serial.printf("ScreenSaver local_file %s, %d, %d\n", filename_buffer,local_file.size(),_pixel_list.size()); //ScreenSaver local_file /animations/film_000.cmp, 16396, 16384 - todo: resize phsycial file to right size later...
+          //Serial.printf("ScreenSaver _pixel_list  0x%02X, 0x%02X, 0x%02X, 0x%02X\n",_pixel_list[0],_pixel_list[1],_pixel_list[2],_pixel_list[3]);
+          local_file.read(_pixel_list.data(), SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX);
+          //Serial.printf("ScreenSaver _pixel_list2 0x%02X, 0x%02X, 0x%02X, 0x%02X\n",_pixel_list[0],_pixel_list[1],_pixel_list[2],_pixel_list[3]); //valid contents found
+          local_file.close();
+
+          // 4. PUSH PIXELS LIVE TO THE SCREEN VIEWPORT
+          // If your ScreenSaver has its own _lv_panel or references the canvas:
+          if (_lv_panel != nullptr) {
+              // Option A: If _lv_panel is an LVGL Canvas object, copy buffer directly:
+              
+              // Option B: Force an explicit area invalidation to make ScreenManager draw it
+              lv_obj_invalidate(_lv_panel); 
+          }
+      } else {
+          Serial.printf("ScreenSaver Error: Failed to open %s\n", filename_buffer);
+      }
+  }
+
+  _update_current_frame();
+
+  return _update_action;
+}
+
+uint8_t ScreenSaver::_get_current_frame()
+{//index within _frame_duration
+  return _frame_order[_frame_order_index];
+}
+
+void ScreenSaver::_update_current_frame()
+{
+  _frame_elapsed++;
+  uint8_t frame_duration=_frame_duration[_get_current_frame()];
+  if(_frame_elapsed>=frame_duration)
+  {
+    _frame_elapsed=0;
+    _frame_order_index++;
+    if(_frame_order_index>=_frame_order.size()-1)
+    {//if at end of animation (-1 because the last value is where within _frame_order to jump to)
+      _frame_order_index=_frame_order[_frame_order.size()-1];
+    }
+  }
+}
+
+void ScreenSaver::end(bool is_leaving_upward)
+{
+
+}
+
+void ScreenSaver::_on_focus(lv_group_t* input_group) {
+    // Screensavers don't contain list widgets, so leave this stub empty.
+    // This stops it from modifying your active LVGL input configuration groups.
+}
+
+void ScreenSaver::_handle_button(uint32_t key, bool pressed) {
+    if (pressed) {
+        // OPTIONAL: Wake up and exit the screen saver when ANY hardware button is clicked
+        _update_action.type = ScreenActionType::POP_BACK; 
+    }
+}
 
 //gameScreen:
 /*   
