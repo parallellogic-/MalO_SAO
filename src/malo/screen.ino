@@ -8,7 +8,7 @@ Screen::Screen(const std::string& title, lv_group_t* shared_input_group): _title
   Serial.printf("Screen START\n"); delay(10);
 }
 
-void Screen::begin(bool is_enter_from_above)
+/*void Screen::begin(bool is_enter_from_above)
 {
   Serial.printf("Screen::begin called\n");
   if (_lv_panel)
@@ -21,6 +21,24 @@ void Screen::begin(bool is_enter_from_above)
     lv_group_remove_all_objs(_input_group);
     _on_focus(_input_group); 
   }
+}*/
+
+void Screen::begin(bool is_enter_from_above)
+{
+  Serial.printf("Screen::begin called\n");
+  
+  // 1. Only handle visibility flags here
+  if (_lv_panel != nullptr)
+  {
+    lv_obj_remove_flag(_lv_panel, LV_OBJ_FLAG_HIDDEN);
+    // REMOVED: lv_obj_clean(_lv_panel); -> Destroying widgets belongs strictly in end()!
+  }
+  
+  // 2. Clear input flags safely. Let the derived child screen handle its own group focus assignment
+  if (_input_group != nullptr)
+  {
+    lv_group_remove_all_objs(_input_group);
+  }
 }
 
 ScreenAction Screen::update()
@@ -28,10 +46,32 @@ ScreenAction Screen::update()
   return { ScreenActionType::NONE }; // Stay on this screen
 }
 
+/*void Screen::end(bool is_leaving_upward)
+{
+  Serial.printf("Screen::end called\n");
+  if (_lv_panel) lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_HIDDEN);
+}*/
+
 void Screen::end(bool is_leaving_upward)
 {
-  if (_lv_panel) lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_HIDDEN);
+  Serial.printf("Screen::end called %d\n", is_leaving_upward);
+
+  // 1. Hide the panel container immediately
+  // This removes it from the active rendering tree so it stops drawing
+  if (_lv_panel != nullptr)
+  {
+    lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_HIDDEN);
+  }
+
+  // 2. Disconnect the physical controls from this screen frame completely
+  // This guarantees that navigation button presses don't fire events 
+  // on a screen that is currently closing or fading away.
+  if (_input_group != nullptr)
+  {
+    lv_group_remove_all_objs(_input_group);
+  }
 }
+
 
 //void Screen::_on_focus(lv_group_t* input_group){}
 //void Screen::_handle_button(uint32_t key, bool pressed){}
@@ -66,6 +106,31 @@ MenuScreen::MenuScreen(const std::string& title, lv_group_t* shared_input_group)
   lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_HIDDEN);
 }
 
+void MenuScreen::_append_menu_item(const std::shared_ptr<Screen>& subscreen,const std::string& title)
+{
+    lv_obj_t * lbl = lv_label_create(_lv_panel); 
+    lv_label_set_text(lbl, title.c_str());
+    lv_obj_set_width(lbl, LV_PCT(100)); 
+    lv_obj_add_flag(lbl, LV_OBJ_FLAG_CLICKABLE); 
+    lv_obj_add_style(lbl, &_style_main, LV_STATE_DEFAULT); 
+    lv_obj_add_style(lbl, &_style_focused, LV_STATE_FOCUSED); 
+    lv_obj_add_event_cb(lbl, _menu_focus_cb, LV_EVENT_FOCUSED, NULL);
+    lv_obj_add_event_cb(lbl, _menu_event_cb, LV_EVENT_ALL, NULL);
+
+    // 2. Allocate it on the heap and bundle your pointers
+    //ScreenContext* context = new ScreenContext{ subscreen.get(), this };
+    ScreenContext* context = new ScreenContext{ subscreen, this };
+
+    // 3. Save the single container pointer into LVGL
+    lv_obj_set_user_data(lbl, context);
+
+    //lv_obj_add_event_cb(lbl, _lv_menu_item_event_cb, LV_EVENT_CLICKED, subscreen);
+    lv_obj_add_event_cb(lbl, _lv_menu_item_event_cb, LV_EVENT_CLICKED, context);
+    lv_group_add_obj(_input_group, lbl);
+
+    _menu_items.push_back(lbl);
+}
+
 void MenuScreen::begin(bool is_enter_from_above)
 {
   Serial.printf("MenuScreen.begin called %d\n",is_enter_from_above);
@@ -77,43 +142,40 @@ void MenuScreen::begin(bool is_enter_from_above)
 
     // 2. Loop through child pointers and dynamically instantiate UI elements
     for (const std::shared_ptr<Screen>& subscreen : _screen_stack) {
-        lv_obj_t * lbl = lv_label_create(_lv_panel); 
-        lv_label_set_text(lbl, subscreen->get_title().c_str());
-        lv_obj_set_width(lbl, LV_PCT(100)); 
-        lv_obj_add_flag(lbl, LV_OBJ_FLAG_CLICKABLE); 
-        lv_obj_add_style(lbl, &_style_main, LV_STATE_DEFAULT); 
-        lv_obj_add_style(lbl, &_style_focused, LV_STATE_FOCUSED); 
-        lv_obj_add_event_cb(lbl, _menu_focus_cb, LV_EVENT_FOCUSED, NULL);
-        lv_obj_add_event_cb(lbl, _menu_event_cb, LV_EVENT_ALL, NULL);
-
-        // 2. Allocate it on the heap and bundle your pointers
-        //ScreenContext* context = new ScreenContext{ subscreen.get(), this };
-        ScreenContext* context = new ScreenContext{ subscreen, this };
-
-
-        // 3. Save the single container pointer into LVGL
-        lv_obj_set_user_data(lbl, context);
-
-
-        //lv_obj_add_event_cb(lbl, _lv_menu_item_event_cb, LV_EVENT_CLICKED, subscreen);
-        lv_obj_add_event_cb(lbl, _lv_menu_item_event_cb, LV_EVENT_CLICKED, context);
-        lv_group_add_obj(_input_group, lbl);
-
-        _menu_items.push_back(lbl);
+        _append_menu_item(subscreen,subscreen->get_title());
     }
 
-    if(!_is_top_menu())
+    if(_is_pause_menu())
+    {
+      _append_menu_item(nullptr,"Resume");
+      _append_menu_item(nullptr,"Exit");
+    }
+    else if(!_is_top_menu())
     {//add back button if there is somewhere up the user can go
-
+        _append_menu_item(nullptr,"Back");
     }
-
-    // Focus the initial topmost list option
-    if (lv_obj_get_child_cnt(_lv_panel) > 0 && _input_group) {
-        lv_group_focus_obj(lv_obj_get_child(_lv_panel, 0));
-    }
-
-    _on_focus(_input_group);
   }
+  else 
+  {
+    // =======================================================
+    // FIX: RETURNING FROM A SUBMENU
+    // =======================================================
+    // Re-add your existing saved buttons back into the control engine
+    if (_input_group) {
+        for (lv_obj_t* lbl : _menu_items) {
+            if (lbl != nullptr) {
+                lv_group_add_obj(_input_group, lbl);
+            }
+        }
+    }
+  }
+
+  // Focus the initial topmost list option
+  if (lv_obj_get_child_cnt(_lv_panel) > 0 && _input_group) {
+      lv_group_focus_obj(lv_obj_get_child(_lv_panel, 0));
+  }
+
+  _on_focus(_input_group);
 }
 
 ScreenAction MenuScreen::update()
@@ -136,13 +198,52 @@ ScreenAction MenuScreen::update()
   return action; // Stay on this screen
 }
 
-void MenuScreen::end(bool is_leaving_upward)
+/*void MenuScreen::end(bool is_leaving_upward)
 {
+  Serial.printf("MenuScreen::end called %d\n",is_leaving_upward);
     if(is_leaving_upward)
     {
       _menu_items.clear(); 
     }
     Screen::end(is_leaving_upward);
+}*/
+
+void MenuScreen::end(bool is_leaving_upward)
+{
+    Serial.printf("MenuScreen.end called %d\n", is_leaving_upward);
+    
+    // 1. Call base class end() lifecycle logic first
+    Screen::end(is_leaving_upward);
+
+    // 2. Only clean up allocations if we are moving away from this screen frame completely
+    if (is_leaving_upward) 
+    {
+        // Remove focus objects from the input engine to prevent ghost inputs
+        if (_input_group) {
+            lv_group_remove_all_objs(_input_group);
+        }
+
+        // Loop through all generated UI elements to dismantle custom contexts and widgets
+        for (lv_obj_t* lbl : _menu_items) 
+        {
+            if (lbl != nullptr) 
+            {
+                // Extract the raw heap allocation we generated via "new ScreenContext" in _append_menu_item
+                ScreenContext* context = static_cast<ScreenContext*>(lv_obj_get_user_data(lbl));
+                if (context != nullptr) 
+                {
+                    delete context; // CRITICAL: Free the struct memory to prevent memory leaks!
+                    lv_obj_set_user_data(lbl, nullptr); // Clear the tracking handle
+                }
+                
+                // Completely erase the widget and free its inner text graphics footprint from LVGL's pool
+                lv_obj_del(lbl); 
+            }
+        }
+
+        // Clear out raw tracking pointers since the underlying widgets are destroyed
+        _menu_items.clear(); 
+    }
 }
 
 MenuScreen::~MenuScreen()
@@ -170,18 +271,38 @@ void MenuScreen::_init_styles() {
 void MenuScreen::_lv_menu_item_event_cb(lv_event_t * e) {
     lv_event_code_t code = lv_event_get_code(e);
     if (code == LV_EVENT_CLICKED) {
+
         // Retrieve the screen object mapping bound to this specific list entry
         //Screen* target_screen = (Screen*)lv_event_get_user_data(e).target_subscreen;
         //MenuScreen* parent_menu = (MenuScreen*)lv_obj_get_user_data(lv_event_get_target(e)).host_menu;
         //ScreenContext* context = static_cast<ScreenContext*>(lv_obj_get_user_data(lv_event_get_target(e)));
         ScreenContext* context = static_cast<ScreenContext*>(lv_obj_get_user_data(static_cast<lv_obj_t*>(lv_event_get_target(e))));
 
-
         if (context != nullptr) {
             // 2. Extract the targets safely using arrow (->) syntax
             // Since target_subscreen is a shared_ptr, use .get() for a raw Screen*
             std::shared_ptr<Screen> target_screen   = context->target_subscreen;//.get(); 
             MenuScreen* parent_menu = context->host_menu;
+
+            //lv_obj_t * btn = static_cast<lv_obj_t*>(lv_event_get_target(e));
+            //std::string button_text = parent_menu->get_title();//lv_obj_get_child(btn, 0); //
+            //Serial.printf("Event C %s\n",button_text.c_str());
+
+            lv_obj_t * lbl = static_cast<lv_obj_t*>(lv_event_get_target(e));
+            const char* raw_lbl_text = lv_label_get_text(lbl);
+            std::string button_text = raw_lbl_text ? raw_lbl_text : "";
+            //Serial.printf("Event D %s\n", button_text.c_str());
+
+            if(button_text=="Back" || button_text=="Resume")
+            {
+                parent_menu->_next_screen_action=ScreenActionType::POP_BACK;
+                return;
+            }
+            if(button_text=="Exit")
+            {
+                parent_menu->_next_screen_action=ScreenActionType::POP_TO_MENU;
+                return;
+            }
 
             // Use your screens here safely!
         

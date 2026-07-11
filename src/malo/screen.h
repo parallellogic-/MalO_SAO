@@ -18,6 +18,13 @@ enum class ScreenActionType : uint8_t {
     POP_TO_TOP
 };
 
+enum class MenuItem : uint8_t{
+  STANDARD,
+  BACK,//up one menu level
+  RESUME,//up one menu level (back into game)
+  EXIT//up mulitple leves
+};
+
 struct ScreenAction {
     ScreenActionType type = ScreenActionType::NONE;
     std::shared_ptr<Screen> next_screen = nullptr;
@@ -67,6 +74,8 @@ class MenuScreen : public Screen{
     static void _menu_focus_cb(lv_event_t * e);
     static void _menu_event_cb(lv_event_t * e);
     bool _is_top_menu(){ std::string main_title = "Main"; return main_title==_title; };
+    bool _is_pause_menu(){ std::string main_title = "Pause"; return main_title==_title; };
+    void _append_menu_item(const std::shared_ptr<Screen>& subscreen,const std::string& title);
   public:
     MenuScreen(const std::string& title, lv_group_t* shared_input_group);
     virtual ~MenuScreen();

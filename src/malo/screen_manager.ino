@@ -179,6 +179,7 @@ void ScreenManager::update()
 //Serial.printf("Next internal task in: %d ms\n", time_till_next); 
 
   ScreenAction action = _screen_stack.back()->update();
+  Serial.printf("ScreenManager.update type %d\n",action.type);
 
   if (action.type == ScreenActionType::PUSH_SUBMENU) {
       //_screen_stack.back()->end(false);
