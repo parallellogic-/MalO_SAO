@@ -57,8 +57,7 @@ class Screen{
     ScreenAction _update_action; //what to return from an update() call
     lv_obj_t* _lv_panel = nullptr;
     lv_group_t* _input_group = nullptr; //unify user inputs into single locale
-    virtual void _on_focus(lv_group_t* input_group)=0;
-    virtual void _handle_button(uint32_t key, bool pressed)=0;
+    //virtual void _on_focus(lv_group_t* input_group)=0;
   public:
     Screen(const std::string& text, lv_group_t* shared_input_group,ScreenConfig screen_config=ScreenConfig::DEFAULT);
     ~Screen() = default; //release all memroy, including links to submenus //virtual
@@ -83,8 +82,7 @@ class MenuScreen : public Screen{
   protected:
     void _init_styles();
     static void _lv_menu_item_event_cb(lv_event_t * e);
-    void _on_focus(lv_group_t* input_group);
-    void _handle_button(uint32_t key, bool pressed);
+    //void _on_focus(lv_group_t* input_group);
     static void _menu_focus_cb(lv_event_t * e);
     static void _menu_event_cb(lv_event_t * e);
     bool _is_top_menu(){ std::string main_title = "Main"; return main_title==_title; };
@@ -114,9 +112,9 @@ class ScreenSaver : public Screen { //display a looping animation
     uint8_t _frame_index=255;//position within _frame_duration list
     uint8_t _frame_order_index=0;//position within the _frame_order list
     uint8_t _frame_elapsed=0;//how many 60 FPS periods have elapsed in the current aniamtion frame
+    static void _screensaver_event_cb(lv_event_t * e);
   protected:
-    void _on_focus(lv_group_t* input_group) override;
-    void _handle_button(uint32_t key, bool pressed) override;
+    //void _on_focus(lv_group_t* input_group) override;
   public:
     ScreenSaver(const std::string& title, lv_group_t* shared_input_group);//list of files, list of frame timings, frame order.  or enunm for internal config.  of have as config file in flash.
     void begin(bool is_enter_from_above) override;

@@ -26,17 +26,6 @@ Screen::Screen(const std::string& title, lv_group_t* shared_input_group,ScreenCo
 void Screen::begin(bool is_enter_from_above)
 {
   //Serial.printf("Screen::begin called\n");
-  
-  if(
-    _screen_config!=ScreenConfig::ANIMATIONS &&
-    _screen_config!=ScreenConfig::LED_UPPER &&
-    _screen_config!=ScreenConfig::LED_LOWER &&
-    _screen_config!=ScreenConfig::SCREEN_SAVER
-    )
-  {
-    _update_action.led_upper_func=&Charlieplex::animation_off;
-    _update_action.led_lower_func=&Charlieplex::animation_menu_depth;
-  }
 
   // 1. Only handle visibility flags here
   if (_lv_panel != nullptr)
@@ -50,6 +39,9 @@ void Screen::begin(bool is_enter_from_above)
   {
     lv_group_remove_all_objs(_input_group);
   }
+
+  //_on_focus(_input_group);
+  //lv_group_focus_obj(_lv_panel);
 }
 
 ScreenAction Screen::update()
@@ -92,11 +84,13 @@ void Screen::end(bool is_leaving_upward)
   {
     lv_group_remove_all_objs(_input_group);
   }
+
+  //_on_blur(_input_group);
+  lv_group_focus_obj(nullptr);
 }
 
 
 //void Screen::_on_focus(lv_group_t* input_group){}
-//void Screen::_handle_button(uint32_t key, bool pressed){}
 
 // ---- Menu ----
 
@@ -158,8 +152,25 @@ void MenuScreen::begin(bool is_enter_from_above)
   //Serial.printf("MenuScreen.begin called %d\n",is_enter_from_above);
   Screen::begin(is_enter_from_above);
 
+  if(
+    _screen_config!=ScreenConfig::ANIMATIONS &&
+    _screen_config!=ScreenConfig::LED_UPPER &&
+    _screen_config!=ScreenConfig::LED_LOWER &&
+    _screen_config!=ScreenConfig::SCREEN_SAVER
+    )
+  {
+    _update_action.led_upper_func=&Charlieplex::animation_off;
+    _update_action.led_lower_func=&Charlieplex::animation_menu_depth;
+  }
+
   if(is_enter_from_above)
   {
+    if(_screen_config==ScreenConfig::ANIMATIONS)
+    {
+      _update_action.led_upper_func=&Charlieplex::animation_off;
+      _update_action.led_lower_func=&Charlieplex::animation_off;
+    }
+
     _menu_items.clear(); // Wipe out pointers from previous allocations
 
     // 2. Loop through child pointers and dynamically instantiate UI elements
@@ -202,7 +213,11 @@ void MenuScreen::begin(bool is_enter_from_above)
       lv_group_focus_obj(lv_obj_get_child(_lv_panel, 0));
   }
 
-  _on_focus(_input_group);
+
+  /*if (_input_group) {
+      _on_focus(_input_group); 
+  }*/
+
 }
 
 ScreenAction MenuScreen::update()
@@ -363,25 +378,12 @@ void MenuScreen::_lv_menu_item_event_cb(lv_event_t * e) {
     }
 }
 
-void MenuScreen::_handle_button(uint32_t key, bool pressed) {
-    //if (!pressed) return; // Only trigger action on release/press down
-
-    /*switch(key) {
-        case LV_KEY_NEXT:
-            // Move selection highlight down
-            break;
-        case LV_KEY_ENTER:
-            // Click the selected menu item or open subscreen
-            break;
-    }*/
-}
-
-void MenuScreen::_on_focus(lv_group_t* input_group) {
+/*void MenuScreen::_on_focus(lv_group_t* input_group) {
     lv_group_remove_all_objs(input_group); // Clear old screen focus
     for (auto* item : _menu_items) {
         if(item!=nullptr) lv_group_add_obj(input_group, item); // Add this menu's buttons
     }
-}
+}*/
 
 void MenuScreen::_menu_focus_cb(lv_event_t * e) {
     lv_obj_t * child = (lv_obj_t*)lv_event_get_target(e);
@@ -448,78 +450,6 @@ void MenuScreen::_menu_event_cb(lv_event_t * e) {
             return;
         }
     }
-
-    // ==========================================
-    // 2. ITEM CLICK MANAGEMENT (FORWARDS)
-    // ==========================================
-    /*if (code == LV_EVENT_CLICKED) {
-        const char * text = lv_label_get_text(obj);
-
-        lv_obj_t * parent_panel = lv_obj_get_parent(obj);
-        if (!parent_panel) return;
-
-        if (instance->_active_menu != nullptr && instance->_active_menu == instance->_menu_animations_upper_leds) {
-            if (instance->_sensor_suite->led_upper.get_animation_by_name(text, instance->_active_animation_upper)) return;
-        }
-        if (instance->_active_menu != nullptr && instance->_active_menu == instance->_menu_animations_lower_leds) {
-            if (instance->_sensor_suite->led_lower.get_animation_by_name(text, instance->_active_animation_lower)) return;
-        }
-
-        if(parent_panel==instance->_menu_animations_screen && strcmp(text, "Off") == 0)
-        {//request to blank the display
-            instance->_is_in_level = true;
-            
-            // Hide the active menu interface 
-            if (instance->_active_menu) {
-                lv_obj_add_flag(instance->_active_menu, LV_OBJ_FLAG_HIDDEN);
-            }
-            
-            // Unhide the raw canvas object interface wrapper
-            lv_obj_remove_flag(instance->_level_canvas, LV_OBJ_FLAG_HIDDEN);
-            
-            // Clear or seed the screen array before rendering begins
-            memset(instance->_level_buffer, 0, sizeof(instance->_level_buffer));
-            //for(int iter=0;iter<500;iter++) instance->_level_buffer[iter]=0xFF;//temp display
-            return; 
-        }
-        //--- Deep Tree Forward Routers ---
-        // Level 1 -> Level 2
-        if (strcmp(text, "Settings") == 0) {
-            instance->switch_menu(instance->_menu_settings, true);
-        }
-        else if (strcmp(text, "Animations") == 0) {
-            instance->switch_menu(instance->_menu_animations, false);
-        }
-        // Level 2 -> Level 3 (Deep nested leaf node branch)
-        else if (strcmp(text, "Upper LEDs") == 0) {
-            instance->switch_menu(instance->_menu_animations_upper_leds, false);
-        }
-        else if (strcmp(text, "Lower LEDs") == 0) {
-            instance->switch_menu(instance->_menu_animations_lower_leds, false);
-        }
-        else if (strcmp(text, "Screen") == 0) {
-            instance->switch_menu(instance->_menu_animations_screen, false);
-        }
-        else if (strcmp(text, "Levels") == 0) {
-            instance->switch_menu(instance->_menu_levels, false);
-        }
-        else if (strcmp(text, "Messages") == 0) {
-            instance->switch_menu(instance->_menu_messages, false);
-        }
-        else if (strcmp(text, "Periphreal Test") == 0) {
-            instance->switch_menu(instance->_menu_periphreal_test, false);
-        }
-        else if (strcmp(text, "Mount USB") == 0) {
-            //TODO: show graphic of USB symbol = mounted
-            UniversalSerialBus::set_mounted();
-        }
-        // Unified Back string tracker handles older menu formats seamlessly
-        else if (strcmp(text, "Back") == 0) {
-            lv_obj_t * parent_menu = (lv_obj_t*)lv_obj_get_user_data(obj);
-            if (parent_menu) instance->switch_menu(parent_menu, true);
-        }
-    }
-    instance->led_cb(true); //turn off leds if leaving the Animations menu */
 }
 
 
@@ -532,7 +462,7 @@ ScreenSaver::ScreenSaver(const std::string& title, lv_group_t* shared_input_grou
 
   // Create the baseline container panel matching your layout specifications
   //_lv_panel = lv_obj_create(lv_screen_active()); 
-  _lv_panel = lv_canvas_create(lv_screen_active()); 
+  _lv_panel = lv_canvas_create(lv_screen_active());  //lv_canvas_create  lv_obj_create
   lv_obj_set_size(_lv_panel, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX); 
 
   // 3. FORCE NO SCROLLBARS: Remove scroll-monitoring overheads completely
@@ -547,13 +477,46 @@ ScreenSaver::ScreenSaver(const std::string& title, lv_group_t* shared_input_grou
 
   lv_obj_set_style_bg_color(_lv_panel, lv_color_black(), LV_PART_MAIN); 
   
+  lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_CHECKABLE); 
+  lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_add_event_cb(_lv_panel, _screensaver_event_cb, LV_EVENT_ALL, this);
+
   // Hide panel initially until requested via begin()
   lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_HIDDEN);
+
+  if(shared_input_group != nullptr) lv_group_add_obj(shared_input_group, _lv_panel);
+}
+
+void ScreenSaver::_screensaver_event_cb(lv_event_t * e) {
+    lv_event_code_t code = lv_event_get_code(e);
+
+    if(!(code!=50 && code!=27 && code!=53     && code!=26 && code!=28 && code!=29 && code!=30 && code!=31 && code!=32 && code!=33)) return;
+    while(1) { Serial.printf("ScreenSaver: _screensaver_event_cb %d\n",code); delay(100);  }
+
+    ScreenSaver* screen = (ScreenSaver*)lv_event_get_user_data(e);
+        
+    // Catch button presses, encoder clicks, or general key releases
+    if (screen!=nullptr)
+    {
+      //while(code!=50 && code!=27 && code!=53     && code!=26 && code!=28 && code!=29 && code!=30 && code!=31 && code!=32 && code!=33){ Serial.printf("ScreenSaver: _screensaver_event_cb %d\n",code); delay(100); }
+      Serial.printf("ScreenSaver: _screensaver_event_cb %d\n",code);
+      if(code == LV_EVENT_CLICKED || code == LV_EVENT_KEY || code == LV_EVENT_PRESSED) { //code == LV_EVENT_PRESSED || code == LV_EVENT_KEY ||  //LV_EVENT_SCREEN_UNLOAD_START
+        Serial.println("ScreenSaver: Interaction detected! Exiting...");
+        
+        screen->_update_action.type=ScreenActionType::POP_BACK;
+
+        //TODO: also claim success on achivement here, and save to disk
+      }
+
+    }
 }
 
 void ScreenSaver::begin(bool is_enter_from_above)
 {
   Screen::begin(is_enter_from_above);
+
+  _update_action.led_upper_func=&Charlieplex::animation_off; //default to all ledds OFF, can be overriden depending on the animation
+  _update_action.led_lower_func=&Charlieplex::animation_off;
 
   if (is_enter_from_above)
   {
@@ -563,6 +526,10 @@ void ScreenSaver::begin(bool is_enter_from_above)
     //std::fill(_pixel_list.begin(), _pixel_list.end(), 0);
     _pixel_list.resize(SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX); //init's dirty
     if (_lv_panel != nullptr) lv_canvas_set_buffer(_lv_panel, _pixel_list.data(), SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX, LV_COLOR_FORMAT_L8);
+    /*lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_PRESS_LOCK);
+    lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_CHECKABLE);
+    lv_obj_add_event_cb(_lv_panel, _screensaver_event_cb, LV_EVENT_ALL, this);*/
 
     // 3. Open configuration file path using the parent _title string
     char config_filename[128];
@@ -579,7 +546,7 @@ void ScreenSaver::begin(bool is_enter_from_above)
         Serial.printf("ScreenSaver Warning: Missing layout config file %s\n", config_filename);
         
         // Dynamic Safe Fallback allocations
-        _frame_duration = { 6, 6 };   // Hold 1st frame for 6 ticks (100 ms)
+        _frame_duration = { 6 };   // Hold 1st frame for 6 ticks (100 ms)
     }
 
     snprintf(config_filename, sizeof(config_filename), "/animations/%s.ord", _title.c_str());
@@ -595,15 +562,11 @@ void ScreenSaver::begin(bool is_enter_from_above)
         Serial.printf("ScreenSaver Warning: Missing layout config file %s\n", config_filename);
         
         // Dynamic Safe Fallback allocations
-        _frame_order = { 0, 1, 0 }; // Play index 0, then flag structural loop end
+        _frame_order = { 0, 0 }; // Play index 0, then flag structural loop end
     }
   }
 
   _frame_index=255;//trigger an immediaate redraw upon entering frame
-
-  if (_input_group) {
-      _on_focus(_input_group); 
-  }
 }
 
 
@@ -677,19 +640,39 @@ void ScreenSaver::_update_current_frame()
 void ScreenSaver::end(bool is_leaving_upward)
 {
 
+  if (is_leaving_upward)
+  {
+    Serial.printf("ScreenSaver Shutting Down Animation: %s\n", _title.c_str());
+
+    // 2. Disconnect the LVGL canvas buffer if needed before clearing memory
+    if (_lv_panel != nullptr) {
+        // Set to nullptr to ensure LVGL doesn't try to draw to the vector we are about to clear/shrink
+        lv_canvas_set_buffer(_lv_panel, nullptr, 0, 0, LV_COLOR_FORMAT_L8);
+    }
+
+    // 3. Clear out and shrink dynamic vector memory to avoid heap fragmentation
+    _pixel_list.clear();
+    _pixel_list.shrink_to_fit();
+
+    _frame_duration.clear();
+    _frame_duration.shrink_to_fit();
+
+    _frame_order.clear();
+    _frame_order.shrink_to_fit();
+
+    // 4. Reset safe runtime indexing states
+    _frame_index = 255;
+  }
+
+  // 5. Always chain up to the base class to allow the layout engine to finalize transition actions
+  Screen::end(is_leaving_upward);
 }
 
-void ScreenSaver::_on_focus(lv_group_t* input_group) {
+
+/*void ScreenSaver::_on_focus(lv_group_t* input_group) {
     // Screensavers don't contain list widgets, so leave this stub empty.
     // This stops it from modifying your active LVGL input configuration groups.
-}
-
-void ScreenSaver::_handle_button(uint32_t key, bool pressed) {
-    if (pressed) {
-        // OPTIONAL: Wake up and exit the screen saver when ANY hardware button is clicked
-        _update_action.type = ScreenActionType::POP_BACK; 
-    }
-}
+}*/
 
 //gameScreen:
 /*   
