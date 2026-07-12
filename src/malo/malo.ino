@@ -61,6 +61,7 @@ SensorSuite sensor_suite = {
   .pio_charlieplex=PIOProgramManager(pio0,&charlieplex_dma_program,0), //pio needs to be on lower bank to reach gp0.  duty cycle pairs of LEDs spread across 8 output pins
   .pio_logic_analyzer=PIOProgramManager(pio1,&logic_analyzer_program,16), //needs to be a separate pio to reach above pin 32 (configured at bank level.  run-length encoder of 11 pin states
   .pio_addr=PIOProgramManager(pio0,&pio_adder_program,0), //support for DMA to do simple address math like +1 and +2
+  .save_state=SaveState{},
   .scatterer_gatherer_engine_general=ScatterGatherEngine(),
   .scatterer_gatherer_engine_screen=ScatterGatherEngine(),
   .screen_manager=ScreenManager(),
@@ -78,6 +79,7 @@ void setup() {//core 0
   UniversalSerialBus::begin();
   //pinMode(PIN_DEBUG_R,OUTPUT);//if unset, then ir rxd/txd will default to putting out pwm signals here to show ir status
   //pinMode(PIN_DEBUG_G,OUTPUT);
+  sensor_suite.save_state.load();
 
   sensor_suite.pio_charlieplex.begin();
   sensor_suite.pio_logic_analyzer.begin();
@@ -118,6 +120,8 @@ void setup() {//core 0
   frame_us=time_us_64();
 }
 
+volatile bool new_frame_ready = false;
+
 volatile bool is_core1_shutdown_request=false; //core0 flag to core1 to begin shutdown
 volatile bool is_core1_shutdown=false; //core1 flag to core0 that shutdown is complete
 void loop() { //core 0
@@ -135,7 +139,8 @@ void loop() { //core 0
   frame_us=time_us_64();
   sensor_suite.frame_id++;
   frame_id0=sensor_suite.frame_id;
-  rp2040.fifo.push_nb(frame_id0); //signal core1 to run
+  //rp2040.fifo.push_nb(frame_id0); //signal core1 to run
+  new_frame_ready=true;
 
   if(UniversalSerialBus::get_mount_request()) is_core1_shutdown_request=true;//ensure graphics had a chance to push busy image to screen before asking core1 to shutdown
   UniversalSerialBus::update(is_core1_shutdown);
@@ -150,6 +155,7 @@ void loop() { //core 0
 }
 
 void __not_in_flash_func(setup1()){ //core 1
+  multicore_lockout_victim_init();  //uses sio fifo between core to hang core1 until core0 is done with operations (file write)
   delay(1);
   while(!setup0_complete) delay(1);//yield();
   //delay(17);
@@ -160,9 +166,12 @@ void __not_in_flash_func(loop1)(){ //core 1
   pinMode(PIN_DEBUG_G,OUTPUT); digitalWrite(PIN_DEBUG_G,millis()%200<100);
 //  Serial.printf("core1 loop done: %d, %d\n",sensor_suite.frame_id1,sensor_suite.touch.get_down_button());
 
-  do{
+  /*do{
     frame_id1=rp2040.fifo.pop();
-  }while(rp2040.fifo.available());
+  }while(rp2040.fifo.available());*/
+  if(!new_frame_ready) return;
+  new_frame_ready=false;
+  frame_id1++;
   
   uint64_t start_us=time_us_64();
 

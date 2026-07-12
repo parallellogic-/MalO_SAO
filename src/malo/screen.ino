@@ -253,13 +253,9 @@ void MenuScreen::_append_menu_item(const std::shared_ptr<Screen>& subscreen,cons
         //lv_obj_set_user_data(lbl, context);
 
         // Register the lightweight graphics drawing hook
-        lv_obj_add_event_cb(lbl, _label_icon_draw_cb, LV_EVENT_DRAW_MAIN, lbl); //event draw is unstable because lv_draw_layer is intermittent errors.   lv_canvas_create is more immediate failures
+        lv_obj_add_event_cb(lbl, _label_icon_draw_cb, LV_EVENT_DRAW_MAIN, lbl); //event draw is unstable because lv_draw_layer is intermittent errors.   lv_canvas_create is more immediate failures --> draw one pixel at a time with rect...
 
         lv_obj_set_style_pad_left(lbl, 16, LV_PART_MAIN); 
-    }
-    else
-    {
-        // Standard text layout configuration for non-screensaver items
     }
     lv_obj_set_width(lbl, LV_PCT(100)); 
     lv_obj_add_flag(lbl, LV_OBJ_FLAG_CLICKABLE); 
@@ -538,8 +534,18 @@ void MenuScreen::_lv_menu_item_event_cb(lv_event_t * e) {
             if (target_screen && parent_menu) {
                 //parent_menu->handle_selection(target_screen);
                 //parent_menu->_next_screen_action=ScreenActionType::PUSH_SUBMENU;
-                parent_menu->_next_screen=target_screen;
-                parent_menu->_update_action.type=ScreenActionType::PUSH_SUBMENU;
+                if(parent_menu->get_screen_config()==ScreenConfig::SCREEN_SAVER)
+                {
+                  std::shared_ptr<ScreenSaver> screensaver = std::static_pointer_cast<ScreenSaver>(target_screen);
+                  if (!screensaver->is_locked())
+                  {//only show animation if user has unlocked it
+                    parent_menu->_next_screen=target_screen;
+                    parent_menu->_update_action.type=ScreenActionType::PUSH_SUBMENU;
+                  }
+                }else{
+                  parent_menu->_next_screen=target_screen;
+                  parent_menu->_update_action.type=ScreenActionType::PUSH_SUBMENU;
+                }
             }
         }
     }
@@ -622,7 +628,7 @@ void MenuScreen::_menu_event_cb(lv_event_t * e) {
 
 // ---- screen saver (achievemnt animation) ----
 
-ScreenSaver::ScreenSaver(const std::string& title, lv_group_t* shared_input_group): Screen(title,shared_input_group)
+ScreenSaver::ScreenSaver(const std::string& title, lv_group_t* shared_input_group,SaveState* save_state): Screen(title,shared_input_group), _save_state(save_state)
 {
   _is_menu=false;
   _is_header = false;

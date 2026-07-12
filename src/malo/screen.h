@@ -2,7 +2,7 @@
 
 #include <string>
 #include <vector>
-#include "universal_serial_bus.h" //file operations
+#include "universal_serial_bus_flash.h" //file operations
 
 //WAS ~/Arduino/libraries/lv_conf.h
 //IS ~/Arduino/libraries/lvgl/src/lv_conf.h
@@ -154,7 +154,8 @@ struct ScreenContext {
 
 class ScreenSaver : public Screen { //display a looping animation
   private:
-    bool _is_locked=false;
+    //bool _is_locked=false;
+    SaveState* _save_state=nullptr;
     //lv_obj_t* _lv_canvas; //_lv_panel absorbs button pushes, _lv_canvas is the pixel draw buffer
     std::vector<uint8_t> _frame_duration;//how many frames at 60 FPS to show this image on the screen for (1= 16.6 ms, 2=30 ms, 4=60 ms...)
     std::vector<uint8_t> _frame_order;//list of which frames to show in what order (can show the same frame multiple times in one animation).  last value is which index within THIS list to jump to on completion
@@ -167,14 +168,14 @@ class ScreenSaver : public Screen { //display a looping animation
   protected:
     //void _on_focus(lv_group_t* input_group) override;
   public:
-    ScreenSaver(const std::string& title, lv_group_t* shared_input_group);//list of files, list of frame timings, frame order.  or enunm for internal config.  of have as config file in flash.
+    ScreenSaver(const std::string& title, lv_group_t* shared_input_group,SaveState* _save_state);//list of files, list of frame timings, frame order.  or enunm for internal config.  of have as config file in flash.
     void begin(bool is_enter_from_above) override;
     ScreenAction update() override;
     void end(bool is_leaving_upward) override;
     uint8_t _get_current_frame();
     void _update_current_frame();
-    bool is_locked() const{return _is_locked; }
-    void set_locked(bool is_locked){ _is_locked=is_locked; }
+    bool is_locked() const{ if(_save_state==nullptr) return true; return !_save_state->is_unlocked(_title); }
+    //void set_locked(bool is_locked){ _is_locked=is_locked; }
 };
 
 /*class Header{

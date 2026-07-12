@@ -2,7 +2,7 @@
 
 #include "touch.h"
 #include "pio_program_manager.h"
-#include "universal_serial_bus.h"
+#include "universal_serial_bus_flash.h"
 #include "dma_control_block.h"
 #include "oled.h"
 #include "led.h"
@@ -41,6 +41,7 @@ struct SensorSuite{//bundle into an object to make easier to pass through graphi
   PIOProgramManager pio_charlieplex;
   PIOProgramManager pio_logic_analyzer;
   PIOProgramManager pio_addr;
+  SaveState save_state;
   ScatterGatherEngine scatterer_gatherer_engine_general;
   ScatterGatherEngine scatterer_gatherer_engine_screen;
   ScreenManager screen_manager;

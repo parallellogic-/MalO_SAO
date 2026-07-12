@@ -1,4 +1,4 @@
-#include "universal_serial_bus.h"
+#include "universal_serial_bus_flash.h"
 
 
 Adafruit_USBD_MSC usb_msc; //usb-flash file system interface
@@ -101,11 +101,6 @@ bool msc_ready_cb(void) {
 
 void UniversalSerialBus::begin()
 {
-  usb_msc.setID("MalO", "Flash Drive", "1.0");
-  usb_msc.setReadWriteCallback(msc_read_cb, msc_write_cb, msc_flush_cb); 
-  usb_msc.setReadyCallback(msc_ready_cb);
-  usb_msc.setCapacity(DISK_SIZE_BYTES / USB_BLOCK_SIZE, USB_BLOCK_SIZE);
-  usb_msc.setUnitReady(false);
 
   //usb_msc.setUnitReady(true);
   //usb_msc.begin();
@@ -127,6 +122,11 @@ void UniversalSerialBus::update(bool is_core1_shutdown)
   {//if core1 has stopped interacting with Flash, then servie the mount request on core0
 
 
+  usb_msc.setID("MalO", "Flash Drive", "1.0");
+  usb_msc.setReadWriteCallback(msc_read_cb, msc_write_cb, msc_flush_cb); 
+  usb_msc.setReadyCallback(msc_ready_cb);
+  usb_msc.setCapacity(DISK_SIZE_BYTES / USB_BLOCK_SIZE, USB_BLOCK_SIZE);
+  //usb_msc.setUnitReady(false);
 
   
     usb_msc.setUnitReady(true);
