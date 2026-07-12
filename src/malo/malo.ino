@@ -121,7 +121,7 @@ void setup() {//core 0
 volatile bool is_core1_shutdown_request=false; //core0 flag to core1 to begin shutdown
 volatile bool is_core1_shutdown=false; //core1 flag to core0 that shutdown is complete
 void loop() { //core 0
-//  digitalWrite(PIN_DEBUG_R,millis()%200>=100);
+  pinMode(PIN_DEBUG_R,OUTPUT); digitalWrite(PIN_DEBUG_R,millis()%200>=100);
   //Serial.printf("core0 loop done: %d\n",sensor_suite.frame_id0);
   if(is_core1_shutdown && UniversalSerialBus::get_mounted())
   {//in usb mode, file system exposed only, all other activity silenced
@@ -157,7 +157,7 @@ void __not_in_flash_func(setup1()){ //core 1
 
 volatile uint32_t frame_id1=0xFFFFFFFF;
 void __not_in_flash_func(loop1)(){ //core 1
-//  digitalWrite(PIN_DEBUG_G,millis()%200<100);
+  pinMode(PIN_DEBUG_G,OUTPUT); digitalWrite(PIN_DEBUG_G,millis()%200<100);
 //  Serial.printf("core1 loop done: %d, %d\n",sensor_suite.frame_id1,sensor_suite.touch.get_down_button());
 
   do{
@@ -170,22 +170,31 @@ void __not_in_flash_func(loop1)(){ //core 1
   {
     if(!is_core1_shutdown_request)
     {
+      Serial.printf("core1 sensor_suite.imu.update...\n");
       sensor_suite.imu.update(); //before scatterer-gather enginer resets buffers (does introduce some additional timing jitter on the scatterer-gatherers...)
+      Serial.printf("core1 sensor_suite.scatterer_gatherer_engine_screen.compileAndRun...\n");
       sensor_suite.scatterer_gatherer_engine_screen.compileAndRun();//frame_id1);
+      Serial.printf("core1 sensor_suite.scatterer_gatherer_engine_general.compileAndRun...\n");
       sensor_suite.scatterer_gatherer_engine_general.compileAndRun();//frame_id1);
+      Serial.printf("core1 sensor_suite.touch.update...\n");
       sensor_suite.touch.update(frame_id1);//kicked off very near the beginning of the frame, normally it takes core0 notably longer to compute what to display on the screen
+      Serial.printf("core1 sensor_suite.microphone.update...\n");
       sensor_suite.microphone.update();
+      Serial.printf("core1 sensor_suite.decoder_ir_rxd.update...\n");
       sensor_suite.decoder_ir_rxd.update();
+      Serial.printf("core1 sensor_suite.ir_txd.update...\n");
       sensor_suite.ir_txd.update(); //status led of txd
       //digitalWrite(VIBRATION_MOTOR_PIN,ensor_suite.touch.get_down_button()>0);
 
       //sensor_suite.touch.debug();
-      Serial.printf("imu_c: %.2f, fifo: %d, ",sensor_suite.imu.get_celsius(),sensor_suite.imu.get_fifo_sample_count());
+      Serial.printf("core1 imu_c: %.2f, fifo: %d, ",sensor_suite.imu.get_celsius(),sensor_suite.imu.get_fifo_sample_count());
       Serial.printf("mic: %5.2f, touch: %d, ",sensor_suite.microphone.get_mean_square(),sensor_suite.touch.get_down_button());
       Serial.printf("accel [%d]: %0.2f, %0.2f, %0.2f, gyro: %0.2f, %0.2f, %0.2f, light: %d\n",sensor_suite.imu.get_fifo_sample_count(),sensor_suite.imu.get_accel(0),sensor_suite.imu.get_accel(1),sensor_suite.imu.get_accel(2),sensor_suite.imu.get_gyro(0),sensor_suite.imu.get_gyro(1),sensor_suite.imu.get_gyro(2),sensor_suite.light_sensor.getBrightness());
       //sensor_suite.decoder_ir_rxd.debug();
       sensor_suite.decoder_ir_rxd_ws2812.debug();
+      Serial.printf("core1 sensor_suite.ir_txd.debug...\n");
       sensor_suite.ir_txd.debug(frame_id1);
+      Serial.printf("core1 sensor_suite.ir_txd.debug done...\n");
 
     }else{
       sensor_suite.screen_manager.end();

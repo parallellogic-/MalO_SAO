@@ -106,10 +106,161 @@ MenuScreen::MenuScreen(const std::string& title, lv_group_t* shared_input_group,
   lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_HIDDEN);
 }
 
+/*void MenuScreen::_label_icon_draw_cb(lv_event_t * e) {
+    if (e == nullptr) return;
+
+    // 1. Only process during the active rendering window phase
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code != LV_EVENT_DRAW_MAIN && code != LV_EVENT_DRAW_POST) return;
+
+    lv_obj_t * lbl = static_cast<lv_obj_t*>(lv_event_get_user_data(e));
+    if (lbl == nullptr) return;
+
+    lv_layer_t * layer = lv_event_get_layer(e);
+    if (layer == nullptr) return;
+    
+    ScreenContext* context = static_cast<ScreenContext*>(lv_obj_get_user_data(lbl));
+    if (!context || !context->target_subscreen) return;
+    if (context->host_menu->get_screen_config() != ScreenConfig::SCREEN_SAVER) return;
+    std::shared_ptr<ScreenSaver> screensaver = std::static_pointer_cast<ScreenSaver>(context->target_subscreen);
+
+    const lv_image_dsc_t* active_icon = screensaver->is_locked() ? &icon_lock_dsc : &icon_unlock_dsc;
+
+    lv_area_t txt_area;
+    lv_obj_get_coords(lbl, &txt_area);
+    
+    int32_t lbl_h = lv_obj_get_height(lbl);
+    if (lbl_h <= 0) return;
+
+    lv_area_t img_area;
+    img_area.x1 = txt_area.x1 + 2;
+    img_area.y1 = txt_area.y1 + ((lbl_h - 10) / 2);
+    img_area.x2 = img_area.x1 + 10 - 1;
+    img_area.y2 = img_area.y1 + 10 - 1;
+
+    if (img_area.x2 < img_area.x1 || img_area.y2 < img_area.y1) return;
+
+    // =======================================================
+    // ⚡ BYPASS PIPELINE VIA SYNCHRONOUS INLINE LAYER INJECTION
+    // =======================================================
+
+    // Initialize an image descriptor variant specifically for layer composition
+    lv_draw_image_dsc_t img_dsc;
+    lv_draw_image_dsc_init(&img_dsc);
+    img_dsc.src = active_icon;
+
+    if (lv_obj_has_state(lbl, LV_STATE_FOCUSED)) {
+        // Safe to use here because img_dsc is an image descriptor variant type
+        img_dsc.blend_mode = LV_BLEND_MODE_SUBTRACTIVE;
+    }
+
+    // Direct synchronous draw injection: paints layer to display instantly
+    lv_draw_layer(layer, &img_dsc, &img_area);//hangs intermittently
+}*/
+
+void MenuScreen::_label_icon_draw_cb(lv_event_t * e) {
+    if (e == nullptr) return;
+
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code != LV_EVENT_DRAW_MAIN && code != LV_EVENT_DRAW_POST) return;
+
+    lv_obj_t * lbl = static_cast<lv_obj_t*>(lv_event_get_user_data(e));
+    lv_layer_t * layer = lv_event_get_layer(e);
+    if (lbl == nullptr || layer == nullptr) return;
+    
+    ScreenContext* context = static_cast<ScreenContext*>(lv_obj_get_user_data(lbl));
+    if (!context || !context->target_subscreen) return;
+    if (context->host_menu->get_screen_config() != ScreenConfig::SCREEN_SAVER) return;
+    std::shared_ptr<ScreenSaver> screensaver = std::static_pointer_cast<ScreenSaver>(context->target_subscreen);
+
+    // 1. Unpack the raw uint8_t byte array pointer directly from the image descriptor
+    const lv_image_dsc_t* active_icon = screensaver->is_locked() ? &icon_lock_dsc : &icon_unlock_dsc;
+    const uint8_t* raw_bytes = active_icon->data;
+    if (raw_bytes == nullptr) return;
+
+    lv_area_t txt_area;
+    lv_obj_get_coords(lbl, &txt_area);
+    
+    int32_t lbl_h = lv_obj_get_height(lbl);
+    if (lbl_h <= 0) return;
+
+    // Calculate baseline top-left starting location for the 10x10 block
+    int32_t start_x = txt_area.x1 + 2;
+    int32_t start_y = txt_area.y1 + ((lbl_h - 10) / 2);
+
+    // 2. Initialize a geometry rectangle descriptor for a 1x1 solid pixel block
+    lv_draw_rect_dsc_t pixel_dsc;
+    lv_draw_rect_dsc_init(&pixel_dsc);
+    pixel_dsc.bg_color = lv_color_white(); // Or your target color
+    
+    if (lv_obj_has_state(lbl, LV_STATE_FOCUSED)) {
+        // Primitive structures support standard blend modes in v9 through internal hooks
+        // If this field errors out, we can handle inversion using solid geometric fills instead
+        pixel_dsc.bg_opa = LV_OPA_COVER; 
+    } else {
+        pixel_dsc.bg_opa = LV_OPA_COVER;
+    }
+
+    bool invert=lv_obj_has_state(lbl, LV_STATE_FOCUSED);
+    
+    // ⚡ DYNAMIC BG COLOR COLORATION SWITCH
+    if (invert) {
+        // If focused (inverted mode on a white selector block), paint black pixels 
+        pixel_dsc.bg_color = lv_color_black(); 
+    } else {
+        // Normal mode (unfocused): paint white pixels onto the native screen layout
+        pixel_dsc.bg_color = lv_color_white(); 
+    }
+
+    lv_area_t pixel_area;
+    for (int32_t y = 0; y < 10; y++) {
+        for (int32_t x = 0; x < 10; x++) {
+            uint8_t pixel_intensity = raw_bytes[(y * 10) + x];
+
+            // Skip drawing completely transparent elements
+            if (pixel_intensity == 0x00) continue;
+
+            // Map the coordinates for the individual 1x1 point block
+            pixel_area.x1 = start_x + x;
+            pixel_area.y1 = start_y + y;
+            pixel_area.x2 = pixel_area.x1;
+            pixel_area.y2 = pixel_area.y1;
+
+            // Assign intensity safely as transparency opacity to preserve smoothing curves
+            pixel_dsc.bg_opa = pixel_intensity;
+
+            // Paint the geometry pixel block synchronously 
+            lv_draw_rect(layer, &pixel_dsc, &pixel_area);
+        }
+    }
+}
+
 void MenuScreen::_append_menu_item(const std::shared_ptr<Screen>& subscreen,const std::string& title)
 {
     lv_obj_t * lbl = lv_label_create(_lv_panel); 
     lv_label_set_text(lbl, title.c_str());
+
+    lv_label_set_text(lbl, title.c_str());
+    if(subscreen != nullptr && _screen_config == ScreenConfig::SCREEN_SAVER)
+    {
+        // Add 3 safe spaces to push the text title words cleanly out of the left gutter's way
+        //char buffer[128];
+        //snprintf(buffer, sizeof(buffer), "   %s", title.c_str());
+        //lv_label_set_text(lbl, title);
+        
+        // Attach the ScreenContext FIRST so the draw callback can access it
+        //ScreenContext* context = new ScreenContext{ subscreen, this };
+        //lv_obj_set_user_data(lbl, context);
+
+        // Register the lightweight graphics drawing hook
+        lv_obj_add_event_cb(lbl, _label_icon_draw_cb, LV_EVENT_DRAW_MAIN, lbl); //event draw is unstable because lv_draw_layer is intermittent errors.   lv_canvas_create is more immediate failures
+
+        lv_obj_set_style_pad_left(lbl, 16, LV_PART_MAIN); 
+    }
+    else
+    {
+        // Standard text layout configuration for non-screensaver items
+    }
     lv_obj_set_width(lbl, LV_PCT(100)); 
     lv_obj_add_flag(lbl, LV_OBJ_FLAG_CLICKABLE); 
     lv_obj_add_style(lbl, &_style_main, LV_STATE_DEFAULT); 
@@ -150,6 +301,12 @@ void MenuScreen::begin(bool is_enter_from_above)
   if(is_enter_from_above)
   {
     _saved_menu_index = 0; // Reset focus to top when entering a completely new menu instance
+
+    if(_screen_config==ScreenConfig::ANIMATIONS)
+    {
+      _update_action.led_upper_func=&Charlieplex::animation_off;
+      _update_action.led_lower_func=&Charlieplex::animation_off;
+    }
 
     _menu_items.clear(); // Wipe out pointers from previous allocations
 
@@ -559,8 +716,8 @@ void ScreenSaver::begin(bool is_enter_from_above)
   Screen::begin(is_enter_from_above);
   if(_input_group != nullptr) lv_group_add_obj(_input_group, _lv_panel); //register button pushes
 
-  _update_action.led_upper_func=&Charlieplex::animation_off; //default to all ledds OFF, can be overriden depending on the animation
-  _update_action.led_lower_func=&Charlieplex::animation_off;
+  //_update_action.led_upper_func=&Charlieplex::animation_off; //default to all ledds OFF, can be overriden depending on the animation
+  //_update_action.led_lower_func=&Charlieplex::animation_off;
 
   if (is_enter_from_above)
   {
@@ -608,6 +765,8 @@ void ScreenSaver::begin(bool is_enter_from_above)
   }
 
   _frame_index=255;//trigger an immediaate redraw upon entering frame
+  _frame_order_index=0;
+  _frame_elapsed=0;
 }
 
 
@@ -698,6 +857,8 @@ void ScreenSaver::end(bool is_leaving_upward)
 
     // 4. Reset safe runtime indexing states
     _frame_index = 255;
+    _frame_order_index=0;
+    _frame_elapsed=0;
   }
 
   // 5. Always chain up to the base class to allow the layout engine to finalize transition actions
