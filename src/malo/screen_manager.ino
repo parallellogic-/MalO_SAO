@@ -20,8 +20,28 @@ void ScreenManager::_set_menu_structure()
   auto box_screen        = std::make_shared<MenuScreen>("Box",_shared_input_group);         levels_screen->add_subscreen(box_screen);
   auto site19_screen     = std::make_shared<MenuScreen>("Site 19",_shared_input_group);     levels_screen->add_subscreen(site19_screen);
   
-  auto test_screen     = std::make_shared<ScreenSaver>("NSFW",_shared_input_group);     screen_screen->add_subscreen(test_screen);
-
+  //auto test_screen     = std::make_shared<ScreenSaver>("NSFW",_shared_input_group);     screen_screen->add_subscreen(test_screen);
+  auto champion_ss     = std::make_shared<ScreenSaver>("Champion",_shared_input_group);               screen_screen->add_subscreen(champion_ss);
+  auto chilly_ss       = std::make_shared<ScreenSaver>("Chilly",_shared_input_group);                 screen_screen->add_subscreen(chilly_ss);
+  auto defeated_ss     = std::make_shared<ScreenSaver>("Defeated",_shared_input_group);               screen_screen->add_subscreen(defeated_ss);
+  auto dance_ss        = std::make_shared<ScreenSaver>("Dance",_shared_input_group);                  screen_screen->add_subscreen(dance_ss);
+  auto dizzy_ss        = std::make_shared<ScreenSaver>("Dizzy",_shared_input_group);                  screen_screen->add_subscreen(dizzy_ss);
+  auto guilty_ss       = std::make_shared<ScreenSaver>("Evil",_shared_input_group);                   screen_screen->add_subscreen(guilty_ss);
+  auto exhausted_ss    = std::make_shared<ScreenSaver>("Exhausted",_shared_input_group);              screen_screen->add_subscreen(exhausted_ss);
+  auto food_ss         = std::make_shared<ScreenSaver>("Favorite Food",_shared_input_group);          screen_screen->add_subscreen(food_ss);
+  auto hacker_ss       = std::make_shared<ScreenSaver>("Hacker BSOD",_shared_input_group);            screen_screen->add_subscreen(hacker_ss);
+  auto heatwave_ss     = std::make_shared<ScreenSaver>("Heat Wave",_shared_input_group);              screen_screen->add_subscreen(heatwave_ss);
+  auto innocent_ss     = std::make_shared<ScreenSaver>("Innocent",_shared_input_group);               screen_screen->add_subscreen(innocent_ss);
+  auto quiet_ss        = std::make_shared<ScreenSaver>("It Is Quiet",_shared_input_group);            screen_screen->add_subscreen(quiet_ss);
+  auto quiet2_ss       = std::make_shared<ScreenSaver>("It Is Too Quiet",_shared_input_group);        screen_screen->add_subscreen(quiet2_ss);
+  auto know_ss         = std::make_shared<ScreenSaver>("Know MalO",_shared_input_group);              screen_screen->add_subscreen(know_ss);
+  auto magnetic_ss     = std::make_shared<ScreenSaver>("Magnetic Personality",_shared_input_group);   screen_screen->add_subscreen(magnetic_ss);
+  auto message_rxd_ss  = std::make_shared<ScreenSaver>("Message Received",_shared_input_group);       screen_screen->add_subscreen(message_rxd_ss);
+  auto message_sent_ss = std::make_shared<ScreenSaver>("Message Sent",_shared_input_group);           screen_screen->add_subscreen(message_sent_ss);
+  auto loser_ss        = std::make_shared<ScreenSaver>("Loser",_shared_input_group);                  screen_screen->add_subscreen(loser_ss);
+  auto lean_ss         = std::make_shared<ScreenSaver>("Snooper Booper",_shared_input_group);         screen_screen->add_subscreen(lean_ss);
+  auto tanning_ss      = std::make_shared<ScreenSaver>("Soaking Up Rays",_shared_input_group);        screen_screen->add_subscreen(tanning_ss);
+  auto winner_ss       = std::make_shared<ScreenSaver>("Winner",_shared_input_group); 
 
   auto mount_usb_screen  = std::make_shared<MenuScreen>("Mount USB",_shared_input_group,ScreenConfig::MOUNT_USB);     settings_screen->add_subscreen(mount_usb_screen);
   

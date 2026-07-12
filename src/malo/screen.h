@@ -75,6 +75,7 @@ class Screen{
 
 class MenuScreen : public Screen{
   private:
+    uint8_t _saved_menu_index = 0; //last item selected when headed to a lower submenu - will be re-loaded when user pops back up here
     std::vector<lv_obj_t*> _menu_items;
     static lv_style_t _style_main;
     static lv_style_t _style_focused;
@@ -109,7 +110,7 @@ class ScreenSaver : public Screen { //display a looping animation
     std::vector<uint8_t> _frame_duration;//how many frames at 60 FPS to show this image on the screen for (1= 16.6 ms, 2=30 ms, 4=60 ms...)
     std::vector<uint8_t> _frame_order;//list of which frames to show in what order (can show the same frame multiple times in one animation).  last value is which index within THIS list to jump to on completion
     //std::string _root_name=nullptr;//base name of the animation being shown.  will append "_%03d.cmp" at end to get image filename, and ".txt" to get config file
-    std::vector<uint8_t> _pixel_list;//SCREEN_WIDTH_PX*SCREEN_HEIGHT_PX
+    static uint8_t _pixel_list[SCREEN_WIDTH_PX*SCREEN_HEIGHT_PX];
     uint8_t _frame_index=255;//position within _frame_duration list
     uint8_t _frame_order_index=0;//position within the _frame_order list
     uint8_t _frame_elapsed=0;//how many 60 FPS periods have elapsed in the current aniamtion frame

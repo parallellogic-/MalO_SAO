@@ -3,6 +3,7 @@
 lv_style_t MenuScreen::_style_main;
 lv_style_t MenuScreen::_style_focused;
 bool MenuScreen::_styles_initialized = false;
+uint8_t ScreenSaver::_pixel_list[SCREEN_WIDTH_PX*SCREEN_HEIGHT_PX];
 
 Screen::Screen(const std::string& title, lv_group_t* shared_input_group,ScreenConfig screen_config): _title(title), _input_group(shared_input_group), _screen_config(screen_config) {
   //Serial.printf("Screen START\n"); delay(10);
@@ -148,11 +149,7 @@ void MenuScreen::begin(bool is_enter_from_above)
 
   if(is_enter_from_above)
   {
-    if(_screen_config==ScreenConfig::ANIMATIONS)
-    {
-      _update_action.led_upper_func=&Charlieplex::animation_off;
-      _update_action.led_lower_func=&Charlieplex::animation_off;
-    }
+    _saved_menu_index = 0; // Reset focus to top when entering a completely new menu instance
 
     _menu_items.clear(); // Wipe out pointers from previous allocations
 
@@ -189,12 +186,27 @@ void MenuScreen::begin(bool is_enter_from_above)
             }
         }
     }
+
+
   }
 
   // Focus the initial topmost list option
-  if (lv_obj_get_child_cnt(_lv_panel) > 0 && _input_group) {
+  /*if (lv_obj_get_child_cnt(_lv_panel) > 0 && _input_group) {
       lv_group_focus_obj(lv_obj_get_child(_lv_panel, 0));
-  }
+  }*/
+
+    // =======================================================
+    // FIX: RESTORE SPECIFIC ITEM FOCUS
+    // =======================================================
+    if (_input_group && !_menu_items.empty()) {
+        // Bounds check safety check to prevent out-of-bounds crashes
+        if (_saved_menu_index >= _menu_items.size()) {
+            _saved_menu_index = 0;
+        }
+        
+        // Directly focus the tracked menu item from our vector array
+        lv_group_focus_obj(_menu_items[_saved_menu_index]);
+    }
 
 
   /*if (_input_group) {
@@ -240,6 +252,21 @@ void MenuScreen::end(bool is_leaving_upward)
 {
     //Serial.printf("MenuScreen.end called %d\n", is_leaving_upward);
     
+    if (!is_leaving_upward && _input_group) 
+    {
+        lv_obj_t* focused_obj = lv_group_get_focused(_input_group);
+        _saved_menu_index = 0; 
+
+        for (size_t i = 0; i < _menu_items.size(); ++i) 
+        {
+            if (_menu_items[i] == focused_obj) 
+            {
+                _saved_menu_index = i;
+                break;
+            }
+        }
+    }
+
     // 1. Call base class end() lifecycle logic first
     Screen::end(is_leaving_upward);
 
@@ -480,6 +507,7 @@ ScreenSaver::ScreenSaver(const std::string& title, lv_group_t* shared_input_grou
 
 void ScreenSaver::_screensaver_event_cb(lv_event_t * e) {
     lv_event_code_t code = lv_event_get_code(e);
+    if (code != LV_EVENT_KEY && code != LV_EVENT_CLICKED) return; // Ignore all other events like RELEASED (19)
     ScreenSaver* screen = (ScreenSaver*)lv_event_get_user_data(e);
         
     if (screen != nullptr) {
@@ -512,12 +540,12 @@ void ScreenSaver::_screensaver_event_cb(lv_event_t * e) {
 
         // 3. EXECUTE EXHAUSTIVE TERMINATION AND EXIT
         if (should_exit) {
-            lv_indev_t * indev = lv_event_get_indev(e);
+            /*lv_indev_t * indev = lv_event_get_indev(e);
             if (indev != nullptr) {
                 // Kills the processing token for this frame slice completely, 
                 // leaving zero trailing artifacts for downstream consumers.
                 lv_indev_stop_processing(indev);
-            }
+            }*/
 
             Serial.println("ScreenSaver: Screen exiting cleanly.");
             screen->_update_action.type = ScreenActionType::POP_BACK;
@@ -540,9 +568,9 @@ void ScreenSaver::begin(bool is_enter_from_above)
 
     // 2. Clear out our pixel list vector data fields back to flat black
     //std::fill(_pixel_list.begin(), _pixel_list.end(), 0);
-    _pixel_list.resize(SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX); //init's dirty
+    //_pixel_list.resize(SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX); //init's dirty
     //if (_lv_canvas != nullptr) lv_canvas_set_buffer(_lv_canvas, _pixel_list.data(), SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX, LV_COLOR_FORMAT_L8);
-    if (_lv_panel != nullptr) lv_canvas_set_buffer(_lv_panel, _pixel_list.data(), SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX, LV_COLOR_FORMAT_L8);
+    if (_lv_panel != nullptr) lv_canvas_set_buffer(_lv_panel, _pixel_list, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX, LV_COLOR_FORMAT_L8);
 
     // 3. Open configuration file path using the parent _title string
     char config_filename[128];
@@ -608,7 +636,7 @@ ScreenAction ScreenSaver::update()
           }*/
           //Serial.printf("ScreenSaver local_file %s, %d, %d\n", filename_buffer,local_file.size(),_pixel_list.size()); //ScreenSaver local_file /animations/film_000.cmp, 16396, 16384 - todo: resize phsycial file to right size later...
           //Serial.printf("ScreenSaver _pixel_list  0x%02X, 0x%02X, 0x%02X, 0x%02X\n",_pixel_list[0],_pixel_list[1],_pixel_list[2],_pixel_list[3]);
-          local_file.read(_pixel_list.data(), SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX);
+          local_file.read(_pixel_list, SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX);
           //Serial.printf("ScreenSaver _pixel_list2 0x%02X, 0x%02X, 0x%02X, 0x%02X\n",_pixel_list[0],_pixel_list[1],_pixel_list[2],_pixel_list[3]); //valid contents found
           local_file.close();
 
@@ -658,8 +686,9 @@ void ScreenSaver::end(bool is_leaving_upward)
     Serial.printf("ScreenSaver Shutting Down Animation: %s\n", _title.c_str());
 
     // 3. Clear out and shrink dynamic vector memory to avoid heap fragmentation
-    _pixel_list.clear();
-    _pixel_list.shrink_to_fit();
+    //_pixel_list.clear();
+    //_pixel_list.shrink_to_fit();
+    memset(_pixel_list,0,sizeof(_pixel_list));
 
     _frame_duration.clear();
     _frame_duration.shrink_to_fit();

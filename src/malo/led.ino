@@ -300,6 +300,7 @@ void Charlieplex::animation_gyroscope(SensorSuite &sensor_suite)
 
 void Charlieplex::animation_menu_depth(SensorSuite &sensor_suite)
 {//show how deep the user is in the menu structure
+    set_max_effective_led_count(CHARLIPLEX_LED_COUNT/2);
     int8_t menu_depth=sensor_suite.screen_manager.get_screen_stack_depth();
     const uint8_t green=55;
     const uint8_t red=0;
