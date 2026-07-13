@@ -40,9 +40,9 @@ void ScreenManager::_set_menu_structure()
   INIT_SCREEN_SAVER(quiet2_ss,       "It Is Too Quiet");
   INIT_SCREEN_SAVER(know_ss,         "Know MalO");
   INIT_SCREEN_SAVER(magnetic_ss,     "Magnetic Personality");
+  INIT_SCREEN_SAVER(loser_ss,        "MalO Wins");
   INIT_SCREEN_SAVER(message_rxd_ss,  "Message Received");
   INIT_SCREEN_SAVER(message_sent_ss, "Message Sent");
-  INIT_SCREEN_SAVER(loser_ss,        "MalO Wins");
   INIT_SCREEN_SAVER(lean_ss,         "Snooper Booper");
   INIT_SCREEN_SAVER(tanning_ss,      "Soaking Up Rays");
   INIT_SCREEN_SAVER(winner_ss,       "Winner");
@@ -63,14 +63,14 @@ Serial.printf("screen_manager._push_screen\n");
 void ScreenManager::begin(SensorSuite &sensor_suite)
 {
   _sensor_suite = &sensor_suite;
-  Serial.printf("lv_init START...\n"); delay(10);
-  diag();
+  //Serial.printf("lv_init START...\n"); delay(10);
+  //diag();
 
   lv_init();
 
   _shared_input_group = lv_group_create();
-  Serial.printf("lv_group_create DONE: %p\n",(void*)_shared_input_group); delay(10);
-  diag();
+  //Serial.printf("lv_group_create DONE: %p\n",(void*)_shared_input_group); delay(10);
+  //diag();
 
   // Configure Display Setup
   lv_display_t * disp = lv_display_create(SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX);
@@ -111,6 +111,11 @@ void ScreenManager::begin(SensorSuite &sensor_suite)
   // -- make menu relationships --
 
   _set_menu_structure();
+
+  // === NEW: Initialize Header Structure Object ===
+  _system_header = std::make_unique<Header>(_sensor_suite);
+  _system_header->begin();
+
 
   //Serial.printf("screen_manager.begin() DONE\n"); delay(10);
 }
@@ -205,6 +210,10 @@ void ScreenManager::update()
   //Serial.printf("ScreenManager.update called\n");
   if (_screen_stack.empty()) return;
 
+    lv_mem_monitor_t mon;
+    lv_mem_monitor(&mon);
+  _sensor_suite->lvgl_memory_percent=mon.used_pct;
+
   if(_last_update_ms==0) _last_update_ms=millis();//bootup
   uint32_t current_time_ms=millis();
   lv_tick_inc(current_time_ms-_last_update_ms);
@@ -232,6 +241,8 @@ void ScreenManager::update()
 
   ScreenAction action = _screen_stack.back()->update();
   //Serial.printf("ScreenManager.update type %d\n",action.type);
+  bool current_screen_allows_header = _screen_stack.back()->is_header();
+  if(_system_header != nullptr) _system_header->update(current_screen_allows_header);
 
   //fetch update to led generation function, if any
   if(action.led_upper_func != nullptr) _led_upper_func=action.led_upper_func;

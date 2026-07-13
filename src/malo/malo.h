@@ -14,6 +14,7 @@
 #include <Wire.h>
 #include "ir_rxd.h"
 #include "ir_txd.h"
+#include "analog.h"
 
 // -- define --
 
@@ -28,8 +29,12 @@
 
 struct SensorSuite{//bundle into an object to make easier to pass through graphics handling
   uint32_t frame_id;
+  uint32_t core0_frame_us; //frame generation time in microsectons
+  uint32_t core1_frame_us;
+  float lvgl_memory_percent;
 
   //Graphics graphics;
+  Analog analog;
   IMU imu;
   Charlieplex led_lower;
   Charlieplex led_upper;

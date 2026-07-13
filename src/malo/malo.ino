@@ -46,8 +46,12 @@
 
 SensorSuite sensor_suite = {
   .frame_id=0xFFFFFFFF,
+  .core0_frame_us=0,
+  .core1_frame_us=0,
+  .lvgl_memory_percent=0,
 
   //.graphics=Graphics(),
+  .analog=Analog(),
   .imu=IMU(),
   .led_lower=Charlieplex(0),
   .led_upper=Charlieplex(1),
@@ -96,6 +100,8 @@ void setup() {//core 0
   Wire.begin();
   Wire.setClock(I2C0_BAUD);
 
+  sensor_suite.analog.begin();
+  sensor_suite.scatterer_gatherer_engine_general.registerSource(&sensor_suite.analog);
   sensor_suite.light_sensor.begin();
   sensor_suite.scatterer_gatherer_engine_general.registerSource(&sensor_suite.light_sensor);
   sensor_suite.imu.begin();
@@ -125,8 +131,10 @@ volatile bool new_frame_ready = false;
 volatile bool is_core1_shutdown_request=false; //core0 flag to core1 to begin shutdown
 volatile bool is_core1_shutdown=false; //core1 flag to core0 that shutdown is complete
 void loop() { //core 0
-  pinMode(PIN_DEBUG_R,OUTPUT); digitalWrite(PIN_DEBUG_R,millis()%200>=100);
+  //pinMode(PIN_DEBUG_R,OUTPUT); digitalWrite(PIN_DEBUG_R,millis()%200>=100);
+
   //Serial.printf("core0 loop done: %d\n",sensor_suite.frame_id0);
+
   if(is_core1_shutdown && UniversalSerialBus::get_mounted())
   {//in usb mode, file system exposed only, all other activity silenced
     pinMode(PIN_DEBUG_R,OUTPUT);
@@ -151,6 +159,7 @@ void loop() { //core 0
     //if(sensor_suite.touch.get_down_button() && millis()>8000) UniversalSerialBus::set_mounted();
   }
   uint64_t end_us=time_us_64();
+  sensor_suite.core0_frame_us=(uint32_t)(end_us-frame_us);
   Serial.printf("core0 runtime us: %u, %5.1f%%\n",(uint32_t)(end_us-frame_us),(double)(end_us-frame_us)/166.6);
 }
 
@@ -163,7 +172,8 @@ void __not_in_flash_func(setup1()){ //core 1
 
 volatile uint32_t frame_id1=0xFFFFFFFF;
 void __not_in_flash_func(loop1)(){ //core 1
-  pinMode(PIN_DEBUG_G,OUTPUT); digitalWrite(PIN_DEBUG_G,millis()%200<100);
+  //pinMode(PIN_DEBUG_G,OUTPUT); digitalWrite(PIN_DEBUG_G,millis()%200<100);
+
 //  Serial.printf("core1 loop done: %d, %d\n",sensor_suite.frame_id1,sensor_suite.touch.get_down_button());
 
   /*do{
@@ -204,7 +214,7 @@ void __not_in_flash_func(loop1)(){ //core 1
       //Serial.printf("core1 sensor_suite.ir_txd.debug...\n");
       sensor_suite.ir_txd.debug(frame_id1);
       //Serial.printf("core1 sensor_suite.ir_txd.debug done...\n");
-
+      sensor_suite.analog.debug();
     }else{
       sensor_suite.screen_manager.end();
       sensor_suite.scatterer_gatherer_engine_screen.end();
@@ -224,5 +234,6 @@ void __not_in_flash_func(loop1)(){ //core 1
     Serial.println("core1 DONE");
   }
   uint64_t end_us=time_us_64();
+  sensor_suite.core1_frame_us=(uint32_t)(end_us-start_us);
   Serial.printf("core1 runtime us: %u, %5.1f%%\n",(uint32_t)(end_us-start_us),(double)(end_us-start_us)/166.6f);
 }

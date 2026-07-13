@@ -3,11 +3,15 @@
 #include <string>
 #include <vector>
 #include "universal_serial_bus_flash.h" //file operations
+#include <malloc.h> // Required for mallinfo()
 
 //WAS ~/Arduino/libraries/lv_conf.h
 //IS ~/Arduino/libraries/lvgl/src/lv_conf.h
 #define LV_CONF_INCLUDE_SIMPLE
 #include <lvgl.h> 
+
+#define HEADER_HEIGHT_PX 7
+#define HEADER_BAR_COUNT 5
 
 class Screen;
 
@@ -193,17 +197,41 @@ class ScreenSaver : public Screen { //display a looping animation
     //void set_locked(bool is_locked){ _is_locked=is_locked; }
 };
 
-/*class Header{
+class Header {
+private:
+    SensorSuite* _sensor_suite = nullptr;
+    
+    // LVGL Layout Widget Handles
+    lv_obj_t* _header_container = nullptr;
+    lv_obj_t* _bar_chart_container = nullptr;
+    lv_obj_t* _ticker_label = nullptr;
+    lv_obj_t* _battery_label = nullptr;
+    lv_obj_t* _bars[HEADER_BAR_COUNT]={};
+    uint8_t _last_heights[HEADER_BAR_COUNT]={};
+    
+    // Ticker State Machine variables
+    std::string _active_msg = "";
+    int32_t _ticker_x_pos = 0;
+    bool _is_ticker_running = false;
+    uint32_t _last_ticker_update_ms = 0;
 
+    // Helper utilities to build layout geometry blocks
+    void update_utilization_bars();
+    void update_battery_status();
+    void process_news_ticker();
+
+    float _temperature_c=23.0f;
+    float _voltage=3.3f;
+    uint8_t _frames_until_update=1;//count that counts down until an update to the values in the header is desired
+
+public:
+    // Constructor matching your pointer reference system
+    Header(SensorSuite* sensor_suite);
+    
+    // Called once inside ScreenManager to mount our sub-objects
+    void begin();
+    
+    // Executed continuous frame ticks down inside ScreenManager::update
+    void update(bool is_visible_on_current_screen);
 };
 
-class AchievementScreen{
-  private:
-
-  public:
-    AchievementScreen();
-};
-
-class LevelScreen{
-
-};*/

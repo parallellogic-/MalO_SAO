@@ -21,6 +21,8 @@ private:
     uint8_t _screen_buffer[SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX] __attribute__((aligned(4)));
     uint32_t _last_update_ms=0;
 
+    std::unique_ptr<Header> _system_header;
+
     std::vector<std::shared_ptr<Screen>> _screen_stack; //trace of the menus from the top to where the user currently is (dyanmically changes based on user interaction)
     //std::shared_ptr<Screen> _active_screen = nullptr;
     lv_obj_t* _screen_canvas = nullptr;

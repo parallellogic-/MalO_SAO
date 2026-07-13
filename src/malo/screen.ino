@@ -86,7 +86,12 @@ MenuScreen::MenuScreen(const std::string& title, lv_group_t* shared_input_group,
 
   // Create the baseline container panel matching your layout specifications
   _lv_panel = lv_obj_create(lv_screen_active()); 
-  lv_obj_set_size(_lv_panel, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX); 
+  if(is_header())
+  {
+    lv_obj_set_size(_lv_panel, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX-HEADER_HEIGHT_PX); 
+  }else{
+    lv_obj_set_size(_lv_panel, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX); 
+  }
   lv_obj_set_flex_flow(_lv_panel, LV_FLEX_FLOW_COLUMN); 
   lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_OVERFLOW_VISIBLE); 
   lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_SCROLLABLE); 
@@ -96,6 +101,8 @@ MenuScreen::MenuScreen(const std::string& title, lv_group_t* shared_input_group,
   lv_obj_set_style_bg_color(_lv_panel, lv_color_black(), LV_PART_MAIN); 
   lv_obj_set_style_border_width(_lv_panel, 0, LV_PART_MAIN); 
   lv_obj_set_style_pad_all(_lv_panel, 0, LV_PART_MAIN); 
+
+  if(is_header()) lv_obj_set_style_pad_top(_lv_panel, HEADER_HEIGHT_PX, LV_PART_MAIN);
 
   // FIX: Prevent objects from violently forcing adjustments onto your viewport coordinates
   //lv_obj_remove_flag(_lv_panel, LV_OBJ_FLAG_SCROLL_ON_FOCUS); 
@@ -914,27 +921,200 @@ void ScreenSaver::end(bool is_leaving_upward)
   Screen::end(is_leaving_upward);
 }
 
+// ---------------- Header ----------------------------
+
+Header::Header(SensorSuite* sensor_suite) : _sensor_suite(sensor_suite) {}
+
+    // 2. Create the scrolling news ticker text box layer
+    /*_ticker_label = lv_label_create(_header_container);
+    lv_obj_set_style_text_color(_ticker_label, lv_color_white(), 0);
+    lv_obj_set_style_text_font(_ticker_label, &lv_font_montserrat_8, 0); // Ultra-compact font
+    lv_obj_add_flag(_ticker_label, LV_OBJ_FLAG_HIDDEN);*/ // Hidden initially
+
+void Header::begin() {
+    if (_sensor_suite == nullptr) return;
+
+    // 1. Create top-aligned header strip (Height = 10px across full screen width)
+    _header_container = lv_obj_create(lv_screen_active());
+    lv_obj_set_size(_header_container, LV_PCT(100), HEADER_HEIGHT_PX);
+    lv_obj_align(_header_container, LV_ALIGN_TOP_MID, 0, 0);
+    
+    // Apply styling
+    lv_obj_set_style_bg_color(_header_container, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(_header_container, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(_header_container, 0, 0);
+    lv_obj_set_style_pad_all(_header_container, 0, 0);
+    lv_obj_set_style_radius(_header_container, 0, 0); // Disable radius
+    lv_obj_remove_flag(_header_container, LV_OBJ_FLAG_SCROLLABLE);
+
+    // 3. Create Left Sibling Object: Horizontal Utilization Bar Chart Container
+    /*_bar_chart_container = lv_obj_create(_header_container);
+    lv_obj_set_size(_bar_chart_container, 40, 8);
+    lv_obj_align(_bar_chart_container, LV_ALIGN_LEFT_MID, 2, 0);
+    lv_obj_set_style_bg_color(_bar_chart_container, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(_bar_chart_container, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(_bar_chart_container, 0, 0);
+    lv_obj_set_style_pad_all(_bar_chart_container, 0, 0);
+    lv_obj_set_style_radius(_bar_chart_container, 0, 0); // Disable radius
+    lv_obj_remove_flag(_bar_chart_container, LV_OBJ_FLAG_SCROLLABLE); // Prevent layout checks
+
+    int bar_width = 3;
+    int gap = 2;
+
+    for (int i = 0; i < HEADER_BAR_COUNT; i++) {
+        _bars[i] = lv_obj_create(_bar_chart_container);
+        
+        // Essential layout optimization rules
+        lv_obj_set_style_bg_opa(_bars[i], LV_OPA_COVER, 0);
+        lv_obj_set_style_border_width(_bars[i], 0, 0);
+        lv_obj_set_style_radius(_bars[i], 0, 0); // ⚡ TURN OFF ROUNDED CORNERS MATH!
+        lv_obj_remove_flag(_bars[i], LV_OBJ_FLAG_SCROLLABLE); // ⚡ Drop scroll engine validation
+
+        // Cache initial mock layout structures
+        _last_heights[i] = 0; // Declare 'int _last_heights[HEADER_BAR_COUNT];' in your header class h file
+        
+        lv_obj_set_size(_bars[i], bar_width, 1);
+        lv_obj_set_pos(_bars[i], i * (bar_width + gap), 8 - 1);
+    }*/
+    
+    // 4. Create Right Sibling Object: Battery Text/Icon Component
+    _battery_label = lv_label_create(_header_container);
+    lv_obj_align(_battery_label, LV_ALIGN_RIGHT_MID, -2, 0);
+    lv_obj_set_style_text_color(_battery_label, lv_color_white(), 0);
+    lv_obj_set_style_text_font(_battery_label, &lv_font_montserrat_8, 0);
+    lv_obj_set_style_bg_color(_battery_label, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(_battery_label, LV_OPA_COVER, 0);
+}
 
 
-/*void ScreenSaver::_on_focus(lv_group_t* input_group) {
-    // Screensavers don't contain list widgets, so leave this stub empty.
-    // This stops it from modifying your active LVGL input configuration groups.
-}*/
+void Header::update(bool is_visible_on_current_screen) {
+    if (_header_container == nullptr) return;
 
-//gameScreen:
-/*   
- void on_focus(lv_group_t* input_group) override {
-        lv_group_remove_all_objs(input_group); // Disables LVGL UI selection entirely
+    // === FIX: Force the header container to sit atop all sibling menu widgets ===
+    //lv_obj_move_foreground(_header_container);
+
+    // Toggle entire visibility loop state based on active stack capability
+    if (!is_visible_on_current_screen) {
+        lv_obj_add_flag(_header_container, LV_OBJ_FLAG_HIDDEN);
+        return;
     }
+    lv_obj_remove_flag(_header_container, LV_OBJ_FLAG_HIDDEN);
 
-    void handle_input(uint32_t key, bool is_pressed) override {
-        if (!is_pressed) return;
+    // Core sub-component update tick cycles
+    //update_utilization_bars(); //--> 100% utilization kick
+    if(_frames_until_update==0)
+    {
+      update_battery_status();
+      //process_news_ticker();
+      _frames_until_update=60;
+    }
+    _frames_until_update--;
 
-        switch(key) {
-            case LV_KEY_LEFT:  move_player(-1, 0); break;
-            case LV_KEY_RIGHT: move_player(1, 0);  break;
-            case LV_KEY_ENTER: fire_laser();       break;
+//    lv_obj_invalidate(_header_container); //observe artifacts at top of screen without this --> 40% utilization, plush crash risk
+}
+
+void Header::update_utilization_bars() {
+    uint32_t total_heap = rp2040.getTotalHeap();
+    uint32_t free_heap = rp2040.getFreeHeap();
+    struct mallinfo mi = mallinfo();
+
+    int bar_width = 3;
+    int gap = 2;
+
+    // Use a pre-calculated multiplier to replace slower division: (HEADER_HEIGHT_PX / 100.0f)
+    const float height_multiplier = (float)HEADER_HEIGHT_PX * 0.01f;
+
+    for (int i = 0; i < HEADER_BAR_COUNT; i++) {
+        float percentage = 50.0f; 
+        
+        if (i == 0) percentage = _sensor_suite->core0_frame_us * 100.0f / 16666.0f;
+        else if (i == 1) percentage = _sensor_suite->core1_frame_us * 100.0f / 16666.0f;
+        else if (i == 2) percentage = _sensor_suite->lvgl_memory_percent;
+        else if (i == 3) percentage = free_heap * 100.0f / total_heap;
+        else if (i == 4) {
+            float largestBlock = (float)mi.keepcost; 
+            percentage = 100.0f - (largestBlock * 100.0f / total_heap);
+        }
+
+        // Fast height translation math
+        int bar_height = (int)(percentage * height_multiplier);
+        if (bar_height < 1) bar_height = 1;
+        else if (bar_height > HEADER_HEIGHT_PX) bar_height = HEADER_HEIGHT_PX;
+
+        // ⚡ CHANGE GUARD: If the value did not change, do nothing!
+        if (_last_heights[i] == bar_height) {
+            continue; 
+        }
+        _last_heights[i] = bar_height; // Cache new height state
+
+        lv_obj_t* line_bar = _bars[i];
+        
+        // These execution paths only run if the height changes
+        lv_obj_set_size(line_bar, bar_width, bar_height);
+        lv_obj_set_pos(line_bar, i * (bar_width + gap), 8 - bar_height);
+        
+        lv_color_t target_color = (bar_height == HEADER_HEIGHT_PX) ? lv_color_white() : lv_color_hex(0x808080);
+        lv_obj_set_style_bg_color(line_bar, target_color, 0);
+    }
+}
+
+
+
+void Header::update_battery_status() {
+    float voltage = _sensor_suite->analog.get_vcc();//_sensor_suite->battery_voltage; 
+    float temperature_c = _sensor_suite->analog.get_internal_celsius();
+    
+    // Assign custom character symbols depending on structural voltage ranges
+    const char* symbol = " "; // Full Default
+    if (voltage < 2.7f) {
+        symbol = "E"; // Empty
+    }/* else if (voltage < 3.0f) {
+        symbol = " "; // Half-full
+    }*/
+
+    static char battery_buffer[32];
+    // Map string outputs cleanly using the direct grayscale metrics standard format
+    snprintf(battery_buffer, sizeof(battery_buffer), "%dC %0.1fV %s", (uint8_t)temperature_c, voltage, symbol);
+    lv_label_set_text(_battery_label, battery_buffer);
+}
+
+void Header::process_news_ticker() {
+    // 1. Interrupt Check: Detect a fresh message from incoming IR buffer streams
+    if (!_is_ticker_running && false/*_sensor_suite->has_new_ir_msg*/) {
+        _active_msg = "placeholder_ir_message";//_sensor_suite->get_last_ir_msg();
+        /*_sensor_suite->has_new_ir_msg = false;*/ // Consume flag loop trace
+        
+        if (!_active_msg.empty()) {
+            lv_label_set_text(_ticker_label, _active_msg.c_str());
+            lv_obj_remove_flag(_ticker_label, LV_OBJ_FLAG_HIDDEN);
+            
+            // Start completely off-screen right (Pico base display standard width width edge boundary)
+            _ticker_x_pos = lv_obj_get_width(lv_screen_active());
+            lv_obj_set_pos(_ticker_label, _ticker_x_pos, 1);
+            
+            _is_ticker_running = true;
+            _last_ticker_update_ms = millis();
         }
     }
-*/
 
+    // 2. Linear Position Animation Step Ticks
+    if (_is_ticker_running) {
+        uint32_t now = millis();
+        if (now - _last_ticker_update_ms >= 16) { // ~60FPS translation velocity
+            _last_ticker_update_ms = now;
+            _ticker_x_pos -= 1; // Move leftwards 1 pixel per frame pass
+
+            lv_obj_set_pos(_ticker_label, _ticker_x_pos, 1);
+
+            // Compute structural text content width limits dynamically 
+            int32_t text_width = lv_obj_get_width(_ticker_label);
+            
+            // 3. Destructor Check: Vanish once text completely exits the left screen boundaries
+            if (_ticker_x_pos < -text_width) {
+                lv_obj_add_flag(_ticker_label, LV_OBJ_FLAG_HIDDEN);
+                _is_ticker_running = false;
+                _active_msg = "";
+            }
+        }
+    }
+}
