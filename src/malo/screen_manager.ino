@@ -74,7 +74,7 @@ void ScreenManager::begin(SensorSuite &sensor_suite)
 
   // Configure Display Setup
   lv_display_t * disp = lv_display_create(SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX);
-  lv_display_set_buffers(disp, _canvas_buffer, NULL, sizeof(_canvas_buffer), LV_DISPLAY_RENDER_MODE_PARTIAL);
+  lv_display_set_buffers(disp, _canvas_buffer, NULL, sizeof(_canvas_buffer), LV_DISPLAY_RENDER_MODE_FULL);
   lv_display_set_user_data(disp, this); 
   lv_display_set_flush_cb(disp, ScreenManager::_display_flush_cb);
 
@@ -165,7 +165,7 @@ void ScreenManager::_button_read_cb(lv_indev_t * indev, lv_indev_data_t * data) 
         case 10: data->key = LV_KEY_RIGHT; break;//right
         default: break;
     }
-    lv_obj_invalidate(lv_screen_active());//work-around for sticky menu that shows selected option at the top of the screen instead of the middle where it should be
+    //lv_obj_invalidate(lv_screen_active());//work-around for sticky menu that shows selected option at the top of the screen instead of the middle where it should be
 }
 
 // Custom function to process the canvas buffer, pack upper nibbles, and transmit

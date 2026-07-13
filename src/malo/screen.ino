@@ -1048,9 +1048,8 @@ void Header::update_utilization_bars() {
         _last_heights[i] = bar_height; // Cache new height state
 
         lv_obj_t* line_bar = _bars[i];
-        
         // These execution paths only run if the height changes
-        lv_obj_set_size(line_bar, bar_width, bar_height);
+        lv_obj_set_size(line_bar, bar_width, bar_height); //adds 60% processing overhead
         lv_obj_set_pos(line_bar, i * (bar_width + gap), 8 - bar_height);
         
         lv_color_t target_color = (bar_height == HEADER_HEIGHT_PX) ? lv_color_white() : lv_color_hex(0x808080);
