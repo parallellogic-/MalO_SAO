@@ -151,7 +151,7 @@ void loop() { //core 0
     //if(sensor_suite.touch.get_down_button() && millis()>8000) UniversalSerialBus::set_mounted();
   }
   uint64_t end_us=time_us_64();
-  Serial.printf("core0 runtime us: %u, %.2f%%\n",(uint32_t)(end_us-frame_us),(double)(end_us-frame_us)/166.6);
+  Serial.printf("core0 runtime us: %u, %5.1f%%\n",(uint32_t)(end_us-frame_us),(double)(end_us-frame_us)/166.6);
 }
 
 void __not_in_flash_func(setup1()){ //core 1
@@ -179,31 +179,31 @@ void __not_in_flash_func(loop1)(){ //core 1
   {
     if(!is_core1_shutdown_request)
     {
-      Serial.printf("core1 sensor_suite.imu.update...\n");
+      //Serial.printf("core1 sensor_suite.imu.update...\n");
       sensor_suite.imu.update(); //before scatterer-gather enginer resets buffers (does introduce some additional timing jitter on the scatterer-gatherers...)
-      Serial.printf("core1 sensor_suite.scatterer_gatherer_engine_screen.compileAndRun...\n");
+      //Serial.printf("core1 sensor_suite.scatterer_gatherer_engine_screen.compileAndRun...\n");
       sensor_suite.scatterer_gatherer_engine_screen.compileAndRun();//frame_id1);
-      Serial.printf("core1 sensor_suite.scatterer_gatherer_engine_general.compileAndRun...\n");
+      //Serial.printf("core1 sensor_suite.scatterer_gatherer_engine_general.compileAndRun...\n");
       sensor_suite.scatterer_gatherer_engine_general.compileAndRun();//frame_id1);
-      Serial.printf("core1 sensor_suite.touch.update...\n");
+      //Serial.printf("core1 sensor_suite.touch.update...\n");
       sensor_suite.touch.update(frame_id1);//kicked off very near the beginning of the frame, normally it takes core0 notably longer to compute what to display on the screen
-      Serial.printf("core1 sensor_suite.microphone.update...\n");
+      //Serial.printf("core1 sensor_suite.microphone.update...\n");
       sensor_suite.microphone.update();
-      Serial.printf("core1 sensor_suite.decoder_ir_rxd.update...\n");
+      //Serial.printf("core1 sensor_suite.decoder_ir_rxd.update...\n");
       sensor_suite.decoder_ir_rxd.update();
-      Serial.printf("core1 sensor_suite.ir_txd.update...\n");
+      //Serial.printf("core1 sensor_suite.ir_txd.update...\n");
       sensor_suite.ir_txd.update(); //status led of txd
       //digitalWrite(VIBRATION_MOTOR_PIN,ensor_suite.touch.get_down_button()>0);
 
       //sensor_suite.touch.debug();
-      Serial.printf("core1 imu_c: %.2f, fifo: %d, ",sensor_suite.imu.get_celsius(),sensor_suite.imu.get_fifo_sample_count());
-      Serial.printf("mic: %5.2f, touch: %d, ",sensor_suite.microphone.get_mean_square(),sensor_suite.touch.get_down_button());
-      Serial.printf("accel [%d]: %0.2f, %0.2f, %0.2f, gyro: %0.2f, %0.2f, %0.2f, light: %d\n",sensor_suite.imu.get_fifo_sample_count(),sensor_suite.imu.get_accel(0),sensor_suite.imu.get_accel(1),sensor_suite.imu.get_accel(2),sensor_suite.imu.get_gyro(0),sensor_suite.imu.get_gyro(1),sensor_suite.imu.get_gyro(2),sensor_suite.light_sensor.getBrightness());
+      Serial.printf("core1 imu_c: %5.2f, fifo: %2d, ",sensor_suite.imu.get_celsius(),sensor_suite.imu.get_fifo_sample_count());
+      Serial.printf("mic: %5.2f, touch: %2d, ",sensor_suite.microphone.get_mean_square(),sensor_suite.touch.get_down_button());
+      Serial.printf("accel [%d]: %6.2f, %6.2f, %6.2f, gyro: %6.2f, %6.2f, %6.2f, light: %5d\n",sensor_suite.imu.get_fifo_sample_count(),sensor_suite.imu.get_accel(0),sensor_suite.imu.get_accel(1),sensor_suite.imu.get_accel(2),sensor_suite.imu.get_gyro(0),sensor_suite.imu.get_gyro(1),sensor_suite.imu.get_gyro(2),sensor_suite.light_sensor.getBrightness());
       //sensor_suite.decoder_ir_rxd.debug();
       sensor_suite.decoder_ir_rxd_ws2812.debug();
-      Serial.printf("core1 sensor_suite.ir_txd.debug...\n");
+      //Serial.printf("core1 sensor_suite.ir_txd.debug...\n");
       sensor_suite.ir_txd.debug(frame_id1);
-      Serial.printf("core1 sensor_suite.ir_txd.debug done...\n");
+      //Serial.printf("core1 sensor_suite.ir_txd.debug done...\n");
 
     }else{
       sensor_suite.screen_manager.end();
@@ -224,5 +224,5 @@ void __not_in_flash_func(loop1)(){ //core 1
     Serial.println("core1 DONE");
   }
   uint64_t end_us=time_us_64();
-  Serial.printf("core1 runtime us: %u, %.2f%%, touch: %d\n",(uint32_t)(end_us-start_us),(double)(end_us-start_us)/166.6f,sensor_suite.touch.get_down_button());
+  Serial.printf("core1 runtime us: %u, %5.1f%%\n",(uint32_t)(end_us-start_us),(double)(end_us-start_us)/166.6f);
 }

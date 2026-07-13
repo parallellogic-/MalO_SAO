@@ -310,5 +310,21 @@ struct SaveState {
         seen |= mask;
         return true;
     }
+
+    const std::string* get_first_unseen_achievement() const {
+        for (size_t i = 0; i < ACHIEVEMENT_COUNT; ++i) {
+            // Unlocked but NOT seen criteria check
+            bool unlocked = (unlocks & (1UL << i)) != 0;
+            bool is_seen = (seen & (1UL << i)) != 0;
+
+            if (unlocked && !is_seen) {
+                // Static ensures the object persists after returning from this scope
+                static std::string found_name; 
+                found_name = ACHIEVEMENTS[i];
+                return &found_name;
+            }
+        }
+        return nullptr; // No matching achievements found
+    }
 };
 #pragma pack(pop)

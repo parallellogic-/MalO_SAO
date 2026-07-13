@@ -1,20 +1,22 @@
 #include "game.h"
 
-/*Game::Game():Screen(){}
+Game::Game(const std::string& text, lv_group_t* shared_input_group) : Screen(text, shared_input_group) {}
 
-TicTacToe::TicTacToe():Game(){}
-
-void TicTacToe::begin()
+void Game::begin(bool is_enter_from_above) 
 {
-
+    // Chain up to the base Screen class so it handles visibility/layouts
+    Screen::begin(is_enter_from_above); 
 }
 
-ScreenAction TicTacToe::update()
+
+ScreenAction Game::update() 
 {
-  
+    // Chain up to the base Screen class so it handles visibility/layouts
+    return _update_action;
 }
 
-void TicTacToe::end()
+void Game::end(bool is_leaving_upward) 
 {
-  
-}*/
+    // Chain up to the base Screen class to handle tear-down
+    Screen::end(is_leaving_upward);
+}

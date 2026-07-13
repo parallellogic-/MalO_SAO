@@ -16,13 +16,13 @@ void ScreenManager::_set_menu_structure()
   auto lower_led_screen  = std::make_shared<MenuScreen>("Lower LEDs",_shared_input_group,ScreenConfig::LED_LOWER);  animations_screen->add_subscreen(lower_led_screen);
   auto screen_screen     = std::make_shared<MenuScreen>("Screen",_shared_input_group,ScreenConfig::SCREEN_SAVER);   animations_screen->add_subscreen(screen_screen);
   
-  auto tictactoe_screen  = std::make_shared<MenuScreen>("TicTacToe",_shared_input_group);   levels_screen->add_subscreen(tictactoe_screen);
+  auto tictactoe_screen  = std::make_shared<TicTacToe>("TicTacToe",_shared_input_group);   levels_screen->add_subscreen(tictactoe_screen);
   auto box_screen        = std::make_shared<MenuScreen>("Box",_shared_input_group);         levels_screen->add_subscreen(box_screen);
   auto site19_screen     = std::make_shared<MenuScreen>("Site 19",_shared_input_group);     levels_screen->add_subscreen(site19_screen);
   
 
   #define INIT_SCREEN_SAVER(var_name, title_str) \
-      auto var_name = std::make_shared<ScreenSaver>(title_str, _shared_input_group,&(_sensor_suite->save_state)); \
+      auto var_name = std::make_shared<ScreenSaver>(title_str, _shared_input_group,&(_sensor_suite->save_state),false); \
       screen_screen->add_subscreen(var_name);
 
   INIT_SCREEN_SAVER(champion_ss,     "Champion");
@@ -50,6 +50,9 @@ void ScreenManager::_set_menu_structure()
 
   auto mount_usb_screen  = std::make_shared<MenuScreen>("Mount USB",_shared_input_group,ScreenConfig::MOUNT_USB);     settings_screen->add_subscreen(mount_usb_screen);
   
+  auto pause_screen  = std::make_shared<MenuScreen>("Pause",_shared_input_group,ScreenConfig::LED_UPPER);
+      tictactoe_screen->add_subscreen(pause_screen);
+  auto resume_key    = std::make_shared<MenuScreen>("Resume",_shared_input_group,ScreenConfig::LED_UPPER);  pause_screen->add_subscreen(resume_key);
 
 
 
@@ -89,7 +92,7 @@ void ScreenManager::begin(SensorSuite &sensor_suite)
       lv_obj_align(_screen_canvas, LV_ALIGN_CENTER, 0, 0);
       lv_obj_add_flag(_screen_canvas, LV_OBJ_FLAG_HIDDEN); 
   }
-  Serial.printf("lv_canvas_create DONE\n"); delay(10);
+  //Serial.printf("lv_canvas_create DONE\n"); delay(10);
 
   // Input Device Infrastructure
   lv_indev_t * indev = lv_indev_create();
@@ -109,11 +112,11 @@ void ScreenManager::begin(SensorSuite &sensor_suite)
 
   _set_menu_structure();
 
-  Serial.printf("screen_manager.begin() DONE\n"); delay(10);
+  //Serial.printf("screen_manager.begin() DONE\n"); delay(10);
 }
 
 void ScreenManager::_display_flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map) {
-  Serial.printf("ScreenManager._display_flush_cb called\n");
+  //Serial.printf("ScreenManager._display_flush_cb called\n");
     ScreenManager* instance = (ScreenManager*)lv_display_get_user_data(disp);
     if (instance && instance->_sensor_suite) {
       instance->_lvgl2spi((uint8_t*)px_map,instance->_sensor_suite->oled);
@@ -163,7 +166,7 @@ void ScreenManager::_button_read_cb(lv_indev_t * indev, lv_indev_data_t * data) 
 // Custom function to process the canvas buffer, pack upper nibbles, and transmit
 //850 us
 void ScreenManager::_lvgl2spi(uint8_t* src,OLED &oled) {
-  Serial.printf("ScreenManager._lvgl2spi called\n");
+  //Serial.printf("ScreenManager._lvgl2spi called\n");
     uint32_t packed_idx = 0;
     
     uint8_t* tx_buffer=oled.get_frame_buffer();
@@ -199,7 +202,7 @@ void ScreenManager::_lvgl2spi(uint8_t* src,OLED &oled) {
 
 void ScreenManager::update()
 {
-  Serial.printf("ScreenManager.update called\n");
+  //Serial.printf("ScreenManager.update called\n");
   if (_screen_stack.empty()) return;
 
   if(_last_update_ms==0) _last_update_ms=millis();//bootup
@@ -210,19 +213,31 @@ void ScreenManager::update()
   //Serial.printf("lv_obj_invalidate\n");
 //lv_obj_invalidate(lv_screen_active());//FORCE DRAW every frame
 
+  if(_screen_stack.back()->is_allow_achivement_popup())
+  {
+    const std::string* achievement_str= _sensor_suite->save_state.get_first_unseen_achievement();
+    if(achievement_str!=nullptr)
+    {//achivement pop-up
+      auto achievement_ss = std::make_shared<ScreenSaver>(*achievement_str, _shared_input_group,&(_sensor_suite->save_state),true);
+      _sensor_suite->save_state.mark_as_seen(*achievement_str);
+      _sensor_suite->save_state.save();
+      _push_screen(achievement_ss);
+    }
+  }
+
   // Ticks physical interface engine processing every loop frame pass
   uint32_t time_till_next = lv_timer_handler();
 
 //Serial.printf("Next internal task in: %d ms\n", time_till_next); 
 
   ScreenAction action = _screen_stack.back()->update();
-  Serial.printf("ScreenManager.update type %d\n",action.type);
+  //Serial.printf("ScreenManager.update type %d\n",action.type);
 
   //fetch update to led generation function, if any
   if(action.led_upper_func != nullptr) _led_upper_func=action.led_upper_func;
   if(action.led_lower_func != nullptr) _led_lower_func=action.led_lower_func;
 
-  Serial.printf("ScreenManager LED: %p, %p\n",_led_upper_func,_led_lower_func);
+  //Serial.printf("ScreenManager LED: %p, %p\n",_led_upper_func,_led_lower_func);
 
   //push function live to leds on every frame
   // 2. Handle Upper LED Animation Channel Execution
@@ -282,11 +297,11 @@ void ScreenManager::_pop_screen() {
 
 void ScreenManager::_push_screen(std::shared_ptr<Screen> new_screen)
 {
-Serial.printf("screen_manager._push_screen 1\n");
+//Serial.printf("screen_manager._push_screen 1\n");
   // 1. Safety check to prevent null insertions
   if (new_screen == nullptr) return;
 
-Serial.printf("screen_manager._push_screen 2\n");
+//Serial.printf("screen_manager._push_screen 2\n");
   // 2. Lifecycle teardown for the outgoing screen
   if (_get_active_screen() != nullptr) 
   {
@@ -295,7 +310,7 @@ Serial.printf("screen_manager._push_screen 2\n");
     _get_active_screen()->end(false); 
   }
 
-Serial.printf("screen_manager._push_screen 3\n");
+//Serial.printf("screen_manager._push_screen 3\n");
   // 3. Track the new screen inside your stack architecture
   // Extract the raw address pointer using .get() to match the vector type
   //_active_screen = new_screen;//.get();
@@ -304,7 +319,7 @@ Serial.printf("screen_manager._push_screen 3\n");
   // 4. Lifecycle startup for the fresh screen
   // Pass 'true' to signal it's entering from above (a fresh push)
   _get_active_screen()->begin(true);
-Serial.printf("screen_manager._push_screen 4\n");
+//Serial.printf("screen_manager._push_screen 4\n");
 }
 
 void ScreenManager::diag(){

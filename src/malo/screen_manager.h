@@ -6,6 +6,7 @@
 #include "led.h"
 #include <memory>
 #include "screen.h"
+#include "tictactoe.h"
 
 
 // Forward declaration of LVGL object type to avoid including lvgl.h in the header

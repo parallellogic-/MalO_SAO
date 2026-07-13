@@ -64,13 +64,25 @@ const lv_image_dsc_t icon_lock_dsc = {
     .data_size = 100,
     .data = lock_bitmap_data
 };
+
 // A simple 10x10 representation of a closed padlock (1 byte per pixel for simplicity / L8 format)
 const uint8_t unlock_bitmap_data[100] = {
     // The top shackle arch shifted 2 pixels right, leaving a gap on the left
-    0x00,0x00,0x00,0x00,0x00,0xFF,0xFF,0xFF,0x00,0x00,
+    /*0x00,0x00,0x00,0x00,0x00,0xFF,0xFF,0xFF,0x00,0x00,
     0x00,0x00,0x00,0x00,0xFF,0x00,0x00,0x00,0xFF,0x00,
     0x00,0x00,0x00,0x00,0xFF,0x00,0x00,0x00,0x00,0x00,
     0x00,0x00,0x00,0x00,0xFF,0x00,0x00,0x00,0x00,0x00,
+    0x00,0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
+    0x00,0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
+    0x00,0x00,0xFF,0xFF,0x00,0x00,0x00,0x00,0xFF,0xFF,
+    0x00,0x00,0xFF,0xFF,0x00,0x00,0x00,0x00,0xFF,0xFF,
+    0x00,0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
+    0x00,0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF*/
+
+    0x00,0x00,0x00,0x00,0x00,0xFF,0xFF,0xFF,0x00,0x00,
+    0x00,0x00,0x00,0x00,0xFF,0x00,0x00,0x00,0x00,0x00,
+    0x00,0x00,0x00,0x00,0xFF,0x00,0x00,0x00,0x00,0x00,
+    0x00,0x00,0x00,0x00,0x00,0xFF,0x00,0x00,0x00,0x00,
     0x00,0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
     0x00,0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
     0x00,0x00,0xFF,0xFF,0x00,0x00,0x00,0x00,0xFF,0xFF,
@@ -93,7 +105,7 @@ class Screen{
   protected:
     std::string _title;
     bool _is_header=true; //if header at top of screen is visible
-    bool _is_allow_interruption=true; //allow achievenement to pop over this screen
+    bool _is_allow_achivement_popup=true; //allow achievenement to pop over this screen
     bool _is_menu=false; //when following POP_TO_MENU, stop on this Screen?
     ScreenConfig _screen_config;//flag for tailoring function of this screen 
     std::vector<std::shared_ptr<Screen>> _screen_stack; //pointers to lower-level menus
@@ -112,7 +124,7 @@ class Screen{
     virtual ScreenAction update(); 
     virtual void end(bool is_leaving_upward);//release RAM resources acquired in begin(), but keep any inter-relationship pointers in place, ex submenus
     bool is_header(){ return _is_header; }//default to show header
-    bool is_allow_interruption(){ return _is_allow_interruption; } //allow achievements to appear on top of this screen (otherwise achievements need to wait for next opportunity to appear)
+    bool is_allow_achivement_popup(){ return _is_allow_achivement_popup; } //allow achievements to appear on top of this screen (otherwise achievements need to wait for next opportunity to appear)
     bool is_menu(){ return _is_menu; }//user to catch flag when popping back to "POP_TO_MENU" without dynamic casting functionality avaialble
     const std::string& get_title(){ return _title; }
     void add_subscreen(std::shared_ptr<Screen> subscreen){ _screen_stack.push_back(subscreen); };
@@ -155,7 +167,9 @@ struct ScreenContext {
 class ScreenSaver : public Screen { //display a looping animation
   private:
     //bool _is_locked=false;
+    bool _is_title_visible=false;
     SaveState* _save_state=nullptr;
+    lv_obj_t* _overlay_card = nullptr;
     //lv_obj_t* _lv_canvas; //_lv_panel absorbs button pushes, _lv_canvas is the pixel draw buffer
     std::vector<uint8_t> _frame_duration;//how many frames at 60 FPS to show this image on the screen for (1= 16.6 ms, 2=30 ms, 4=60 ms...)
     std::vector<uint8_t> _frame_order;//list of which frames to show in what order (can show the same frame multiple times in one animation).  last value is which index within THIS list to jump to on completion
@@ -165,10 +179,11 @@ class ScreenSaver : public Screen { //display a looping animation
     uint8_t _frame_order_index=0;//position within the _frame_order list
     uint8_t _frame_elapsed=0;//how many 60 FPS periods have elapsed in the current aniamtion frame
     static void _screensaver_event_cb(lv_event_t * e);
+    void _create_unlock_overlay(lv_obj_t* canvas_obj, const std::string& text_str);
   protected:
     //void _on_focus(lv_group_t* input_group) override;
   public:
-    ScreenSaver(const std::string& title, lv_group_t* shared_input_group,SaveState* _save_state);//list of files, list of frame timings, frame order.  or enunm for internal config.  of have as config file in flash.
+    ScreenSaver(const std::string& title, lv_group_t* shared_input_group,SaveState* _save_state,bool is_title_visible);//list of files, list of frame timings, frame order.  or enunm for internal config.  of have as config file in flash.
     void begin(bool is_enter_from_above) override;
     ScreenAction update() override;
     void end(bool is_leaving_upward) override;

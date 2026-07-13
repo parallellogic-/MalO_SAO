@@ -628,7 +628,7 @@ void MenuScreen::_menu_event_cb(lv_event_t * e) {
 
 // ---- screen saver (achievemnt animation) ----
 
-ScreenSaver::ScreenSaver(const std::string& title, lv_group_t* shared_input_group,SaveState* save_state): Screen(title,shared_input_group), _save_state(save_state)
+ScreenSaver::ScreenSaver(const std::string& title, lv_group_t* shared_input_group,SaveState* save_state,bool is_title_visible): Screen(title,shared_input_group), _save_state(save_state), _is_title_visible(is_title_visible)
 {
   _is_menu=false;
   _is_header = false;
@@ -716,6 +716,42 @@ void ScreenSaver::_screensaver_event_cb(lv_event_t * e) {
     }
 }
 
+void ScreenSaver::_create_unlock_overlay(lv_obj_t* canvas_obj, const std::string& text_str) {
+    if (canvas_obj == nullptr) return;
+
+    lv_obj_t* canvas_parent = lv_obj_get_parent(canvas_obj);
+    if (canvas_parent == nullptr) return;
+
+    // Create the base container card
+    lv_obj_t* card = lv_obj_create(canvas_parent);
+    
+    // Save the pointer to our class tracker variable
+    _overlay_card = card; 
+
+    lv_obj_set_size(card, 110, 24);                   
+    lv_obj_align(card, LV_ALIGN_BOTTOM_MID, 0, -6);    
+    
+    lv_obj_set_style_pad_all(card, 4, 0);
+    lv_obj_set_style_pad_gap(card, 6, 0);             
+    lv_obj_set_flex_flow(card, LV_FLEX_FLOW_ROW);      
+    lv_obj_set_flex_align(card, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    lv_obj_set_style_bg_color(card, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(card, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(card, 0, 0);        
+    lv_obj_set_style_outline_color(card, lv_color_white(), 0);
+    lv_obj_set_style_outline_width(card, 1, 0);       
+    lv_obj_set_style_radius(card, 3, 0);              
+
+    lv_obj_t* icon_obj = lv_image_create(card);
+    lv_image_set_src(icon_obj, &icon_unlock_dsc);
+
+    lv_obj_t* label = lv_label_create(card);
+    lv_label_set_text(label, text_str.c_str());
+    lv_obj_set_style_text_color(label, lv_color_white(), 0);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_10, 0); 
+}
+
 
 void ScreenSaver::begin(bool is_enter_from_above)
 {
@@ -768,6 +804,8 @@ void ScreenSaver::begin(bool is_enter_from_above)
         // Dynamic Safe Fallback allocations
         _frame_order = { 0, 0 }; // Play index 0, then flag structural loop end
     }
+
+    if(_is_title_visible) _create_unlock_overlay(_lv_panel, _title);
   }
 
   _frame_index=255;//trigger an immediaate redraw upon entering frame
@@ -848,6 +886,11 @@ void ScreenSaver::end(bool is_leaving_upward)
 
   if (is_leaving_upward)
   {
+      if (_overlay_card != nullptr) {
+          lv_obj_delete(_overlay_card);
+          _overlay_card = nullptr; // Reset to prevent double-free crashes
+      }
+
     Serial.printf("ScreenSaver Shutting Down Animation: %s\n", _title.c_str());
 
     // 3. Clear out and shrink dynamic vector memory to avoid heap fragmentation
@@ -870,6 +913,7 @@ void ScreenSaver::end(bool is_leaving_upward)
   // 5. Always chain up to the base class to allow the layout engine to finalize transition actions
   Screen::end(is_leaving_upward);
 }
+
 
 
 /*void ScreenSaver::_on_focus(lv_group_t* input_group) {
