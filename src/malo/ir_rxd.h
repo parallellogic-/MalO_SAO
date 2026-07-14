@@ -93,8 +93,8 @@ class DecoderWS2812{
     void debug();
 
     //const uint16_t get_buffer_length(){ return sizeof(_decode_buffer[0])/sizeof(_decode_buffer[0][0]); }
-    bool get_message(bool is_ping_pong,char *username,char *message, uint16_t &message_length); //if message is found, store into &message (expect max 256 character size).  period_cycles is counts at 25 MHz (40 ns per count)
-    bool get_message(char *username,char *message, uint16_t &message_length); //assumes single consumer
+    bool get_message(bool is_ping_pong,char *username,char *message);//, uint16_t &message_length); //if message is found, store into &message (expect max 256 character size).  period_cycles is counts at 25 MHz (40 ns per count)
+    bool get_message(char *username,char *message);//, uint16_t &message_length); //assumes single consumer
 };
 
 

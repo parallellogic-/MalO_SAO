@@ -313,9 +313,10 @@ bool DecoderGeneric::get_message(uint32_t *message, uint16_t &message_length)
   if (out_buff_len > get_buffer_length()) out_buff_len = get_buffer_length();
 
   // Copy snapshot contents from the inactive ping-pong slot
-  for (uint16_t iter = 0; iter < out_buff_len; iter++) {
+  /*for (uint16_t iter = 0; iter < out_buff_len; iter++) {
     message[iter] = _decode_buffer[read_buf][iter];
-  }
+  }*/
+  memcpy(message, _decode_buffer[read_buf], out_buff_len);
   
   message_length = out_buff_len;
 
@@ -432,8 +433,8 @@ float DecoderWS2812::_get_exact_frequency(float base_frequency_hz,uint8_t period
     return exact_frequency_hz;
 }
 
-bool DecoderWS2812::get_message(char *username,char *message, uint16_t &message_length){
-  bool is_message=get_message(_is_ping_pong,username,message, message_length);
+bool DecoderWS2812::get_message(char *username,char *message){//, uint16_t &message_length){
+  bool is_message=get_message(_is_ping_pong,username,message);//, message_length);
   if(is_message) _is_ping_pong=!_is_ping_pong;
   return is_message;
 }
@@ -460,17 +461,17 @@ void DecoderWS2812::_decompress78(const uint8_t* in_arr, char* out_arr)
   // out_arr[out_index] = '\0'; 
 }
 
-bool DecoderWS2812::get_message(bool is_ping_pong,char *username,char *message, uint16_t &message_length){
+bool DecoderWS2812::get_message(bool is_ping_pong,char *username,char *message){//, uint16_t &message_length){
   if(_generic_decoder_ptr->get_ping_pong()==is_ping_pong) return false; //if asking for a message from a buffer that has already been read, then do nothing
   //found a message, now decode it...
-  const uint16_t max_length=message_length;//max number of characters that can be written into output buffer
+  //const uint16_t max_length=message_length;//max number of characters that can be written into output buffer
   const uint32_t generic_message_length=(_generic_decoder_ptr->get_message_length()/2)*2;//number of 1/0 pairs
   uint8_t decoded_byte=0;//the latest byte that is being decoded (for placement into _decode_buffer)
   uint16_t generic_index=0;//position within generic array to decod from
   uint16_t out_index=0;
   float exact_carrier_hz=_get_exact_frequency(38'000,255);
   uint8_t raw_message[DECODER_MAX_WS2812_MESSAGE_LENGTH+RS_ECC_LENGTH]={};
-  while(generic_index<generic_message_length && out_index<(max_length-1))
+  while(generic_index<generic_message_length && out_index<(sizeof(raw_message)-1))
   {
     if(_generic_decoder_ptr->get_message_at(generic_index)>_generic_decoder_ptr->get_message_at(generic_index+1)) generic_index++;//soemthing amiss with the GenericDecover that puts the inter-message dwell as the first decoded duration, patching that here for now... TOOD
     uint32_t numerator=_generic_decoder_ptr->get_message_at(generic_index);//legnth of 1's (38 khz)
@@ -499,7 +500,7 @@ bool DecoderWS2812::get_message(bool is_ping_pong,char *username,char *message, 
     Serial.printf("%02X ",decoded[iter]);
   }*/
 
-  message_length=min(DECODER_MAX_WS2812_MESSAGE_LENGTH,decoded[0]);
+  //message_length=min(DECODER_MAX_WS2812_MESSAGE_LENGTH,decoded[0]);
   for(uint8_t iter=0;(iter*8)<USERNAME_MAX_LENGTH;iter++) _decompress78(&decoded[1+iter*7],&username[iter*8]);
   for(uint8_t iter=0;(iter*8)<MESSAGE_MAX_LENGTH;iter++) _decompress78(&decoded[1+USERNAME_MAX_LENGTH*7/8+iter*7],&message[iter*8]);
 
@@ -511,14 +512,14 @@ bool DecoderWS2812::get_message(bool is_ping_pong,char *username,char *message, 
 }
 
 void DecoderWS2812::debug(){
-  uint16_t message_length=DECODER_MAX_WS2812_MESSAGE_LENGTH+RS_ECC_LENGTH;
+  //uint16_t message_length=DECODER_MAX_WS2812_MESSAGE_LENGTH+RS_ECC_LENGTH;
   char username[USERNAME_MAX_LENGTH];
   char message[MESSAGE_MAX_LENGTH];
-  bool is_message=get_message(username,message,message_length);
+  bool is_message=get_message(username,message);//,message_length);
   if(is_message)
   {
     //message[message_length]='\0';
-    Serial.printf("IR WS2812 decode message [len: %d], username: %s, message: %s\n",message_length,username,message);
+    Serial.printf("IR WS2812 decode message, username: %s, message: %s\n",username,message);
     //int error_count=0;
     /*Serial.printf("username:\n");
     for(uint16_t iter=0;iter<sizeof(username);iter++)

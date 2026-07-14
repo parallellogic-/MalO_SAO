@@ -1,5 +1,7 @@
 #pragma once
 
+bool core1_separate_stack = true;
+
 #include "touch.h"
 #include "pio_program_manager.h"
 #include "universal_serial_bus_flash.h"
@@ -26,6 +28,7 @@
 #define I2C0_BAUD 400'000
 
 #define VIBRATION_MOTOR_PIN 39
+
 
 struct SensorSuite{//bundle into an object to make easier to pass through graphics handling
   uint32_t frame_id;

@@ -206,9 +206,9 @@ void __not_in_flash_func(loop1)(){ //core 1
       //digitalWrite(VIBRATION_MOTOR_PIN,ensor_suite.touch.get_down_button()>0);
 
       //sensor_suite.touch.debug();
-      Serial.printf("core1 imu_c: %5.2f, fifo: %2d, ",sensor_suite.imu.get_celsius(),sensor_suite.imu.get_fifo_sample_count());
-      Serial.printf("mic: %5.2f, touch: %2d, ",sensor_suite.microphone.get_mean_square(),sensor_suite.touch.get_down_button());
-      Serial.printf("accel [%d]: %6.2f, %6.2f, %6.2f, gyro: %6.2f, %6.2f, %6.2f, light: %5d\n",sensor_suite.imu.get_fifo_sample_count(),sensor_suite.imu.get_accel(0),sensor_suite.imu.get_accel(1),sensor_suite.imu.get_accel(2),sensor_suite.imu.get_gyro(0),sensor_suite.imu.get_gyro(1),sensor_suite.imu.get_gyro(2),sensor_suite.light_sensor.getBrightness());
+      Serial.printf("core1 imu_c: %5.2f, fifo: %2d, mic: %5.2f, touch: %2d, accel [%d]: %6.2f, %6.2f, %6.2f, gyro: %6.2f, %6.2f, %6.2f, light: %5d\n",
+          sensor_suite.imu.get_celsius(),sensor_suite.imu.get_fifo_sample_count(),sensor_suite.microphone.get_mean_square(),sensor_suite.touch.get_down_button(),
+          sensor_suite.imu.get_fifo_sample_count(),sensor_suite.imu.get_accel(0),sensor_suite.imu.get_accel(1),sensor_suite.imu.get_accel(2),sensor_suite.imu.get_gyro(0),sensor_suite.imu.get_gyro(1),sensor_suite.imu.get_gyro(2),sensor_suite.light_sensor.getBrightness());
       //sensor_suite.decoder_ir_rxd.debug();
       sensor_suite.decoder_ir_rxd_ws2812.debug();
       //Serial.printf("core1 sensor_suite.ir_txd.debug...\n");

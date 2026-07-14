@@ -20,9 +20,9 @@ enum class TicTacToeState{
 
 class TicTacToe : public Game{
   private:
-    TicTacToeState _game_state=TicTacToeState::PLAYER_TURN;
+    TicTacToeState _game_state=TicTacToeState::PLAYER_TURN;//user takes first move, "X"
     TicTacToeState _board_state[9]={};
-    uint8_t _count_down[9]={};//pieces placed will have a count-down timer, when zero, reverts to 
+    uint8_t _count_down[9]={};//pieces placed will have a count-down timer, when zero, reverts to a free space (unable for players to tie)
   public:
     TicTacToe(const std::string& text, lv_group_t* shared_input_group);
     void begin(bool is_enter_from_above) override; //fetch resources from RAM like imagery or IR configuration 

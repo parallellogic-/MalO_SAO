@@ -22,7 +22,7 @@ void ScreenManager::_set_menu_structure()
   
 
   #define INIT_SCREEN_SAVER(var_name, title_str) \
-      auto var_name = std::make_shared<ScreenSaver>(title_str, _shared_input_group,&(_sensor_suite->save_state),false); \
+      auto var_name = std::make_shared<ScreenSaver>(title_str, _shared_input_group,&(_sensor_suite->save_state),true); \
       screen_screen->add_subscreen(var_name);
 
   INIT_SCREEN_SAVER(champion_ss,     "Champion");
@@ -83,7 +83,8 @@ void ScreenManager::begin(SensorSuite &sensor_suite)
   lv_canvas_set_buffer((lv_obj_t*)_screen_canvas, _screen_buffer, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX, LV_COLOR_FORMAT_L8);
   lv_obj_align((lv_obj_t*)_screen_canvas, LV_ALIGN_CENTER, 0, 0);
   lv_obj_add_flag((lv_obj_t*)_screen_canvas, LV_OBJ_FLAG_HIDDEN); */
-  _screen_canvas = lv_canvas_create(lv_screen_active());
+  
+  /*_screen_canvas = lv_canvas_create(lv_screen_active());
   if (_screen_canvas != nullptr) {
       // Correct parameter syntax: (object, buffer_ptr, width, height, color_format)
       lv_canvas_set_buffer(_screen_canvas, _screen_buffer, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX, LV_COLOR_FORMAT_L8);
@@ -91,7 +92,8 @@ void ScreenManager::begin(SensorSuite &sensor_suite)
       // Position and hide by default
       lv_obj_align(_screen_canvas, LV_ALIGN_CENTER, 0, 0);
       lv_obj_add_flag(_screen_canvas, LV_OBJ_FLAG_HIDDEN); 
-  }
+  }*/
+
   //Serial.printf("lv_canvas_create DONE\n"); delay(10);
 
   // Input Device Infrastructure
@@ -152,8 +154,9 @@ void ScreenManager::_button_read_cb(lv_indev_t * indev, lv_indev_data_t * data) 
     }*/
     instance->_last_raw_button = current_button;
 
-    switch (current_button) {
-        case 1:  data->key = LV_KEY_NEXT;  break;//hidden
+    data->key = instance->_get_active_screen()->touch_to_key(current_button);
+    /*switch (current_button) {
+        case 1:  data->key = 0;            break;//hidden
         case 2:  data->key = LV_KEY_HOME;  break;//menu
         case 3:  data->key = LV_KEY_ESC;   break;//no
         case 4:  data->key = LV_KEY_ENTER; break;//yes
@@ -164,7 +167,7 @@ void ScreenManager::_button_read_cb(lv_indev_t * indev, lv_indev_data_t * data) 
         case 9:  data->key = LV_KEY_NEXT;  break;//down
         case 10: data->key = LV_KEY_RIGHT; break;//right
         default: break;
-    }
+    }*/
     //lv_obj_invalidate(lv_screen_active());//work-around for sticky menu that shows selected option at the top of the screen instead of the middle where it should be
 }
 

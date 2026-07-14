@@ -264,6 +264,8 @@ void MenuScreen::_append_menu_item(const std::shared_ptr<Screen>& subscreen,cons
 
         lv_obj_set_style_pad_left(lbl, 16, LV_PART_MAIN); 
     }
+    lv_obj_set_style_pad_top(lbl, 5, LV_PART_MAIN);
+    lv_obj_set_style_pad_bottom(lbl, 5, LV_PART_MAIN);
     lv_obj_set_width(lbl, LV_PCT(100)); 
     lv_obj_add_flag(lbl, LV_OBJ_FLAG_CLICKABLE); 
     lv_obj_add_style(lbl, &_style_main, LV_STATE_DEFAULT); 
@@ -635,10 +637,13 @@ void MenuScreen::_menu_event_cb(lv_event_t * e) {
 
 // ---- screen saver (achievemnt animation) ----
 
-ScreenSaver::ScreenSaver(const std::string& title, lv_group_t* shared_input_group,SaveState* save_state,bool is_title_visible): Screen(title,shared_input_group), _save_state(save_state), _is_title_visible(is_title_visible)
+ScreenSaver::ScreenSaver(const std::string& title, lv_group_t* shared_input_group,SaveState* save_state,bool is_title_visible): Screen(title,shared_input_group), _save_state(save_state)
 {
   _is_menu=false;
   _is_header = false;
+
+  if(title=="Champion" || title=="Favorite Food") _is_title_visible=false;
+  else _is_title_visible=is_title_visible;
 
   // Create the baseline container panel matching your layout specifications
   //_lv_panel = lv_obj_create(lv_screen_active()); 
@@ -742,6 +747,7 @@ void ScreenSaver::_create_unlock_overlay(lv_obj_t* canvas_obj, const std::string
     lv_obj_set_style_pad_gap(card, 6, 0);             
     lv_obj_set_flex_flow(card, LV_FLEX_FLOW_ROW);      
     lv_obj_set_flex_align(card, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_scrollbar_mode(card, LV_SCROLLBAR_MODE_OFF);
 
     lv_obj_set_style_bg_color(card, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(card, LV_OPA_COVER, 0);
@@ -756,7 +762,8 @@ void ScreenSaver::_create_unlock_overlay(lv_obj_t* canvas_obj, const std::string
     lv_obj_t* label = lv_label_create(card);
     lv_label_set_text(label, text_str.c_str());
     lv_obj_set_style_text_color(label, lv_color_white(), 0);
-    lv_obj_set_style_text_font(label, &lv_font_montserrat_10, 0); 
+    if(text_str.length()>15) lv_obj_set_style_text_font(label, &lv_font_montserrat_8, 0); 
+    else lv_obj_set_style_text_font(label, &lv_font_montserrat_10, 0); 
 }
 
 
@@ -976,6 +983,19 @@ void Header::begin() {
         lv_obj_set_size(_bars[i], bar_width, 1);
         lv_obj_set_pos(_bars[i], i * (bar_width + gap), 8 - 1);
     }*/
+
+    // 1. Create ONLY the parent container
+    _bar_chart_container = lv_obj_create(_header_container);
+    lv_obj_set_size(_bar_chart_container, 40, 8);
+    lv_obj_align(_bar_chart_container, LV_ALIGN_LEFT_MID, 2, 0);
+    lv_obj_set_style_bg_color(_bar_chart_container, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(_bar_chart_container, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(_bar_chart_container, 0, 0);
+    lv_obj_set_style_pad_all(_bar_chart_container, 0, 0);
+    lv_obj_set_style_radius(_bar_chart_container, 0, 0); 
+    lv_obj_remove_flag(_bar_chart_container, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_event_cb(_bar_chart_container, _bar_chart_draw_cb, LV_EVENT_DRAW_MAIN, this);
+
     
     // 4. Create Right Sibling Object: Battery Text/Icon Component
     _battery_label = lv_label_create(_header_container);
@@ -1001,7 +1021,7 @@ void Header::update(bool is_visible_on_current_screen) {
     lv_obj_remove_flag(_header_container, LV_OBJ_FLAG_HIDDEN);
 
     // Core sub-component update tick cycles
-    //update_utilization_bars(); //--> 100% utilization kick
+    update_utilization_bars();
     if(_frames_until_update==0)
     {
       update_battery_status();
@@ -1013,7 +1033,97 @@ void Header::update(bool is_visible_on_current_screen) {
 //    lv_obj_invalidate(_header_container); //observe artifacts at top of screen without this --> 40% utilization, plush crash risk
 }
 
+void Header::_bar_chart_draw_cb(lv_event_t * e) {
+    lv_obj_t * obj = (lv_obj_t *)lv_event_get_target(e); 
+    
+    // Unpack your class instance from user data to access variables safely
+    Header* instance = (Header*)lv_event_get_user_data(e);
+    if (!instance) return;
+
+    // Fetch the hardware/software draw buffer target layer
+    lv_layer_t * layer = lv_event_get_layer(e);
+
+    int bar_width = 3;
+    int gap = 2;
+    
+    // Acquire the pixel space base bounds of your container
+    lv_area_t obj_coords;
+    lv_obj_get_coords(obj, &obj_coords);
+
+    // Set up our low-level rectangle styling configurations
+    lv_draw_rect_dsc_t rect_dsc;
+    lv_draw_rect_dsc_init(&rect_dsc);
+    rect_dsc.bg_opa = LV_OPA_COVER;
+    rect_dsc.border_width = 0;
+    rect_dsc.radius = 0; // Ensures raw pixel block copies without corner processing math
+
+    // Render every single bar sequentially in a single execution pass
+    for (int i = 0; i < HEADER_BAR_COUNT; i++) {
+        int bar_height = instance->_last_heights[i];
+        
+        // Dynamically shift color values depending on peak load triggers
+        if (bar_height == HEADER_HEIGHT_PX) {
+            rect_dsc.bg_color = lv_color_white();
+        } else {
+            rect_dsc.bg_color = lv_color_hex(0x808080); // Mid grey layout tone
+        }
+
+        lv_area_t bar_area;
+        // Map X position mapping parameters
+        bar_area.x1 = obj_coords.x1 + (i * (bar_width + gap));
+        bar_area.x2 = bar_area.x1 + bar_width - 1;
+        
+        // Map Y parameters anchored flat against the bottom edge of the frame context
+        bar_area.y2 = obj_coords.y2;
+        bar_area.y1 = obj_coords.y2 - bar_height + 1;
+
+        // Blit the rectangle instantly to screen memory layers
+        lv_draw_rect(layer, &rect_dsc, &bar_area);
+    }
+}
+
+
 void Header::update_utilization_bars() {
+    uint32_t total_heap = rp2040.getTotalHeap();
+    uint32_t free_heap = rp2040.getFreeHeap();
+    struct mallinfo mi = mallinfo();
+
+    // Fast float conversion multiplier
+    const float height_multiplier = (float)HEADER_HEIGHT_PX * 0.01f;
+    bool needs_redraw = false;
+
+    for (int i = 0; i < HEADER_BAR_COUNT; i++) {
+        float percentage = 50.0f; 
+        
+        if (i == 0)      percentage = _sensor_suite->core0_frame_us * 100.0f / 16666.0f;
+        else if (i == 1) percentage = _sensor_suite->core1_frame_us * 100.0f / 16666.0f;
+        else if (i == 2) percentage = _sensor_suite->lvgl_memory_percent;
+        else if (i == 3) percentage = free_heap * 100.0f / total_heap;
+        else if (i == 4) {
+            float largestBlock = (float)mi.keepcost; 
+            percentage = 100.0f - (largestBlock * 100.0f / total_heap);
+        }
+
+        // Fast height translation math
+        int bar_height = (int)(percentage * height_multiplier);
+        if (bar_height < 1) bar_height = 1;
+        else if (bar_height > HEADER_HEIGHT_PX) bar_height = HEADER_HEIGHT_PX;
+
+        // Check if the state actually changed
+        if (_last_heights[i] != bar_height) {
+            _last_heights[i] = bar_height; // Cache new state
+            needs_redraw = true;           // Flag that a redraw is required
+        }
+    }
+
+    // Only tell LVGL to redraw if data actually moved
+    if (needs_redraw) {
+        lv_obj_invalidate(_bar_chart_container);
+    }
+}
+
+
+/*void Header::update_utilization_bars() {
     uint32_t total_heap = rp2040.getTotalHeap();
     uint32_t free_heap = rp2040.getFreeHeap();
     struct mallinfo mi = mallinfo();
@@ -1055,7 +1165,7 @@ void Header::update_utilization_bars() {
         lv_color_t target_color = (bar_height == HEADER_HEIGHT_PX) ? lv_color_white() : lv_color_hex(0x808080);
         lv_obj_set_style_bg_color(line_bar, target_color, 0);
     }
-}
+}*/
 
 
 

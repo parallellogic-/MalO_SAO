@@ -134,6 +134,10 @@ class Screen{
     void add_subscreen(std::shared_ptr<Screen> subscreen){ _screen_stack.push_back(subscreen); };
     ScreenConfig get_screen_config(){ return _screen_config; }
     //led_function get_led_pattern(bool is_top);//return pointer to function to set leds.  if nullptr, defaults to OFF.
+    virtual lv_key_t touch_to_key(uint8_t touch){
+        static const lv_key_t touch2key[] = {(lv_key_t)0,(lv_key_t)0,LV_KEY_HOME,LV_KEY_ESC,LV_KEY_ENTER,LV_KEY_ESC,LV_KEY_PREV,LV_KEY_ENTER,LV_KEY_LEFT,LV_KEY_NEXT,LV_KEY_RIGHT};
+        //unused, hidden, menu, no, yes, CCW, up, CW, left, down, right
+        if(touch>=sizeof(touch2key)/sizeof(touch2key[0])) return (lv_key_t)0; return touch2key[touch]; }
 };
 
 class MenuScreen : public Screen{
@@ -193,7 +197,7 @@ class ScreenSaver : public Screen { //display a looping animation
     void end(bool is_leaving_upward) override;
     uint8_t _get_current_frame();
     void _update_current_frame();
-    bool is_locked() const{ if(_save_state==nullptr) return true; return !_save_state->is_unlocked(_title); }
+    bool is_locked() const{ return false; /*if(_save_state==nullptr) return true; return !_save_state->is_unlocked(_title);*/ }
     //void set_locked(bool is_locked){ _is_locked=is_locked; }
 };
 
@@ -219,6 +223,8 @@ private:
     void update_utilization_bars();
     void update_battery_status();
     void process_news_ticker();
+
+    static void _bar_chart_draw_cb(lv_event_t * e);
 
     float _temperature_c=23.0f;
     float _voltage=3.3f;

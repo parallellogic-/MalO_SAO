@@ -18,7 +18,7 @@ class ScreenManager {
 private:
     SensorSuite* _sensor_suite;
     uint8_t _canvas_buffer[SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX] __attribute__((aligned(4)));
-    uint8_t _screen_buffer[SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX] __attribute__((aligned(4)));
+    //uint8_t _screen_buffer[SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX] __attribute__((aligned(4)));
     uint32_t _last_update_ms=0;
 
     std::unique_ptr<Header> _system_header;
