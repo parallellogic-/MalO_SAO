@@ -49,6 +49,7 @@ SensorSuite sensor_suite = {
   .core0_frame_us=0,
   .core1_frame_us=0,
   .lvgl_memory_percent=0,
+  .lvgl_memory_fragmentation=0,
 
   //.graphics=Graphics(),
   .analog=Analog(),

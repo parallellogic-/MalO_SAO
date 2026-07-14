@@ -10,8 +10,8 @@
 #define LV_CONF_INCLUDE_SIMPLE
 #include <lvgl.h> 
 
+#define HEADER_BAR_COUNT 6
 #define HEADER_HEIGHT_PX 7
-#define HEADER_BAR_COUNT 5
 
 class Screen;
 
@@ -212,6 +212,7 @@ private:
     lv_obj_t* _battery_label = nullptr;
     lv_obj_t* _bars[HEADER_BAR_COUNT]={};
     uint8_t _last_heights[HEADER_BAR_COUNT]={};
+    uint8_t _max_heights[HEADER_BAR_COUNT]={};
     
     // Ticker State Machine variables
     std::string _active_msg = "";
@@ -220,7 +221,7 @@ private:
     uint32_t _last_ticker_update_ms = 0;
 
     // Helper utilities to build layout geometry blocks
-    void update_utilization_bars();
+    void update_utilization_bars(bool is_reset_max_tracker);
     void update_battery_status();
     void process_news_ticker();
 

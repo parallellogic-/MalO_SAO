@@ -10,10 +10,10 @@
 //if doing a large factor like 256, this will eat up a lot of RAM for the simple purpose of averaging it later.  Would be better to refactor scatter-gatherer to use
 //sniff: ie. round-robin on one channel, route all samples through sniffer set to add, then extract the sum and write to ram before moving to the next channel to measure
 
+#define PIN_POTENTIOMETER 40
+#define PIN_HALL 41
 #define PIN_V_REF 42
 #define IDEAL_V_REF (1.24f)
-#define PIN_HALL 41
-#define PIN_POTENTIOMETER 40
 
 class Analog : public IMultiDmaTransactionSource {
 private:

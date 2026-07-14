@@ -932,11 +932,6 @@ void ScreenSaver::end(bool is_leaving_upward)
 
 Header::Header(SensorSuite* sensor_suite) : _sensor_suite(sensor_suite) {}
 
-    // 2. Create the scrolling news ticker text box layer
-    /*_ticker_label = lv_label_create(_header_container);
-    lv_obj_set_style_text_color(_ticker_label, lv_color_white(), 0);
-    lv_obj_set_style_text_font(_ticker_label, &lv_font_montserrat_8, 0); // Ultra-compact font
-    lv_obj_add_flag(_ticker_label, LV_OBJ_FLAG_HIDDEN);*/ // Hidden initially
 
 void Header::begin() {
     if (_sensor_suite == nullptr) return;
@@ -954,35 +949,11 @@ void Header::begin() {
     lv_obj_set_style_radius(_header_container, 0, 0); // Disable radius
     lv_obj_remove_flag(_header_container, LV_OBJ_FLAG_SCROLLABLE);
 
-    // 3. Create Left Sibling Object: Horizontal Utilization Bar Chart Container
-    /*_bar_chart_container = lv_obj_create(_header_container);
-    lv_obj_set_size(_bar_chart_container, 40, 8);
-    lv_obj_align(_bar_chart_container, LV_ALIGN_LEFT_MID, 2, 0);
-    lv_obj_set_style_bg_color(_bar_chart_container, lv_color_black(), 0);
-    lv_obj_set_style_bg_opa(_bar_chart_container, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_width(_bar_chart_container, 0, 0);
-    lv_obj_set_style_pad_all(_bar_chart_container, 0, 0);
-    lv_obj_set_style_radius(_bar_chart_container, 0, 0); // Disable radius
-    lv_obj_remove_flag(_bar_chart_container, LV_OBJ_FLAG_SCROLLABLE); // Prevent layout checks
-
-    int bar_width = 3;
-    int gap = 2;
-
-    for (int i = 0; i < HEADER_BAR_COUNT; i++) {
-        _bars[i] = lv_obj_create(_bar_chart_container);
-        
-        // Essential layout optimization rules
-        lv_obj_set_style_bg_opa(_bars[i], LV_OPA_COVER, 0);
-        lv_obj_set_style_border_width(_bars[i], 0, 0);
-        lv_obj_set_style_radius(_bars[i], 0, 0); // ⚡ TURN OFF ROUNDED CORNERS MATH!
-        lv_obj_remove_flag(_bars[i], LV_OBJ_FLAG_SCROLLABLE); // ⚡ Drop scroll engine validation
-
-        // Cache initial mock layout structures
-        _last_heights[i] = 0; // Declare 'int _last_heights[HEADER_BAR_COUNT];' in your header class h file
-        
-        lv_obj_set_size(_bars[i], bar_width, 1);
-        lv_obj_set_pos(_bars[i], i * (bar_width + gap), 8 - 1);
-    }*/
+    // 2. Create the scrolling news ticker text box layer
+    /*_ticker_label = lv_label_create(_header_container);
+    lv_obj_set_style_text_color(_ticker_label, lv_color_white(), 0);
+    lv_obj_set_style_text_font(_ticker_label, &lv_font_montserrat_8, 0); // Ultra-compact font
+    lv_obj_add_flag(_ticker_label, LV_OBJ_FLAG_HIDDEN);*/ // Hidden initially
 
     // 1. Create ONLY the parent container
     _bar_chart_container = lv_obj_create(_header_container);
@@ -1004,6 +975,7 @@ void Header::begin() {
     lv_obj_set_style_text_font(_battery_label, &lv_font_montserrat_8, 0);
     lv_obj_set_style_bg_color(_battery_label, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(_battery_label, LV_OPA_COVER, 0);
+
 }
 
 
@@ -1021,7 +993,7 @@ void Header::update(bool is_visible_on_current_screen) {
     lv_obj_remove_flag(_header_container, LV_OBJ_FLAG_HIDDEN);
 
     // Core sub-component update tick cycles
-    update_utilization_bars();
+    update_utilization_bars(_frames_until_update%3==0);//flickering at 60 Hz is obnoxious (30 Hz redraw cycle on LVGL?)
     if(_frames_until_update==0)
     {
       update_battery_status();
@@ -1065,7 +1037,7 @@ void Header::_bar_chart_draw_cb(lv_event_t * e) {
         if (bar_height == HEADER_HEIGHT_PX) {
             rect_dsc.bg_color = lv_color_white();
         } else {
-            rect_dsc.bg_color = lv_color_hex(0x808080); // Mid grey layout tone
+            rect_dsc.bg_color = lv_color_hex(0x505050); // Mid grey layout tone
         }
 
         lv_area_t bar_area;
@@ -1083,7 +1055,7 @@ void Header::_bar_chart_draw_cb(lv_event_t * e) {
 }
 
 
-void Header::update_utilization_bars() {
+void Header::update_utilization_bars(bool is_reset_max_tracker) {
     uint32_t total_heap = rp2040.getTotalHeap();
     uint32_t free_heap = rp2040.getFreeHeap();
     struct mallinfo mi = mallinfo();
@@ -1095,11 +1067,13 @@ void Header::update_utilization_bars() {
     for (int i = 0; i < HEADER_BAR_COUNT; i++) {
         float percentage = 50.0f; 
         
-        if (i == 0)      percentage = _sensor_suite->core0_frame_us * 100.0f / 16666.0f;
-        else if (i == 1) percentage = _sensor_suite->core1_frame_us * 100.0f / 16666.0f;
+        //Serial.printf("UTILIZATION: %5d, %5d\n",_sensor_suite->core0_frame_us,_sensor_suite->core1_frame_us);
+        if (i == 0)      percentage = (100.0f * _sensor_suite->core0_frame_us) / 16666.6f;
+        else if (i == 1) percentage = (100.0f * _sensor_suite->core1_frame_us) / 16666.6f;
         else if (i == 2) percentage = _sensor_suite->lvgl_memory_percent;
-        else if (i == 3) percentage = free_heap * 100.0f / total_heap;
-        else if (i == 4) {
+        else if (i == 3) percentage = _sensor_suite->lvgl_memory_fragmentation;
+        else if (i == 4) percentage = free_heap * 100.0f / total_heap;
+        else if (i == 5) {
             float largestBlock = (float)mi.keepcost; 
             percentage = 100.0f - (largestBlock * 100.0f / total_heap);
         }
@@ -1109,10 +1083,13 @@ void Header::update_utilization_bars() {
         if (bar_height < 1) bar_height = 1;
         else if (bar_height > HEADER_HEIGHT_PX) bar_height = HEADER_HEIGHT_PX;
 
+        _max_heights[i]=max(_max_heights[i],bar_height);
+
         // Check if the state actually changed
-        if (_last_heights[i] != bar_height) {
-            _last_heights[i] = bar_height; // Cache new state
+        if (_last_heights[i] != _max_heights[i] && is_reset_max_tracker) {
+            _last_heights[i]  = _max_heights[i]; // Cache new state
             needs_redraw = true;           // Flag that a redraw is required
+            _max_heights[i]=0;
         }
     }
 

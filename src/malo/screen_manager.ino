@@ -57,7 +57,8 @@ void ScreenManager::_set_menu_structure()
 
 
 Serial.printf("screen_manager._push_screen\n");
-  _push_screen(main_screen); //set root menu
+  //_push_screen(main_screen); //set root menu
+  _push_screen(tictactoe_screen);
 }
 
 void ScreenManager::begin(SensorSuite &sensor_suite)
@@ -216,6 +217,7 @@ void ScreenManager::update()
     lv_mem_monitor_t mon;
     lv_mem_monitor(&mon);
   _sensor_suite->lvgl_memory_percent=mon.used_pct;
+  _sensor_suite->lvgl_memory_fragmentation=mon.frag_pct;
 
   if(_last_update_ms==0) _last_update_ms=millis();//bootup
   uint32_t current_time_ms=millis();

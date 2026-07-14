@@ -35,6 +35,7 @@ struct SensorSuite{//bundle into an object to make easier to pass through graphi
   uint32_t core0_frame_us; //frame generation time in microsectons
   uint32_t core1_frame_us;
   float lvgl_memory_percent;
+  float lvgl_memory_fragmentation;
 
   //Graphics graphics;
   Analog analog;
