@@ -36,7 +36,8 @@ enum class ScreenConfig{
   LED_UPPER, //selecting menu items will change LED state
   LED_LOWER,
   SCREEN_SAVER,//screen savers
-  MOUNT_USB
+  MOUNT_USB,
+  PAUSE //turn off led indicator below screen, special action Resume button, and Exit has different behavior
 };
 
 struct ScreenAction {

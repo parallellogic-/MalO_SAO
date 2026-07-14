@@ -50,15 +50,17 @@ void ScreenManager::_set_menu_structure()
 
   auto mount_usb_screen  = std::make_shared<MenuScreen>("Mount USB",_shared_input_group,ScreenConfig::MOUNT_USB);     settings_screen->add_subscreen(mount_usb_screen);
   
-  auto pause_screen  = std::make_shared<MenuScreen>("Pause",_shared_input_group,ScreenConfig::LED_UPPER);
+  auto pause_screen  = std::make_shared<MenuScreen>("Pause",_shared_input_group);
       tictactoe_screen->add_subscreen(pause_screen);
-  auto resume_key    = std::make_shared<MenuScreen>("Resume",_shared_input_group,ScreenConfig::LED_UPPER);  pause_screen->add_subscreen(resume_key);
+  //auto resume_key    = std::make_shared<MenuScreen>("Resume",_shared_input_group);  pause_screen->add_subscreen(resume_key);//dummy just to get menu option to appear
 
 
 
 Serial.printf("screen_manager._push_screen\n");
-  //_push_screen(main_screen); //set root menu
+  _push_screen(main_screen); //set root menu
+  _push_screen(levels_screen);
   _push_screen(tictactoe_screen);
+  //_push_screen(pause_screen);
 }
 
 void ScreenManager::begin(SensorSuite &sensor_suite)
