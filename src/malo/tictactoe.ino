@@ -1,4 +1,5 @@
 #include "tictactoe.h"
+#include <cstdlib> // For std::rand
 
 TicTacToe::TicTacToe(const std::string& text, lv_group_t* shared_input_group):Game(text,shared_input_group){}
 
@@ -24,14 +25,17 @@ void TicTacToe::begin(bool is_enter_from_above)
 
     lv_obj_add_event_cb(_game_container, _game_draw_cb, LV_EVENT_DRAW_POST, this);
     lv_obj_add_event_cb(_game_container, TicTacToe::_game_key_cb, LV_EVENT_KEY, this);
-
-    if (_input_group) { 
-        lv_group_add_obj(_input_group, _game_container);
-        lv_group_focus_obj(_game_container);
-    }
-
-    lv_obj_invalidate(_game_container);
+  }else{
+    lv_obj_clear_flag(_game_container, LV_OBJ_FLAG_HIDDEN);
+    
   }
+
+  if (_input_group) { 
+      lv_group_add_obj(_input_group, _game_container);
+      lv_group_focus_obj(_game_container);
+  }
+
+  lv_obj_invalidate(_game_container);
 }
 
 bool TicTacToe::_is_win()
@@ -78,8 +82,129 @@ bool TicTacToe::_is_win()
     return is_win;
 }
 
+#include <cstdlib> // For std::rand
 
-void TicTacToe::_draw_piece(lv_layer_t* layer, lv_area_t& board_coords, TicTacToePiece piece, uint32_t frame_id)
+uint8_t TicTacToe::_get_malo_move()
+{
+    // The 8 possible winning line combinations on a 3x3 grid
+    const uint8_t win_combinations[8][3] = {
+        {0, 1, 2}, {3, 4, 5}, {6, 7, 8}, // Rows
+        {0, 3, 6}, {1, 4, 7}, {2, 5, 8}, // Columns
+        {0, 4, 8}, {2, 4, 6}             // Diagonals
+    };
+
+    // -------------------------------------------------------------------------
+    // RULE 1: Try to win directly (MALO has 2 pieces and 1 EMPTY spot in a line)
+    // -------------------------------------------------------------------------
+    for (uint8_t i = 0; i < 8; i++)
+    {
+        uint8_t c1 = win_combinations[i][0];
+        uint8_t c2 = win_combinations[i][1];
+        uint8_t c3 = win_combinations[i][2];
+
+        uint8_t malo_count = 0;
+        int8_t empty_index = -1;
+
+        uint8_t cells[3] = {c1, c2, c3};
+        for (uint8_t j = 0; j < 3; j++)
+        {
+            if (_board[cells[j]] == TicTacToePiece::MALO || _board[cells[j]] == TicTacToePiece::MALO_WINNER) {
+                malo_count++;
+            } else if (_board[cells[j]] == TicTacToePiece::EMPTY) {
+                empty_index = cells[j];
+            }
+        }
+
+        if (malo_count == 2 && empty_index != -1) {
+            return (uint8_t)empty_index;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // RULE 2: Try to block the player (PLAYER has 2 valid pieces and 1 EMPTY spot)
+    // Only count player pieces where _count_down > 1
+    // -------------------------------------------------------------------------
+    for (uint8_t i = 0; i < 8; i++)
+    {
+        uint8_t c1 = win_combinations[i][0];
+        uint8_t c2 = win_combinations[i][1];
+        uint8_t c3 = win_combinations[i][2];
+
+        uint8_t player_count = 0;
+        int8_t empty_index = -1;
+
+        uint8_t cells[3] = {c1, c2, c3};
+        for (uint8_t j = 0; j < 3; j++)
+        {
+            bool is_player_piece = (_board[cells[j]] == TicTacToePiece::PLAYER || _board[cells[j]] == TicTacToePiece::PLAYER_WINNER);
+            
+            if (is_player_piece && _count_down[cells[j]] > 1) {
+                player_count++;
+            } else if (_board[cells[j]] == TicTacToePiece::EMPTY) {
+                empty_index = cells[j];
+            }
+        }
+
+        if (player_count == 2 && empty_index != -1) {
+            return (uint8_t)empty_index;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // RULE 3: Set up a future win (MALO has 1 piece and 2 EMPTY spots in a line)
+    // -------------------------------------------------------------------------
+    for (uint8_t i = 0; i < 8; i++)
+    {
+        uint8_t c1 = win_combinations[i][0];
+        uint8_t c2 = win_combinations[i][1];
+        uint8_t c3 = win_combinations[i][2];
+
+        uint8_t malo_count = 0;
+        uint8_t empty_count = 0;
+        int8_t first_empty = -1;
+
+        uint8_t cells[3] = {c1, c2, c3};
+        for (uint8_t j = 0; j < 3; j++)
+        {
+            if (_board[cells[j]] == TicTacToePiece::MALO || _board[cells[j]] == TicTacToePiece::MALO_WINNER) {
+                malo_count++;
+            } else if (_board[cells[j]] == TicTacToePiece::EMPTY) {
+                empty_count++;
+                if (first_empty == -1) {
+                    first_empty = cells[j];
+                }
+            }
+        }
+
+        if (malo_count == 1 && empty_count == 2) {
+            return (uint8_t)first_empty;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // RULE 4: Move randomly (Pick any available EMPTY square)
+    // -------------------------------------------------------------------------
+    uint8_t empty_cells[9];
+    uint8_t empty_total = 0;
+
+    for (uint8_t i = 0; i < 9; i++)
+    {
+        if (_board[i] == TicTacToePiece::EMPTY) {
+            empty_cells[empty_total++] = i;
+        }
+    }
+
+    if (empty_total > 0) {
+        uint8_t random_choice = std::rand() % empty_total;
+        return empty_cells[random_choice];
+    }
+
+    // Fallback error-safety (returns 0 if the board is fully jammed somehow)
+    return 0;
+}
+
+
+void TicTacToe::_draw_piece(lv_layer_t* layer, lv_area_t& board_coords, TicTacToePiece piece, uint32_t frame_id, bool is_imminent_delete)
 {
     lv_area_t cell_area;
     cell_area.x1 = board_coords.x1 + 4;
@@ -87,7 +212,7 @@ void TicTacToe::_draw_piece(lv_layer_t* layer, lv_area_t& board_coords, TicTacTo
     cell_area.y1 = board_coords.y1 + 4;
     cell_area.y2 = board_coords.y2 - 4;
 
-    lv_color_t color=lv_color_hex(0xA0A0A0);
+    lv_color_t color=lv_color_hex(is_imminent_delete?0x505050:0xA0A0A0);
     if(piece == TicTacToePiece::PLAYER_CURSOR || piece == TicTacToePiece::PLAYER_WINNER || piece == TicTacToePiece::MALO_CURSOR || piece == TicTacToePiece::MALO_WINNER)
       color=lv_color_hex(frame_id % TICTACTOE_BLINK_PERIOD < (TICTACTOE_BLINK_PERIOD/2) ? 0x505050 : 0xFFFFFF); 
 
@@ -184,97 +309,17 @@ void TicTacToe::_game_draw_cb(lv_event_t* e) {
 
         // Draw Content symbols using the modular function
         if (instance->_board[i] != TicTacToePiece::EMPTY) {
-            instance->_draw_piece(layer, cell_area, instance->_board[i],instance->_frame_id);
+            instance->_draw_piece(layer, cell_area, instance->_board[i],instance->_frame_id,instance->_count_down[i]<=1);
         }
 
         // Draw selection cursor highlight box
         if (i == instance->_cursor_index && (instance->_game_state==TicTacToePiece::PLAYER_CURSOR || instance->_game_state==TicTacToePiece::MALO_CURSOR)) {
             // Adjust box coordinates internally just for the cursor outline padding
 
-            instance->_draw_piece(layer, cell_area, instance->_game_state,instance->_frame_id);
+            instance->_draw_piece(layer, cell_area, instance->_game_state,instance->_frame_id,instance->_count_down[i]<=1);
         }
     }
 }
-
-
-/*ScreenAction TicTacToe::update() {
-    // 1. Run the base Game/Screen update loop first if needed
-    Game::update();
-    _frame_id++;
-
-    // 2. Read the active key cleanly via public LVGL v9 APIs
-    lv_indev_t* indev = lv_indev_get_next(NULL); // Get default input device
-        static lv_key_t last_processed_key = (lv_key_t)0;
-    if (indev && lv_indev_get_state(indev) == LV_INDEV_STATE_PRESSED) {
-        lv_key_t key = (lv_key_t)lv_indev_get_key(indev);  // Safely fetch the key
-        
-        // Anti-bounce: Only act if this is a new key press, not a continuous hold
-        if (key != last_processed_key)
-        {
-          last_processed_key = key;
-          if( key != 0) {
-
-            switch (key) {
-                case LV_KEY_UP:
-                    _move_cursor(1); // Move Up
-                    break;
-                case LV_KEY_DOWN:
-                    _move_cursor(2); // Move Down
-                    break;
-                case LV_KEY_LEFT:
-                case LV_KEY_PREV:
-                    _move_cursor(3); // Move Left
-                    break;
-                case LV_KEY_RIGHT:
-                case LV_KEY_NEXT:  // Handling your CW/CCW encoder mapping overrides
-                    _move_cursor(4); // Move Right
-                    break;
-                case LV_KEY_ENTER:
-                    // Try to place a piece on the active square
-                    if (_board[_cursor_index] == TicTacToePiece::EMPTY) {
-                        _board[_cursor_index] = _game_state==TicTacToePiece::PLAYER_CURSOR?TicTacToePiece::PLAYER:TicTacToePiece::MALO;
-
-                        while(_board[_cursor_index]!=TicTacToePiece::EMPTY) _cursor_index=(_cursor_index+1)%9; //find next cursor free space for next player to start at
-
-                        _count_down[_cursor_index]=6;//init count-down timer
-                        if(_game_state==TicTacToePiece::PLAYER_CURSOR) _game_state=TicTacToePiece::MALO_CURSOR;
-                        else _game_state=TicTacToePiece::PLAYER_CURSOR;
-                        for(uint8_t iter=0;iter<9;iter++)
-                        {
-                          _count_down[iter]--;
-                          if(_count_down[iter]==0) _board[iter]=TicTacToePiece::EMPTY;
-                        }
-                        bool is_win=_is_win();
-                        
-                        // ⚡ CRITICAL: Force the screen to redraw the new piece instantly
-                        lv_obj_invalidate(_game_container);
-                        
-                        // Switch state to MalO's turn or check for win condition here
-                    } // else popup "nice try"
-                    break;
-                case LV_KEY_HOME:
-                    // Correct scope to strongly-typed enum and fix the struct member name
-                    _update_action.type = ScreenActionType::PUSH_SUBMENU;
-                    _update_action.next_screen = _screen_stack.empty() ? nullptr : _screen_stack.front();
-
-                    break;
-                case LV_KEY_ESC:
-                    // Signal to the ScreenManager to pop back out to the menu hierarchy
-                    // no action on "no" 
-                    break;
-                default:
-                    break;
-            }
-          }
-        }
-    } else {
-        // Reset anti-bounce tracker when user completely releases physical buttons
-        last_processed_key = (lv_key_t)0; 
-    }
-    if(_frame_id%(TICTACTOE_BLINK_PERIOD/2)==0) lv_obj_invalidate(_game_container); //show blinking indicators
-
-    return _update_action; // Stay on this screen or pass the assigned PUSH_SUBMENU payload
-}*/
 
 ScreenAction TicTacToe::update() {
     _update_action=Game::update();
@@ -282,8 +327,72 @@ ScreenAction TicTacToe::update() {
     
     if(_frame_id%(TICTACTOE_BLINK_PERIOD/2)==0) lv_obj_invalidate(_game_container);//blink request for update
 
+    if(_frame_id%(TICTACTOE_BLINK_PERIOD*5/2)==0)
+    {//slowly animate malo moving cursor
+      if(_game_state==TicTacToePiece::MALO_CURSOR && _malo_move<9)
+      {
+        uint8_t is_row = _cursor_index / 3;
+        uint8_t is_col = _cursor_index % 3;
+        uint8_t target_row = _malo_move / 3;
+        uint8_t target_col = _malo_move % 3;
+        if(is_col!=target_col)
+        {
+          if(is_col>target_col) _cursor_index--;
+          else _cursor_index++;
+        }else if(is_row!=target_row){
+          if(is_row>target_row) _cursor_index-=3;
+          else _cursor_index+=3;
+        }else _make_move(); //if moved to location where target move is, make that move
+      }
+    }
+
+//if malo move, try to win, try to block player from win, try to get 2 lined up (random selection of candidates), else random (ex on blank board)
+//show animation to get to target
+
     // No polling for input state here!
     return _update_action; 
+}
+
+void TicTacToe::_make_move()
+{//places cursor down at current location, if possible
+    if (_board[_cursor_index] == TicTacToePiece::EMPTY) {
+        _board[_cursor_index] = _game_state==TicTacToePiece::PLAYER_CURSOR?TicTacToePiece::PLAYER:TicTacToePiece::MALO;
+        _count_down[_cursor_index]=7;//init count-down timer
+
+        while(_board[_cursor_index]!=TicTacToePiece::EMPTY) _cursor_index=(_cursor_index+1)%9; //find next cursor free space for next player to start at
+        _malo_move=10;//clear malo move target
+
+        bool is_win=_is_win();
+        if(is_win)
+        {
+          if(_game_state==TicTacToePiece::PLAYER_CURSOR)
+          {
+            _game_state=TicTacToePiece::PLAYER_WINNER;
+          } 
+          else
+          {
+            _game_state=TicTacToePiece::MALO_WINNER;
+          }
+          //TODO: game_save register achievement
+        }else{
+          for(uint8_t iter=0;iter<9;iter++)
+          {
+            _count_down[iter]--;
+            if(_count_down[iter]==0) _board[iter]=TicTacToePiece::EMPTY;
+          }
+          if(_game_state==TicTacToePiece::PLAYER_CURSOR) _game_state=TicTacToePiece::MALO_CURSOR;
+          else _game_state=TicTacToePiece::PLAYER_CURSOR;
+          if(_game_state==TicTacToePiece::MALO_CURSOR)
+          {//if malo move, then malo pick place to move to
+            _malo_move=_get_malo_move();
+          }
+        }
+        
+        // ⚡ CRITICAL: Force the screen to redraw the new piece instantly
+        lv_obj_invalidate(_game_container);
+        
+        // Switch state to MalO's turn or check for win condition here
+    } // else popup "nice try"
 }
 
 // Static callback wrapper registered to your TicTacToe LVGL object
@@ -300,48 +409,29 @@ void TicTacToe::_game_key_cb(lv_event_t* e) {
 
     switch (key) {
         case LV_KEY_UP:
-            instance->_move_cursor(1); // Move Up
+            if(instance->_game_state==TicTacToePiece::PLAYER_CURSOR) instance->_move_cursor(1); // Move Up
             break;
         case LV_KEY_DOWN:
-            instance->_move_cursor(2); // Move Down
+            if(instance->_game_state==TicTacToePiece::PLAYER_CURSOR) instance->_move_cursor(2); // Move Down
             break;
         case LV_KEY_LEFT:
         case LV_KEY_PREV:
-            instance->_move_cursor(3); // Move Left
+            if(instance->_game_state==TicTacToePiece::PLAYER_CURSOR) instance->_move_cursor(3); // Move Left
             break;
         case LV_KEY_RIGHT:
         case LV_KEY_NEXT:  // Handling your CW/CCW encoder mapping overrides
-            instance->_move_cursor(4); // Move Right
+            if(instance->_game_state==TicTacToePiece::PLAYER_CURSOR) instance->_move_cursor(4); // Move Right
             break;
+        case LV_KEY_ESC:
         case LV_KEY_ENTER:
             // Try to place a piece on the active square
-            if (instance->_board[instance->_cursor_index] == TicTacToePiece::EMPTY) {
-                instance->_board[instance->_cursor_index] = instance->_game_state==TicTacToePiece::PLAYER_CURSOR?TicTacToePiece::PLAYER:TicTacToePiece::MALO;
-                instance->_count_down[instance->_cursor_index]=6;//init count-down timer
-
-                while(instance->_board[instance->_cursor_index]!=TicTacToePiece::EMPTY) instance->_cursor_index=(instance->_cursor_index+1)%9; //find next cursor free space for next player to start at
-
-                bool is_win=instance->_is_win();
-                if(is_win)
-                {
-                  if(instance->_game_state==TicTacToePiece::PLAYER_CURSOR) instance->_game_state=TicTacToePiece::PLAYER_WINNER;
-                  else instance->_game_state=TicTacToePiece::MALO_WINNER;
-                  //TODO: game_save register achievement
-                }else{
-                  for(uint8_t iter=0;iter<9;iter++)
-                  {
-                    instance->_count_down[iter]--;
-                    if(instance->_count_down[iter]==0) instance->_board[iter]=TicTacToePiece::EMPTY;
-                  }
-                  if(instance->_game_state==TicTacToePiece::PLAYER_CURSOR) instance->_game_state=TicTacToePiece::MALO_CURSOR;
-                  else instance->_game_state=TicTacToePiece::PLAYER_CURSOR;
-                }
-                
-                // ⚡ CRITICAL: Force the screen to redraw the new piece instantly
-                lv_obj_invalidate(instance->_game_container);
-                
-                // Switch state to MalO's turn or check for win condition here
-            } // else popup "nice try"
+            if(instance->_game_state==TicTacToePiece::PLAYER_CURSOR && key==LV_KEY_ENTER) instance->_make_move();//only valid to make move on player's turn
+            else if(instance->_game_state==TicTacToePiece::PLAYER_WINNER || instance->_game_state==TicTacToePiece::MALO_WINNER)
+            {
+              for(uint8_t iter=0;iter<9;iter++){ instance->_board[iter]=TicTacToePiece::EMPTY; instance->_count_down[iter]=0; }
+              instance->_game_state=instance->_game_state==TicTacToePiece::PLAYER_WINNER?TicTacToePiece::MALO_CURSOR:TicTacToePiece::PLAYER_CURSOR;
+              instance->_cursor_index=0;
+            }//clear board on move after game won
             break;
         case LV_KEY_HOME:
             // Correct scope to strongly-typed enum and fix the struct member name
@@ -349,8 +439,7 @@ void TicTacToe::_game_key_cb(lv_event_t* e) {
             instance->_update_action.next_screen = instance->_screen_stack.empty() ? nullptr : instance->_screen_stack.front();
 
             break;
-        case LV_KEY_ESC:
-        //reset the game when there's a winner
+        //todo reset the game when there's a winner, or on enter key press too
             // Signal to the ScreenManager to pop back out to the menu hierarchy
             // no action on "no" 
             break;
@@ -394,7 +483,7 @@ void TicTacToe::_move_cursor(uint8_t direction) {
 }
 
 
-void TicTacToe::end(bool is_leaving_upward)
+/*void TicTacToe::end(bool is_leaving_upward)
 {
   // 1. Check how we are exiting the screen layout context
   if (is_leaving_upward)
@@ -417,5 +506,30 @@ void TicTacToe::end(bool is_leaving_upward)
   }
 
   // 2. Execute the base Game class cleanup wrapper down the chain
+  Game::end(is_leaving_upward);
+}*/
+
+void TicTacToe::end(bool is_leaving_upward)
+{
+  if (is_leaving_upward)
+  {
+    if (_game_container != nullptr)
+    {
+      // Remove from the input group first if group exists
+      if (_input_group)
+      {
+        lv_group_remove_obj(_game_container);
+      }
+
+      // Delete the container (automatically removes event callbacks and frees memory)
+      lv_obj_delete(_game_container);
+      _game_container = nullptr;
+    }
+  }else{
+
+    lv_obj_add_flag(_game_container, LV_OBJ_FLAG_HIDDEN);
+  }
+
+  // Call the base class end implementation
   Game::end(is_leaving_upward);
 }

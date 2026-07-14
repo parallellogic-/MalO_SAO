@@ -23,12 +23,15 @@ class TicTacToe : public Game{
     uint8_t _count_down[9]={};//pieces placed will have a count-down timer, when zero, reverts to a free space (unable for players to tie)
     lv_obj_t* _game_container;
     uint32_t _frame_id=0;
+    uint8_t _malo_move=10;
 
     static void _game_draw_cb(lv_event_t* e);
     static void _game_key_cb(lv_event_t* e);
     void _move_cursor(uint8_t direction); // Logic to map keys to grid navigation
-    void _draw_piece(lv_layer_t* layer, lv_area_t& board_coords, TicTacToePiece piece,uint32_t frame_id);
+    void _draw_piece(lv_layer_t* layer, lv_area_t& board_coords, TicTacToePiece piece,uint32_t frame_id,bool is_imminent_delete);
     bool _is_win();
+    uint8_t _get_malo_move();
+    void _make_move();
   public:
     TicTacToe(const std::string& text, lv_group_t* shared_input_group);
     void begin(bool is_enter_from_above) override; //fetch resources from RAM like imagery or IR configuration 
