@@ -22,13 +22,12 @@ class TicTacToe : public Game{
     TicTacToePiece _board[9]={};
     uint8_t _count_down[9]={};//pieces placed will have a count-down timer, when zero, reverts to a free space (unable for players to tie)
     
-    uint32_t _frame_id=0;
     uint8_t _malo_move=10;
     bool _is_malo_turn_seen=false;
     bool _is_player_win_seen=false;
     bool _is_malo_win_seen=false;
     bool _is_again_seen=false;
-    bool _is_no_tie_seen=false;
+    //bool _is_no_tie_seen=false;
     bool _is_place_atop_seen=false;
 
     static void _game_draw_cb(lv_event_t* e);

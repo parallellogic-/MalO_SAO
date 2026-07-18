@@ -390,7 +390,7 @@ void TicTacToe::_make_move()
         }else{
           for(uint8_t iter=0;iter<9;iter++)
           {
-            if(_count_down[iter]==1 && !_is_no_tie_seen){ _create_popup_overlay("No ties"); _is_no_tie_seen=true; }
+            //if(_count_down[iter]==1 && !_is_no_tie_seen){ _create_popup_overlay("No ties"); _is_no_tie_seen=true; }
             _count_down[iter]--;
             if(_count_down[iter]==0) _board[iter]=TicTacToePiece::EMPTY;
           }

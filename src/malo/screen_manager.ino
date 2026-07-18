@@ -16,11 +16,13 @@ void ScreenManager::_set_menu_structure()
   auto lower_led_screen  = std::make_shared<MenuScreen>("Lower LEDs",_shared_input_group,ScreenConfig::LED_LOWER);  animations_screen->add_subscreen(lower_led_screen);
   auto screen_screen     = std::make_shared<MenuScreen>("Screen",_shared_input_group,ScreenConfig::SCREEN_SAVER);   animations_screen->add_subscreen(screen_screen);
   
-  auto tictactoe_screen  = std::make_shared<TicTacToe>("TicTacToe",_shared_input_group);    levels_screen->add_subscreen(tictactoe_screen);
-  auto pong_screen       = std::make_shared<Pong>("Pong",_shared_input_group);              levels_screen->add_subscreen(pong_screen);
-  auto snake_screen      = std::make_shared<SnakeGame>("Snake",_shared_input_group);        levels_screen->add_subscreen(snake_screen);
-  auto box_screen        = std::make_shared<MenuScreen>("Box",_shared_input_group);         levels_screen->add_subscreen(box_screen);
-  auto site19_screen     = std::make_shared<MenuScreen>("Site 19",_shared_input_group);     levels_screen->add_subscreen(site19_screen);
+  auto tictactoe_screen  = std::make_shared<TicTacToe>("TicTacToe",_shared_input_group);         levels_screen->add_subscreen(tictactoe_screen);
+  auto pong_screen       = std::make_shared<Pong>("Pong",_shared_input_group);                   levels_screen->add_subscreen(pong_screen);
+  auto snake_screen      = std::make_shared<SnakeGame>("Snake",_shared_input_group);             levels_screen->add_subscreen(snake_screen);
+  auto labyrinth_screen  = std::make_shared<LabyrinthGame>("Labyrinth",_shared_input_group);     levels_screen->add_subscreen(labyrinth_screen);
+  //Quiz
+  //auto box_screen        = std::make_shared<MenuScreen>("Box",_shared_input_group);         levels_screen->add_subscreen(box_screen);
+  //auto site19_screen     = std::make_shared<MenuScreen>("Site 19",_shared_input_group);     levels_screen->add_subscreen(site19_screen);
   
 
   #define INIT_SCREEN_SAVER(var_name, title_str) \
@@ -52,11 +54,15 @@ void ScreenManager::_set_menu_structure()
 
 
   auto mount_usb_screen  = std::make_shared<MenuScreen>("Mount USB",_shared_input_group,ScreenConfig::MOUNT_USB);     settings_screen->add_subscreen(mount_usb_screen);
+  //haptic
+  //message motor
+  //
   
   auto pause_screen  = std::make_shared<MenuScreen>("Pause",_shared_input_group);
       tictactoe_screen->add_subscreen(pause_screen);
       pong_screen->add_subscreen(pause_screen);
-      snake_screen->add_subscreen(snake_screen);
+      snake_screen->add_subscreen(pause_screen);
+      labyrinth_screen->add_subscreen(pause_screen);
 
 
 
@@ -376,22 +382,26 @@ void ScreenManager::diag(){
 
 AchievementManager::AchievementManager(SensorSuite* sensor_suite):_sensor_suite(sensor_suite){}
 
+void AchievementManager::begin(){
+      potentiometer=_sensor_suite->analog.get_potentiometer();
+}
+
 void AchievementManager::update()
 {
   //Serial.printf("457 MenuScreen::AchievementManager::update: %d, %p\n",_sensor_suite->save_state.is_unlocked("Snooper Booper"),_sensor_suite->save_state);
-  uint32_t mills=millis();
-  if(_sensor_suite->touch.get_down_button()==1)
-  {//if secret button
-    if(_booper_start_millis==0) _booper_start_millis=mills;
-  }else
-  {
-    if(_booper_start_millis>0 && (mills-_booper_start_millis)>=100) _sensor_suite->save_state.unlock("Snooper Booper"); //unlock on button release
-    _booper_start_millis=0;
-  }
-  float hall=_sensor_suite->analog.get_hall();
-  if(hall>0.5 || hall<-0.5)
-  {//if secret button
-    if(_hall_start_millis==0) _hall_start_millis=mills;
-    if((mills-_hall_start_millis)>=1000) _sensor_suite->save_state.unlock("Magnetic Personality");
-  }else _hall_start_millis=0;
+  bool is_booper=_sensor_suite->touch.get_down_button()==1;
+  booper.is_sustained(is_booper);
+  if(!is_booper && booper.was_sustained()) _sensor_suite->save_state.unlock("Snooper Booper"); //unlock on button release
+
+  float hall_reading=_sensor_suite->analog.get_hall();
+  bool is_hall=hall_reading>0.5 || hall_reading<-0.5;
+  if(hall.is_sustained(is_hall)) _sensor_suite->save_state.unlock("Magnetic Personality");
+
+  float sound=_sensor_suite->microphone.get_mean_square();
+  Serial.printf("Sound: %f\n",sound);
+  bool is_sound=sound>500;//halfway between 0 and 127 (max) reading is 22 (in log2 space).  22*22 ~=500.  so mi-log range is cutoff for audio level
+  if(music.is_sustained(is_sound)) _sensor_suite->save_state.unlock("Dance");
+
+  bool is_pot=abs(_sensor_suite->analog.get_potentiometer()-potentiometer)>0.2;
+  if(is_pot) _sensor_suite->save_state.unlock("Screwing Around");
 }

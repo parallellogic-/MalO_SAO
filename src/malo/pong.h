@@ -3,8 +3,8 @@
 #include "game.h"
 
 // Screen configuration definitions
-#define PONG_SCREEN_WIDTH 128
-#define PONG_SCREEN_HEIGHT 128 - HEADER_HEIGHT_PX
+#define PONG_SCREEN_WIDTH SCREEN_WIDTH_PX
+#define PONG_SCREEN_HEIGHT (SCREEN_HEIGHT_PX - HEADER_HEIGHT_PX)
 
 // Game object dimensions
 #define PONG_PADDLE_WIDTH 3

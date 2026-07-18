@@ -14,7 +14,7 @@ void Pong::begin(bool is_enter_from_above, SensorSuite *sensor_suite) {
     _game_container = lv_obj_create(lv_screen_active()); 
     
     lv_obj_set_size(_game_container, PONG_SCREEN_WIDTH, PONG_SCREEN_HEIGHT);
-    lv_obj_align(_game_container, LV_ALIGN_TOP_LEFT, 0, 128 - PONG_SCREEN_HEIGHT);
+    lv_obj_align(_game_container, LV_ALIGN_TOP_LEFT, 0, HEADER_HEIGHT_PX);
     
     lv_obj_set_style_bg_color(_game_container, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(_game_container, LV_OPA_COVER, 0); 
@@ -116,10 +116,10 @@ void Pong::_process_physics() {
       _state_delay_timer = 45; 
       
       if (!_is_player_rally_seen && _right_score >= 3) {
-        _create_popup_overlay("Hesitation noted,\nupdating response time.");
+        //_create_popup_overlay("Hesitation noted,\nupdating response time.");
         _is_player_rally_seen = true;
       } else {
-        _create_popup_overlay("POINT FOR USER.\nUPDATING GEOMETRY.");
+        //_create_popup_overlay("POINT FOR USER.\nUPDATING GEOMETRY.");
       }
     }
   }
@@ -146,13 +146,13 @@ void Pong::_process_physics() {
       _state_delay_timer = 45;
 
       if (!_is_first_point_seen) {
-        _create_popup_overlay("I am right behind you.");
+        //_create_popup_overlay("I am right behind you.");
         _is_first_point_seen = true;
       } else if (_left_score > _right_score && !_is_malo_leading_seen) {
-        _create_popup_overlay("YOU CANNOT OUTRUN\nYOUR DESTINY.");
+        //_create_popup_overlay("YOU CANNOT OUTRUN\nYOUR DESTINY.");
         _is_malo_leading_seen = true;
       } else {
-        _create_popup_overlay("IMAGE REFRESH\nSUCESSFUL.");
+        //_create_popup_overlay("IMAGE REFRESH\nSUCESSFUL.");
       }
     }
   }
@@ -239,6 +239,9 @@ void Pong::_game_key_cb(lv_event_t* e) {
 void Pong::_game_draw_cb(lv_event_t* e) {
   lv_layer_t* layer = lv_event_get_layer(e);
   Pong* instance = (Pong*)lv_event_get_user_data(e);
+  lv_obj_t* obj = (lv_obj_t*)lv_event_get_target(e);
+  lv_area_t container_coords;
+  lv_obj_get_coords(obj, &container_coords);
 
   // Initialize base geometric design brush properties
   lv_draw_rect_dsc_t rect_dsc;
@@ -249,36 +252,36 @@ void Pong::_game_draw_cb(lv_event_t* e) {
   // 1. Draw Mid-field Dotted Vector Net Divider
   for (int16_t y = 2; y < PONG_SCREEN_HEIGHT; y += 8) {
     lv_area_t net_area;
-    net_area.x1 = (PONG_SCREEN_WIDTH / 2) - 1;
-    net_area.y1 = y;
-    net_area.x2 = (PONG_SCREEN_WIDTH / 2);
-    net_area.y2 = y + 4;
+    net_area.x1 = container_coords.x1+(PONG_SCREEN_WIDTH / 2) - 1;
+    net_area.y1 = container_coords.y1+y;
+    net_area.x2 = container_coords.x1+(PONG_SCREEN_WIDTH / 2);
+    net_area.y2 = container_coords.y1+y + 4;
     lv_draw_rect(layer, &rect_dsc, &net_area);
   }
 
   // 2. Render Left Paddle (AI)
   lv_area_t left_paddle;
-  left_paddle.x1 = 0;
-  left_paddle.y1 = instance->_left_paddle_y;
-  left_paddle.x2 = PONG_PADDLE_WIDTH;
-  left_paddle.y2 = instance->_left_paddle_y + PONG_PADDLE_HEIGHT;
+  left_paddle.x1 = container_coords.x1+0;
+  left_paddle.y1 = container_coords.y1+instance->_left_paddle_y;
+  left_paddle.x2 = container_coords.x1+PONG_PADDLE_WIDTH;
+  left_paddle.y2 = container_coords.y1+instance->_left_paddle_y + PONG_PADDLE_HEIGHT;
   lv_draw_rect(layer, &rect_dsc, &left_paddle);
 
   // 3. Render Right Paddle (Human Player)
   lv_area_t right_paddle;
-  right_paddle.x1 = PONG_SCREEN_WIDTH - PONG_PADDLE_WIDTH;
-  right_paddle.y1 = instance->_right_paddle_y;
-  right_paddle.x2 = PONG_SCREEN_WIDTH;
-  right_paddle.y2 = instance->_right_paddle_y + PONG_PADDLE_HEIGHT;
+  right_paddle.x1 = container_coords.x1+PONG_SCREEN_WIDTH - PONG_PADDLE_WIDTH;
+  right_paddle.y1 = container_coords.y1+instance->_right_paddle_y;
+  right_paddle.x2 = container_coords.x1+PONG_SCREEN_WIDTH;
+  right_paddle.y2 = container_coords.y1+instance->_right_paddle_y + PONG_PADDLE_HEIGHT;
   lv_draw_rect(layer, &rect_dsc, &right_paddle);
 
   // 4. Render Active Target Ball Matrix
   if (instance->_game_state == PongState::GAMEPLAY || (instance->_frame_id % 10 < 7)) {
     lv_area_t ball;
-    ball.x1 = instance->_ball_x;
-    ball.y1 = instance->_ball_y;
-    ball.x2 = instance->_ball_x + PONG_BALL_SIZE;
-    ball.y2 = instance->_ball_y + PONG_BALL_SIZE;
+    ball.x1 = container_coords.x1+instance->_ball_x;
+    ball.y1 = container_coords.y1+instance->_ball_y;
+    ball.x2 = container_coords.x1+instance->_ball_x + PONG_BALL_SIZE;
+    ball.y2 = container_coords.y1+instance->_ball_y + PONG_BALL_SIZE;
     lv_draw_rect(layer, &rect_dsc, &ball);
   }
 }

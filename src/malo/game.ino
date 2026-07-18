@@ -12,6 +12,7 @@ void Game::begin(bool is_enter_from_above,SensorSuite *sensor_suite)
 ScreenAction Game::update() 
 {
     // Chain up to the base Screen class so it handles visibility/layouts
+    _frame_id++;
     return _update_action;
 }
 

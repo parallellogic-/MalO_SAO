@@ -4,8 +4,8 @@
 #include <vector>
 
 // Screen configuration definitions
-#define SNAKE_SCREEN_WIDTH 128
-#define SNAKE_SCREEN_HEIGHT 121 // 128 - HEADER_HEIGHT_PX
+#define SNAKE_SCREEN_WIDTH SCREEN_WIDTH_PX
+#define SNAKE_SCREEN_HEIGHT (SCREEN_HEIGHT_PX - HEADER_HEIGHT_PX)
 
 // Grid configuration (Must fit cleanly into screen dimensions)
 #define SNAKE_GRID_SIZE 4
@@ -32,7 +32,6 @@ struct SnakePoint {
 class SnakeGame : public Game {
   private:
     SnakeState _game_state = SnakeState::GAMEPLAY;
-    uint32_t _frame_id = 0;
     uint8_t _update_speed_frames = 6; // Move snake every X frames
 
     // Snake attributes
@@ -68,12 +67,12 @@ class SnakeGame : public Game {
     ScreenAction update() override; 
     void end(bool is_leaving_upward) override;
 
-    lv_key_t touch_to_key(uint8_t touch) override {
+    /*lv_key_t touch_to_key(uint8_t touch) override {
         static const lv_key_t touch2key[] = {
             (lv_key_t)0, (lv_key_t)0, LV_KEY_HOME, LV_KEY_ESC, LV_KEY_ENTER,
             LV_KEY_LEFT, LV_KEY_UP, LV_KEY_RIGHT, LV_KEY_LEFT, LV_KEY_DOWN, LV_KEY_RIGHT
         };
         if (touch >= sizeof(touch2key) / sizeof(touch2key[0])) return (lv_key_t)0; 
         return touch2key[touch];
-    }
+    }*/
 };

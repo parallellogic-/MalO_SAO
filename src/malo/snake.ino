@@ -14,7 +14,7 @@ void SnakeGame::begin(bool is_enter_from_above, SensorSuite *sensor_suite) {
     _game_container = lv_obj_create(lv_screen_active()); 
     
     lv_obj_set_size(_game_container, SNAKE_SCREEN_WIDTH, SNAKE_SCREEN_HEIGHT);
-    lv_obj_align(_game_container, LV_ALIGN_TOP_LEFT, 0, 128 - SNAKE_SCREEN_HEIGHT);
+    lv_obj_align(_game_container, LV_ALIGN_TOP_LEFT, 0, HEADER_HEIGHT_PX);
     
     lv_obj_set_style_bg_color(_game_container, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(_game_container, LV_OPA_COVER, 0); 
@@ -108,21 +108,16 @@ void SnakeGame::_process_movement() {
   // Check if head matches active target coordinates
   if (head.x == _food.x && head.y == _food.y) {
     _score++;
-    _spawn_food();
-
-    // Narrative trigger systems based on score markers
-    if (!_is_first_food_seen) {
-      _create_popup_overlay("Application MalO ver1.0.0:\nI love watching you grow.");
-      _is_first_food_seen = true;
-    } else if (_score >= 10 && !_is_growth_milestone_seen) {
-      _create_popup_overlay("YOU CANNOT OUTRUN\nYOUR OWN ARCHIVE.");
-      _is_growth_milestone_seen = true;
-    } else if (_snake.size() > 15 && !_is_close_to_tail_seen) {
-      _create_popup_overlay("MalO is monitoring your micro-adjustments.");
-      _is_close_to_tail_seen = true;
-    } else {
-      _create_popup_overlay("IMAGE REFRESH SUCCESSFUL.");
+    
+    // Check for precise win condition boundary transition at 15 points
+    if (_score == 15) {
+      if (_sensor_suite) {
+        _sensor_suite->save_state.unlock("Sleek Snake");
+      }
+      //_create_popup_overlay("ACHIEVEMENT UNLOCKED:\nSLEEK SNAKE");
     }
+
+    _spawn_food();
   } else {
     // Trim tail if no target item was consumed this physics step
     _snake.pop_back();
@@ -130,7 +125,6 @@ void SnakeGame::_process_movement() {
 }
 
 ScreenAction SnakeGame::update() {
-  _frame_id++;
   _update_action.led_upper_func = &Charlieplex::animation_off;
   _update_action.led_lower_func = &Charlieplex::animation_off;
 
@@ -143,10 +137,6 @@ ScreenAction SnakeGame::update() {
     if (_state_delay_timer > 0) {
       _state_delay_timer--;
     } else {
-      // Unlock state parameters if score requirement is reached
-      if (_score >= 15 && _sensor_suite) {
-        _sensor_suite->save_state.unlock("Pong Champ");
-      }
       _reset_entire_match();
     }
   }
@@ -158,6 +148,13 @@ ScreenAction SnakeGame::update() {
 void SnakeGame::_game_key_cb(lv_event_t* e) {
   SnakeGame* instance = (SnakeGame*)lv_event_get_user_data(e);
   uint32_t key = lv_event_get_key(e);
+
+  // Home key handling executes across all valid local states
+  if (key == LV_KEY_HOME) {
+    instance->_update_action.type = ScreenActionType::PUSH_SUBMENU;
+    instance->_update_action.next_screen = instance->_screen_stack.empty() ? nullptr : instance->_screen_stack.front();
+    return;
+  }
 
   if (instance->_game_state != SnakeState::GAMEPLAY) return;
 
@@ -183,16 +180,14 @@ void SnakeGame::_game_key_cb(lv_event_t* e) {
         instance->_next_dir = SnakeDir::RIGHT;
       }
       break;
-    case LV_KEY_HOME:
-      instance->_update_action.type = ScreenActionType::PUSH_SUBMENU;
-      instance->_update_action.next_screen = instance->_screen_stack.empty() ? nullptr : instance->_screen_stack.front();
-      break;
   }
 }
-
 void SnakeGame::_game_draw_cb(lv_event_t* e) {
   lv_layer_t* layer = lv_event_get_layer(e);
   SnakeGame* instance = (SnakeGame*)lv_event_get_user_data(e);
+  lv_obj_t* obj = (lv_obj_t*)lv_event_get_target(e);
+  lv_area_t container_coords;
+  lv_obj_get_coords(obj, &container_coords);
 
   // Initialize base layout rectangular graphic styling structures
   lv_draw_rect_dsc_t rect_dsc;
@@ -202,8 +197,8 @@ void SnakeGame::_game_draw_cb(lv_event_t* e) {
   // 1. Render Target Food Element
   rect_dsc.bg_color = lv_color_white();
   lv_area_t food_area;
-  food_area.x1 = instance->_food.x * SNAKE_GRID_SIZE;
-  food_area.y1 = instance->_food.y * SNAKE_GRID_SIZE;
+  food_area.x1 = container_coords.x1+instance->_food.x * SNAKE_GRID_SIZE;
+  food_area.y1 = container_coords.y1+instance->_food.y * SNAKE_GRID_SIZE;
   food_area.x2 = food_area.x1 + SNAKE_GRID_SIZE - 1;
   food_area.y2 = food_area.y1 + SNAKE_GRID_SIZE - 1;
   lv_draw_rect(layer, &rect_dsc, &food_area);
@@ -215,17 +210,32 @@ void SnakeGame::_game_draw_cb(lv_event_t* e) {
       continue;
     }
     
-    // Give head a distinctive full coloring, body segments slightly offset if desired
     rect_dsc.bg_color = lv_color_white();
     
     lv_area_t segment_area;
-    segment_area.x1 = instance->_snake[i].x * SNAKE_GRID_SIZE;
-    segment_area.y1 = instance->_snake[i].y * SNAKE_GRID_SIZE;
+    segment_area.x1 = container_coords.x1+instance->_snake[i].x * SNAKE_GRID_SIZE;
+    segment_area.y1 = container_coords.y1+instance->_snake[i].y * SNAKE_GRID_SIZE;
     segment_area.x2 = segment_area.x1 + SNAKE_GRID_SIZE - 1;
     segment_area.y2 = segment_area.y1 + SNAKE_GRID_SIZE - 1;
     lv_draw_rect(layer, &rect_dsc, &segment_area);
   }
+
+  // 3. Render 1-Pixel Periphery Border
+  lv_draw_rect_dsc_t border_dsc;
+  lv_draw_rect_dsc_init(&border_dsc);
+  border_dsc.bg_opa = LV_OPA_TRANSP;        // Keep the inside hollow
+  border_dsc.border_color = lv_color_white(); // Border color
+  border_dsc.border_width = 1;              // 1 pixel wide
+  border_dsc.radius = 0;                    // Sharp corners
+
+  lv_area_t border_area;
+  border_area.x1 = container_coords.x1+layer->buf_area.x1;
+  border_area.y1 = container_coords.y1+layer->buf_area.y1;
+  border_area.x2 = layer->buf_area.x2;
+  border_area.y2 = layer->buf_area.y2;
+  lv_draw_rect(layer, &border_dsc, &border_area);
 }
+
 
 void SnakeGame::end(bool is_leaving_upward) {
   if (is_leaving_upward) {

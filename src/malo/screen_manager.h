@@ -9,21 +9,41 @@
 #include "tictactoe.h"
 #include "pong.h"
 #include "snake.h"
+#include "labyrinth.h"
 
 
 // Forward declaration of LVGL object type to avoid including lvgl.h in the header
 //struct _lv_obj_t;
 //typedef struct _lv_obj_t lv_obj_t;
 
+class AchivementState{
+  private:
+    uint32_t _start_ms=0;
+    uint32_t _min_ms=0;
+    bool _was_sustained=false;
+  public:
+    AchivementState(uint32_t min_ms):_min_ms(min_ms){};
+    bool is_sustained(bool is_valid){
+        if(is_valid)
+        {
+          if(_start_ms==0) _start_ms=millis();
+          else if(millis()-_start_ms>_min_ms){ _was_sustained=true; return true; }
+        }else _start_ms=0;
+        return false;
+    }
+    bool was_sustained(){ return _was_sustained; }//monitor this if need to wait for is_sustained to clear before proceeding
+};
 
 class AchievementManager{
   private:
     SensorSuite* _sensor_suite;
-    uint32_t _booper_start_millis=0;
-    uint32_t _hall_start_millis=0;
+    AchivementState booper=AchivementState(100);
+    AchivementState hall=AchivementState(1000);
+    AchivementState music=AchivementState(250);
+    float potentiometer=0;
   public:
     AchievementManager(SensorSuite* sensor_suite);
-    void begin(){};
+    void begin();
     void update();
 };
 
