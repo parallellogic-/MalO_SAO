@@ -18,6 +18,7 @@ void ScreenManager::_set_menu_structure()
   
   auto tictactoe_screen  = std::make_shared<TicTacToe>("TicTacToe",_shared_input_group);    levels_screen->add_subscreen(tictactoe_screen);
   auto pong_screen       = std::make_shared<Pong>("Pong",_shared_input_group);              levels_screen->add_subscreen(pong_screen);
+  auto snake_screen      = std::make_shared<SnakeGame>("Snake",_shared_input_group);        levels_screen->add_subscreen(snake_screen);
   auto box_screen        = std::make_shared<MenuScreen>("Box",_shared_input_group);         levels_screen->add_subscreen(box_screen);
   auto site19_screen     = std::make_shared<MenuScreen>("Site 19",_shared_input_group);     levels_screen->add_subscreen(site19_screen);
   
@@ -55,6 +56,7 @@ void ScreenManager::_set_menu_structure()
   auto pause_screen  = std::make_shared<MenuScreen>("Pause",_shared_input_group);
       tictactoe_screen->add_subscreen(pause_screen);
       pong_screen->add_subscreen(pause_screen);
+      snake_screen->add_subscreen(snake_screen);
 
 
 

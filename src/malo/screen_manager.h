@@ -7,6 +7,8 @@
 #include <memory>
 #include "screen.h"
 #include "tictactoe.h"
+#include "pong.h"
+#include "snake.h"
 
 
 // Forward declaration of LVGL object type to avoid including lvgl.h in the header
