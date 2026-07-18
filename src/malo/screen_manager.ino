@@ -54,7 +54,7 @@ void ScreenManager::_set_menu_structure()
   
   auto pause_screen  = std::make_shared<MenuScreen>("Pause",_shared_input_group);
       tictactoe_screen->add_subscreen(pause_screen);
-  //auto resume_key    = std::make_shared<MenuScreen>("Resume",_shared_input_group);  pause_screen->add_subscreen(resume_key);//dummy just to get menu option to appear
+      pong_screen->add_subscreen(pause_screen);
 
 
 

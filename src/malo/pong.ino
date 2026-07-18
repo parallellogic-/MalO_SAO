@@ -52,7 +52,12 @@ void Pong::_reset_entire_match() {
 void Pong::_reset_ball(bool serve_to_right) {
   _ball_x = PONG_SCREEN_WIDTH / 2;
   _ball_y = PONG_SCREEN_HEIGHT / 2;
-  _ball_vx = serve_to_right ? 2 : -2;
+  
+  // Randomize the horizontal serve direction (ignores who scored last for complete randomness)
+  bool random_serve_right = (std::rand() % 2 == 0);
+  _ball_vx = random_serve_right ? 2 : -2;
+  
+  // Guarantee initial vertical velocity is non-zero (either 1 or -1)
   _ball_vy = (std::rand() % 2 == 0) ? 1 : -1;
 }
 
@@ -92,21 +97,29 @@ void Pong::_process_physics() {
   if (_ball_x <= PONG_PADDLE_WIDTH) {
     if (_ball_y + PONG_BALL_SIZE >= _left_paddle_y && _ball_y <= _left_paddle_y + PONG_PADDLE_HEIGHT) {
       _ball_x = PONG_PADDLE_WIDTH;
+      
       _ball_vx = -_ball_vx;
+      if (_ball_vx < 2) _ball_vx = 2; 
+
       // Introduce velocity variability based on collision point offsets
       int16_t hit_pos = (_ball_y + PONG_BALL_SIZE / 2) - (_left_paddle_y + PONG_PADDLE_HEIGHT / 2);
       _ball_vy = hit_pos / 4;
+      
+      // Prevent flat horizontal traps: force a minimum vertical bounce direction
+      if (_ball_vy == 0) {
+        _ball_vy = (hit_pos >= 0) ? 1 : -1;
+      }
     } else if (_ball_x < 0) {
       // Right (Human Player) Scores!
       _right_score++;
       _game_state = PongState::POINT_SCORED;
-      _state_delay_timer = 45; // 45 frames delay duration 
+      _state_delay_timer = 45; 
       
       if (!_is_player_rally_seen && _right_score >= 3) {
-        _create_popup_overlay("MalO is monitoring your micro-adjustments.");
+        _create_popup_overlay("Hesitation noted,\nupdating response time.");
         _is_player_rally_seen = true;
       } else {
-        _create_popup_overlay("POINT FOR CLIENT.\nUPDATING GEOMETRY.");
+        _create_popup_overlay("POINT FOR USER.\nUPDATING GEOMETRY.");
       }
     }
   }
@@ -115,9 +128,17 @@ void Pong::_process_physics() {
   if (_ball_x >= PONG_SCREEN_WIDTH - PONG_PADDLE_WIDTH - PONG_BALL_SIZE) {
     if (_ball_y + PONG_BALL_SIZE >= _right_paddle_y && _ball_y <= _right_paddle_y + PONG_PADDLE_HEIGHT) {
       _ball_x = PONG_SCREEN_WIDTH - PONG_PADDLE_WIDTH - PONG_BALL_SIZE;
+      
       _ball_vx = -_ball_vx;
+      if (_ball_vx > -2) _ball_vx = -2;
+
       int16_t hit_pos = (_ball_y + PONG_BALL_SIZE / 2) - (_right_paddle_y + PONG_PADDLE_HEIGHT / 2);
       _ball_vy = hit_pos / 4;
+      
+      // Prevent flat horizontal traps: force a minimum vertical bounce direction
+      if (_ball_vy == 0) {
+        _ball_vy = (hit_pos >= 0) ? 1 : -1;
+      }
     } else if (_ball_x > PONG_SCREEN_WIDTH) {
       // Left (AI Player) Scores!
       _left_score++;
@@ -125,13 +146,13 @@ void Pong::_process_physics() {
       _state_delay_timer = 45;
 
       if (!_is_first_point_seen) {
-        _create_popup_overlay("Application MalO ver1.0.0:\nI am right behind you.");
+        _create_popup_overlay("I am right behind you.");
         _is_first_point_seen = true;
       } else if (_left_score > _right_score && !_is_malo_leading_seen) {
-        _create_popup_overlay("YOU CANNOT OUTRUN\nYOUR OWN ARCHIVE.");
+        _create_popup_overlay("YOU CANNOT OUTRUN\nYOUR DESTINY.");
         _is_malo_leading_seen = true;
       } else {
-        _create_popup_overlay("IMAGE REFRESH SUCESSFUL.");
+        _create_popup_overlay("IMAGE REFRESH\nSUCESSFUL.");
       }
     }
   }
@@ -144,10 +165,41 @@ void Pong::_process_physics() {
 }
 
 ScreenAction Pong::update() {
-    _update_action.led_upper_func=&Charlieplex::animation_off;
-    _update_action.led_lower_func=&Charlieplex::animation_off;
+  _update_action.led_upper_func = &Charlieplex::animation_off;
+  _update_action.led_lower_func = &Charlieplex::animation_off;
 
   if (_game_state == PongState::GAMEPLAY) {
+    bool key_pressed_this_frame = false;
+
+    // Poll direct hardware key status to remove button processing latency
+    lv_indev_t* indev = lv_indev_get_next(nullptr);
+    while (indev) {
+      if (lv_indev_get_type(indev) == LV_INDEV_TYPE_KEYPAD) {
+        // Check if the input device is actively pressed
+        if (lv_indev_get_state(indev) == LV_INDEV_STATE_PRESSED) {
+          uint32_t active_key = lv_indev_get_key(indev);
+          
+          if (active_key == LV_KEY_UP) {
+            _right_paddle_y -= 3; 
+            if (_right_paddle_y < 0) _right_paddle_y = 0;
+            key_pressed_this_frame = true;
+          } else if (active_key == LV_KEY_DOWN) {
+            _right_paddle_y += 3;
+            if (_right_paddle_y > PONG_SCREEN_HEIGHT - PONG_PADDLE_HEIGHT) {
+              _right_paddle_y = PONG_SCREEN_HEIGHT - PONG_PADDLE_HEIGHT;
+            }
+            key_pressed_this_frame = true;
+          }
+        }
+      }
+      indev = lv_indev_get_next(indev);
+    }
+
+    // Explicitly halt paddle movement if no vertical inputs are active
+    if (!key_pressed_this_frame) {
+      // Paddle position remains unchanged (_right_paddle_y = _right_paddle_y)
+    }
+
     _update_ai();
     _process_physics();
   } else if (_game_state == PongState::POINT_SCORED) {
@@ -172,28 +224,20 @@ ScreenAction Pong::update() {
   return Game::update();
 }
 
+
 void Pong::_game_key_cb(lv_event_t* e) {
-  lv_obj_t* obj = (lv_obj_t*)lv_event_get_target(e);
   Pong* instance = (Pong*)lv_event_get_user_data(e);
   uint32_t key = lv_event_get_key(e);
 
-  if (instance->_game_state != PongState::GAMEPLAY) return;
-
-  // Move right paddle up or down manually via hardware inputs
-  if (key == LV_KEY_UP) {
-    instance->_right_paddle_y -= 6;
-    if (instance->_right_paddle_y < 0) instance->_right_paddle_y = 0;
-  } else if (key == LV_KEY_DOWN) {
-    instance->_right_paddle_y += 6;
-    if (instance->_right_paddle_y > PONG_SCREEN_HEIGHT - PONG_PADDLE_HEIGHT) {
-      instance->_right_paddle_y = PONG_SCREEN_HEIGHT - PONG_PADDLE_HEIGHT;
-    }
+  // Keep menu routing / back buttons tied strictly to clean callback events
+  if (key == LV_KEY_HOME) {
+    instance->_update_action.type = ScreenActionType::PUSH_SUBMENU;
+    instance->_update_action.next_screen = instance->_screen_stack.empty() ? nullptr : instance->_screen_stack.front();
   }
 }
 
 void Pong::_game_draw_cb(lv_event_t* e) {
   lv_layer_t* layer = lv_event_get_layer(e);
-  lv_obj_t* obj = (lv_obj_t*)lv_event_get_target(e);
   Pong* instance = (Pong*)lv_event_get_user_data(e);
 
   // Initialize base geometric design brush properties
