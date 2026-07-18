@@ -14,6 +14,17 @@
 //typedef struct _lv_obj_t lv_obj_t;
 
 
+class AchievementManager{
+  private:
+    SensorSuite* _sensor_suite;
+    uint32_t _booper_start_millis=0;
+    uint32_t _hall_start_millis=0;
+  public:
+    AchievementManager(SensorSuite* sensor_suite);
+    void begin(){};
+    void update();
+};
+
 class ScreenManager {
 private:
     SensorSuite* _sensor_suite;
@@ -22,8 +33,10 @@ private:
     uint32_t _last_update_ms=0;
 
     std::unique_ptr<Header> _system_header;
+    std::unique_ptr<AchievementManager> _achievement_manager;
 
     std::vector<std::shared_ptr<Screen>> _screen_stack; //trace of the menus from the top to where the user currently is (dyanmically changes based on user interaction)
+    std::vector<std::shared_ptr<ScreenSaver>> _screen_savers; //only init list once, so track here so it can be re-used to save memory
     //std::shared_ptr<Screen> _active_screen = nullptr;
     lv_obj_t* _screen_canvas = nullptr;
     lv_obj_t* _header = nullptr;

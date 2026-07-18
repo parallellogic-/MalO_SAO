@@ -68,8 +68,11 @@ class Charlieplex{
     void animation_off(SensorSuite &sensor_suite);
     void animation_blink(SensorSuite &sensor_suite);
     void animation_cycle(SensorSuite &sensor_suite);
+    void animation_evil(SensorSuite &sensor_suite);
     void animation_fire(SensorSuite &sensor_suite);
     void animation_gyroscope(SensorSuite &sensor_suite);
+    void animation_innocent(SensorSuite &sensor_suite);
+    void animation_love(SensorSuite &sensor_suite);
     void animation_menu_depth(SensorSuite &sensor_suite);
     void animation_microphone(SensorSuite &sensor_suite);
     void animation_pulse(SensorSuite &sensor_suite);

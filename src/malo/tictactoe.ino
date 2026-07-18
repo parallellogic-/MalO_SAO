@@ -3,12 +3,16 @@
 
 TicTacToe::TicTacToe(const std::string& text, lv_group_t* shared_input_group):Game(text,shared_input_group){}
 
-void TicTacToe::begin(bool is_enter_from_above)
+void TicTacToe::begin(bool is_enter_from_above,SensorSuite *sensor_suite)
 {
-  Game::begin(is_enter_from_above);
+  Game::begin(is_enter_from_above,sensor_suite);
   
   if(is_enter_from_above)
   {
+    // Ensure pointers start cleanly on completely new allocations
+    _overlay_card = nullptr;
+    _overlay_timer = nullptr;
+
     // Test fix: Force parent container directly onto the active hardware viewport!
     _game_container = lv_obj_create(lv_screen_active()); 
     
@@ -23,8 +27,10 @@ void TicTacToe::begin(bool is_enter_from_above)
     lv_obj_remove_flag(_game_container, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_clear_flag(_game_container, LV_OBJ_FLAG_HIDDEN); //lv_obj_remove_flag
 
-    lv_obj_add_event_cb(_game_container, _game_draw_cb, LV_EVENT_DRAW_POST, this);
+    lv_obj_add_event_cb(_game_container, _game_draw_cb, LV_EVENT_DRAW_MAIN, this); //LV_EVENT_DRAW_POST
     lv_obj_add_event_cb(_game_container, TicTacToe::_game_key_cb, LV_EVENT_KEY, this);
+
+    _set_new_game();
   }else{
     lv_obj_clear_flag(_game_container, LV_OBJ_FLAG_HIDDEN);
     
@@ -322,8 +328,9 @@ void TicTacToe::_game_draw_cb(lv_event_t* e) {
 }
 
 ScreenAction TicTacToe::update() {
-    _update_action=Game::update();
-    _frame_id++;
+    
+    _update_action.led_upper_func=&Charlieplex::animation_off;
+    _update_action.led_lower_func=&Charlieplex::animation_off;
     
     if(_frame_id%(TICTACTOE_BLINK_PERIOD/2)==0) lv_obj_invalidate(_game_container);//blink request for update
 
@@ -350,7 +357,7 @@ ScreenAction TicTacToe::update() {
 //show animation to get to target
 
     // No polling for input state here!
-    return _update_action; 
+    return Game::update(); 
 }
 
 void TicTacToe::_make_move()
@@ -368,23 +375,36 @@ void TicTacToe::_make_move()
           if(_game_state==TicTacToePiece::PLAYER_CURSOR)
           {
             _game_state=TicTacToePiece::PLAYER_WINNER;
+            if(!_is_player_win_seen){ _create_popup_overlay("You win!"); _is_player_win_seen=true; }
+            _sensor_suite->save_state.unlock("Winner");
           } 
           else
           {
             _game_state=TicTacToePiece::MALO_WINNER;
+            if(!_is_malo_win_seen){ _create_popup_overlay("MalO wins!"); _is_malo_win_seen=true; }
+            else if(!_is_again_seen){ _create_popup_overlay("Again?"); _is_again_seen=true; }
+            _sensor_suite->save_state.unlock("MalO Wins");
           }
           //TODO: game_save register achievement
+
         }else{
           for(uint8_t iter=0;iter<9;iter++)
           {
+            if(_count_down[iter]==1 && !_is_no_tie_seen){ _create_popup_overlay("No ties"); _is_no_tie_seen=true; }
             _count_down[iter]--;
             if(_count_down[iter]==0) _board[iter]=TicTacToePiece::EMPTY;
           }
           if(_game_state==TicTacToePiece::PLAYER_CURSOR) _game_state=TicTacToePiece::MALO_CURSOR;
           else _game_state=TicTacToePiece::PLAYER_CURSOR;
           if(_game_state==TicTacToePiece::MALO_CURSOR)
-          {//if malo move, then malo pick place to move to
-            _malo_move=_get_malo_move();
+          {
+            _malo_move=_get_malo_move(); //if malo move, then malo pick place to move to
+            if(!_is_malo_turn_seen)
+            {
+                _create_popup_overlay("My turn");
+                _is_malo_turn_seen=true;
+                //while(1){ Serial.printf("HERE\n"); delay(100); }
+            }
           }
         }
         
@@ -392,7 +412,9 @@ void TicTacToe::_make_move()
         lv_obj_invalidate(_game_container);
         
         // Switch state to MalO's turn or check for win condition here
-    } // else popup "nice try"
+    }else{
+        if(!_is_place_atop_seen){ _create_popup_overlay("Nice try"); _is_place_atop_seen=true; }
+    }
 }
 
 // Static callback wrapper registered to your TicTacToe LVGL object
@@ -426,13 +448,11 @@ void TicTacToe::_game_key_cb(lv_event_t* e) {
         case LV_KEY_ENTER:
             // Try to place a piece on the active square
             if(instance->_game_state==TicTacToePiece::PLAYER_CURSOR && key==LV_KEY_ENTER) instance->_make_move();//only valid to make move on player's turn
-            else if(instance->_game_state==TicTacToePiece::PLAYER_WINNER || instance->_game_state==TicTacToePiece::MALO_WINNER)
-            {
-              for(uint8_t iter=0;iter<9;iter++){ instance->_board[iter]=TicTacToePiece::EMPTY; instance->_count_down[iter]=0; }
-              instance->_game_state=instance->_game_state==TicTacToePiece::PLAYER_WINNER?TicTacToePiece::MALO_CURSOR:TicTacToePiece::PLAYER_CURSOR;
-              instance->_cursor_index=0;
-            }//clear board on move after game won
+            else if(instance->_game_state==TicTacToePiece::PLAYER_WINNER || instance->_game_state==TicTacToePiece::MALO_WINNER) instance->_set_new_game();//clear board on move after game won
             break;
+        //case LV_KEY_ESC: //confuses user if pressed accidentally
+        //    instance->_set_new_game();
+        //    break;
         case LV_KEY_HOME:
             // Correct scope to strongly-typed enum and fix the struct member name
             instance->_update_action.type = ScreenActionType::PUSH_SUBMENU;
@@ -452,6 +472,14 @@ void TicTacToe::_game_key_cb(lv_event_t* e) {
     lv_obj_invalidate((lv_obj_t*)lv_event_get_target(e));
 }
 
+void TicTacToe::_set_new_game()
+{
+    for(uint8_t iter=0;iter<9;iter++){ _board[iter]=TicTacToePiece::EMPTY; _count_down[iter]=0; }
+    _game_state=_game_state==TicTacToePiece::PLAYER_WINNER?TicTacToePiece::MALO_CURSOR:TicTacToePiece::PLAYER_CURSOR;
+    if(_game_state==TicTacToePiece::MALO_CURSOR) _malo_move=_get_malo_move(); //if malo move, then malo pick place to move to
+    _cursor_index=0;
+
+}
 
 void TicTacToe::_move_cursor(uint8_t direction) {
     int row = _cursor_index / 3;
@@ -482,35 +510,11 @@ void TicTacToe::_move_cursor(uint8_t direction) {
     }
 }
 
-
-/*void TicTacToe::end(bool is_leaving_upward)
-{
-  // 1. Check how we are exiting the screen layout context
-  if (is_leaving_upward)
-  {
-    // If leaving permanently to a higher parent screen, destroy the widget entirely
-    if (_game_container != nullptr && lv_obj_is_valid(_game_container)) 
-    {
-      lv_obj_delete(_game_container);
-      _game_container = nullptr; // Reset pointer to avoid dangling reference bugs
-    }
-  }
-  else
-  {
-    // If dropping down into a temporary sub-screen (like a pause menu), 
-    // just hide it so it preserves the board state for when you return!
-    if (_game_container != nullptr && lv_obj_is_valid(_game_container))
-    {
-      lv_obj_add_flag(_game_container, LV_OBJ_FLAG_HIDDEN);
-    }
-  }
-
-  // 2. Execute the base Game class cleanup wrapper down the chain
-  Game::end(is_leaving_upward);
-}*/
-
 void TicTacToe::end(bool is_leaving_upward)
 {
+  // Safely clean up active popups and timers immediately
+  _clear_popup_overlay();
+
   if (is_leaving_upward)
   {
     if (_game_container != nullptr)
@@ -525,11 +529,13 @@ void TicTacToe::end(bool is_leaving_upward)
       lv_obj_delete(_game_container);
       _game_container = nullptr;
     }
-  }else{
-
+  }
+  else
+  {
     lv_obj_add_flag(_game_container, LV_OBJ_FLAG_HIDDEN);
   }
 
-  // Call the base class end implementation
+  // FIX: Explicitly ensure this matches your updated Game interface
   Game::end(is_leaving_upward);
 }
+

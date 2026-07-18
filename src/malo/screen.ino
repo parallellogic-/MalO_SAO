@@ -9,8 +9,16 @@ Screen::Screen(const std::string& title, lv_group_t* shared_input_group,ScreenCo
   //Serial.printf("Screen START\n"); delay(10);
 }
 
-void Screen::begin(bool is_enter_from_above)
+// Explicit definition for the virtual base class destructor
+/*Screen::~Screen() {
+  // Leave empty if there's no custom raw-pointer memory cleanup required here.
+  // This satisfies the linker and prevents the undefined reference errors!
+}*/
+
+void Screen::begin(bool is_enter_from_above,SensorSuite *sensor_suite)
 {
+    if(is_enter_from_above) _frame_id=0;
+    if(sensor_suite!=nullptr) _sensor_suite=sensor_suite;
   //Serial.printf("Screen::begin called\n");
 
   // 1. Only handle visibility flags here
@@ -35,6 +43,7 @@ void Screen::begin(bool is_enter_from_above)
 
 ScreenAction Screen::update()
 {
+  _frame_id++;
   ScreenAction action;
   memcpy(&action,&_update_action,sizeof(_update_action));
   //update_action.type=_next_screen_action;
@@ -113,58 +122,6 @@ MenuScreen::MenuScreen(const std::string& title, lv_group_t* shared_input_group,
   lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_HIDDEN);
 }
 
-/*void MenuScreen::_label_icon_draw_cb(lv_event_t * e) {
-    if (e == nullptr) return;
-
-    // 1. Only process during the active rendering window phase
-    lv_event_code_t code = lv_event_get_code(e);
-    if (code != LV_EVENT_DRAW_MAIN && code != LV_EVENT_DRAW_POST) return;
-
-    lv_obj_t * lbl = static_cast<lv_obj_t*>(lv_event_get_user_data(e));
-    if (lbl == nullptr) return;
-
-    lv_layer_t * layer = lv_event_get_layer(e);
-    if (layer == nullptr) return;
-    
-    ScreenContext* context = static_cast<ScreenContext*>(lv_obj_get_user_data(lbl));
-    if (!context || !context->target_subscreen) return;
-    if (context->host_menu->get_screen_config() != ScreenConfig::SCREEN_SAVER) return;
-    std::shared_ptr<ScreenSaver> screensaver = std::static_pointer_cast<ScreenSaver>(context->target_subscreen);
-
-    const lv_image_dsc_t* active_icon = screensaver->is_locked() ? &icon_lock_dsc : &icon_unlock_dsc;
-
-    lv_area_t txt_area;
-    lv_obj_get_coords(lbl, &txt_area);
-    
-    int32_t lbl_h = lv_obj_get_height(lbl);
-    if (lbl_h <= 0) return;
-
-    lv_area_t img_area;
-    img_area.x1 = txt_area.x1 + 2;
-    img_area.y1 = txt_area.y1 + ((lbl_h - 10) / 2);
-    img_area.x2 = img_area.x1 + 10 - 1;
-    img_area.y2 = img_area.y1 + 10 - 1;
-
-    if (img_area.x2 < img_area.x1 || img_area.y2 < img_area.y1) return;
-
-    // =======================================================
-    // ⚡ BYPASS PIPELINE VIA SYNCHRONOUS INLINE LAYER INJECTION
-    // =======================================================
-
-    // Initialize an image descriptor variant specifically for layer composition
-    lv_draw_image_dsc_t img_dsc;
-    lv_draw_image_dsc_init(&img_dsc);
-    img_dsc.src = active_icon;
-
-    if (lv_obj_has_state(lbl, LV_STATE_FOCUSED)) {
-        // Safe to use here because img_dsc is an image descriptor variant type
-        img_dsc.blend_mode = LV_BLEND_MODE_SUBTRACTIVE;
-    }
-
-    // Direct synchronous draw injection: paints layer to display instantly
-    lv_draw_layer(layer, &img_dsc, &img_area);//hangs intermittently
-}*/
-
 void MenuScreen::_label_icon_draw_cb(lv_event_t * e) {
     if (e == nullptr) return;
 
@@ -182,6 +139,7 @@ void MenuScreen::_label_icon_draw_cb(lv_event_t * e) {
 
     // 1. Unpack the raw uint8_t byte array pointer directly from the image descriptor
     const lv_image_dsc_t* active_icon = screensaver->is_locked() ? &icon_lock_dsc : &icon_unlock_dsc;
+    //if(screensaver->get_title()=="Snooper Booper") Serial.printf("456 MenuScreen::_label_icon_draw_cb locked: %d\n",screensaver->is_locked());
     const uint8_t* raw_bytes = active_icon->data;
     if (raw_bytes == nullptr) return;
 
@@ -287,10 +245,10 @@ void MenuScreen::_append_menu_item(const std::shared_ptr<Screen>& subscreen,cons
     _menu_items.push_back(lbl);
 }
 
-void MenuScreen::begin(bool is_enter_from_above)
+void MenuScreen::begin(bool is_enter_from_above,SensorSuite *sensor_suite)
 {
   //Serial.printf("MenuScreen.begin called %d\n",is_enter_from_above);
-  Screen::begin(is_enter_from_above);
+  Screen::begin(is_enter_from_above,sensor_suite);
 
   if(
     _screen_config!=ScreenConfig::ANIMATIONS &&
@@ -400,16 +358,6 @@ ScreenAction MenuScreen::update()
   return Screen::update();
 }
 
-/*void MenuScreen::end(bool is_leaving_upward)
-{
-  Serial.printf("MenuScreen::end called %d\n",is_leaving_upward);
-    if(is_leaving_upward)
-    {
-      _menu_items.clear(); 
-    }
-    Screen::end(is_leaving_upward);
-}*/
-
 void MenuScreen::end(bool is_leaving_upward)
 {
     //Serial.printf("MenuScreen.end called %d\n", is_leaving_upward);
@@ -463,10 +411,10 @@ void MenuScreen::end(bool is_leaving_upward)
     }
 }
 
-MenuScreen::~MenuScreen()
+/*MenuScreen::~MenuScreen()
 {
 
-}
+}*/
 
 void MenuScreen::_init_styles() {
     if (_styles_initialized) return;
@@ -637,13 +585,10 @@ void MenuScreen::_menu_event_cb(lv_event_t * e) {
 
 // ---- screen saver (achievemnt animation) ----
 
-ScreenSaver::ScreenSaver(const std::string& title, lv_group_t* shared_input_group,SaveState* save_state,bool is_title_visible): Screen(title,shared_input_group), _save_state(save_state)
+ScreenSaver::ScreenSaver(const std::string& title, lv_group_t* shared_input_group,SaveState* save_state): Screen(title,shared_input_group), _save_state(save_state)
 {
   _is_menu=false;
   _is_header = false;
-
-  if(title=="Champion" || title=="Favorite Food") _is_title_visible=false;
-  else _is_title_visible=is_title_visible;
 
   // Create the baseline container panel matching your layout specifications
   //_lv_panel = lv_obj_create(lv_screen_active()); 
@@ -680,6 +625,19 @@ ScreenSaver::ScreenSaver(const std::string& title, lv_group_t* shared_input_grou
   
 }
 
+/*ScreenSaver::~ScreenSaver() {
+  // 1. Unlink the panel from the input processing group if it was registered
+  if (_input_group != nullptr && _lv_panel != nullptr) {
+    lv_group_remove_obj(_lv_panel);
+  }
+
+  // 2. Cleanly destroy the object container directly out of LVGL memory space
+  if (_lv_panel != nullptr) {
+    lv_obj_delete(_lv_panel); 
+    _lv_panel = nullptr;
+  }
+}*/
+
 void ScreenSaver::_screensaver_event_cb(lv_event_t * e) {
     lv_event_code_t code = lv_event_get_code(e);
     if (code != LV_EVENT_KEY && code != LV_EVENT_CLICKED) return; // Ignore all other events like RELEASED (19)
@@ -714,7 +672,7 @@ void ScreenSaver::_screensaver_event_cb(lv_event_t * e) {
         }
 
         // 3. EXECUTE EXHAUSTIVE TERMINATION AND EXIT
-        if (should_exit) {
+        if (should_exit && screen->_frame_id>6) { //100ms dirty hack to be dead to duplicate "ENTER" button pushes for 100 ms upon entering screen saver
             /*lv_indev_t * indev = lv_event_get_indev(e);
             if (indev != nullptr) {
                 // Kills the processing token for this frame slice completely, 
@@ -767,9 +725,9 @@ void ScreenSaver::_create_unlock_overlay(lv_obj_t* canvas_obj, const std::string
 }
 
 
-void ScreenSaver::begin(bool is_enter_from_above)
+void ScreenSaver::begin(bool is_enter_from_above,SensorSuite *sensor_suite)
 {
-  Screen::begin(is_enter_from_above);
+  Screen::begin(is_enter_from_above,sensor_suite);
   if(_input_group != nullptr) lv_group_add_obj(_input_group, _lv_panel); //register button pushes
 
   //_update_action.led_upper_func=&Charlieplex::animation_off; //default to all ledds OFF, can be overriden depending on the animation
@@ -783,12 +741,15 @@ void ScreenSaver::begin(bool is_enter_from_above)
     //std::fill(_pixel_list.begin(), _pixel_list.end(), 0);
     //_pixel_list.resize(SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX); //init's dirty
     //if (_lv_canvas != nullptr) lv_canvas_set_buffer(_lv_canvas, _pixel_list.data(), SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX, LV_COLOR_FORMAT_L8);
+    Serial.printf("lv_canvas_set_buffer\n");
     if (_lv_panel != nullptr) lv_canvas_set_buffer(_lv_panel, _pixel_list, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX, LV_COLOR_FORMAT_L8);
 
     // 3. Open configuration file path using the parent _title string
     char config_filename[128];
+    Serial.printf("spritnf dur\n");
     snprintf(config_filename, sizeof(config_filename), "/animations/%s.dur", _title.c_str());
 
+    Serial.printf("fat_fs.open\n");
     File32 duration_file = FlashInterface::fat_fs.open(config_filename, O_RDONLY);
     if (duration_file) {
         // Fetch raw file size properties to allocate vectors exactly to target specs
@@ -872,7 +833,7 @@ ScreenAction ScreenSaver::update()
 
   _update_current_frame(); //increment frame index state machine
 
-  return _update_action;
+  return Screen::update();//_update_action;
 }
 
 uint8_t ScreenSaver::_get_current_frame()
@@ -897,6 +858,7 @@ void ScreenSaver::_update_current_frame()
 
 void ScreenSaver::end(bool is_leaving_upward)
 {
+    set_title_visible(false);
 
   if (is_leaving_upward)
   {
@@ -1098,52 +1060,6 @@ void Header::update_utilization_bars(bool is_reset_max_tracker) {
         lv_obj_invalidate(_bar_chart_container);
     }
 }
-
-
-/*void Header::update_utilization_bars() {
-    uint32_t total_heap = rp2040.getTotalHeap();
-    uint32_t free_heap = rp2040.getFreeHeap();
-    struct mallinfo mi = mallinfo();
-
-    int bar_width = 3;
-    int gap = 2;
-
-    // Use a pre-calculated multiplier to replace slower division: (HEADER_HEIGHT_PX / 100.0f)
-    const float height_multiplier = (float)HEADER_HEIGHT_PX * 0.01f;
-
-    for (int i = 0; i < HEADER_BAR_COUNT; i++) {
-        float percentage = 50.0f; 
-        
-        if (i == 0) percentage = _sensor_suite->core0_frame_us * 100.0f / 16666.0f;
-        else if (i == 1) percentage = _sensor_suite->core1_frame_us * 100.0f / 16666.0f;
-        else if (i == 2) percentage = _sensor_suite->lvgl_memory_percent;
-        else if (i == 3) percentage = free_heap * 100.0f / total_heap;
-        else if (i == 4) {
-            float largestBlock = (float)mi.keepcost; 
-            percentage = 100.0f - (largestBlock * 100.0f / total_heap);
-        }
-
-        // Fast height translation math
-        int bar_height = (int)(percentage * height_multiplier);
-        if (bar_height < 1) bar_height = 1;
-        else if (bar_height > HEADER_HEIGHT_PX) bar_height = HEADER_HEIGHT_PX;
-
-        // ⚡ CHANGE GUARD: If the value did not change, do nothing!
-        if (_last_heights[i] == bar_height) {
-            continue; 
-        }
-        _last_heights[i] = bar_height; // Cache new height state
-
-        lv_obj_t* line_bar = _bars[i];
-        // These execution paths only run if the height changes
-        lv_obj_set_size(line_bar, bar_width, bar_height); //adds 60% processing overhead
-        lv_obj_set_pos(line_bar, i * (bar_width + gap), 8 - bar_height);
-        
-        lv_color_t target_color = (bar_height == HEADER_HEIGHT_PX) ? lv_color_white() : lv_color_hex(0x808080);
-        lv_obj_set_style_bg_color(line_bar, target_color, 0);
-    }
-}*/
-
 
 
 void Header::update_battery_status() {

@@ -8,7 +8,7 @@ void ScreenManager::_set_menu_structure()
   auto main_screen       = std::make_shared<MenuScreen>("Main",_shared_input_group);
 
   auto animations_screen = std::make_shared<MenuScreen>("Animations",_shared_input_group,ScreenConfig::ANIMATIONS);  main_screen->add_subscreen(animations_screen);
-  auto levels_screen     = std::make_shared<MenuScreen>("Levels",_shared_input_group);                               main_screen->add_subscreen(levels_screen);
+  auto levels_screen     = std::make_shared<MenuScreen>("Games",_shared_input_group);                               main_screen->add_subscreen(levels_screen);
   auto messages_screen   = std::make_shared<MenuScreen>("Messages",_shared_input_group);                             main_screen->add_subscreen(messages_screen);
   auto settings_screen   = std::make_shared<MenuScreen>("Settings",_shared_input_group);                             main_screen->add_subscreen(settings_screen);
 
@@ -16,14 +16,16 @@ void ScreenManager::_set_menu_structure()
   auto lower_led_screen  = std::make_shared<MenuScreen>("Lower LEDs",_shared_input_group,ScreenConfig::LED_LOWER);  animations_screen->add_subscreen(lower_led_screen);
   auto screen_screen     = std::make_shared<MenuScreen>("Screen",_shared_input_group,ScreenConfig::SCREEN_SAVER);   animations_screen->add_subscreen(screen_screen);
   
-  auto tictactoe_screen  = std::make_shared<TicTacToe>("TicTacToe",_shared_input_group);   levels_screen->add_subscreen(tictactoe_screen);
+  auto tictactoe_screen  = std::make_shared<TicTacToe>("TicTacToe",_shared_input_group);    levels_screen->add_subscreen(tictactoe_screen);
+  auto pong_screen       = std::make_shared<Pong>("Pong",_shared_input_group);              levels_screen->add_subscreen(pong_screen);
   auto box_screen        = std::make_shared<MenuScreen>("Box",_shared_input_group);         levels_screen->add_subscreen(box_screen);
   auto site19_screen     = std::make_shared<MenuScreen>("Site 19",_shared_input_group);     levels_screen->add_subscreen(site19_screen);
   
 
   #define INIT_SCREEN_SAVER(var_name, title_str) \
-      auto var_name = std::make_shared<ScreenSaver>(title_str, _shared_input_group,&(_sensor_suite->save_state),true); \
-      screen_screen->add_subscreen(var_name);
+      auto var_name = std::make_shared<ScreenSaver>(title_str, _shared_input_group,&(_sensor_suite->save_state)); \
+      screen_screen->add_subscreen(var_name); \
+      _screen_savers.push_back(var_name);
 
   INIT_SCREEN_SAVER(champion_ss,     "Champion");
   INIT_SCREEN_SAVER(chilly_ss,       "Chilly");
@@ -58,14 +60,18 @@ void ScreenManager::_set_menu_structure()
 
 Serial.printf("screen_manager._push_screen\n");
   _push_screen(main_screen); //set root menu
-  _push_screen(levels_screen);
-  _push_screen(tictactoe_screen);
+  //_push_screen(levels_screen);
+  //_push_screen(tictactoe_screen);
   //_push_screen(pause_screen);
+
+  //_push_screen(animations_screen);
+  //_push_screen(screen_screen);
 }
 
 void ScreenManager::begin(SensorSuite &sensor_suite)
 {
   _sensor_suite = &sensor_suite;
+  //while(1){ Serial.printf("ScreenManager::begin(SensorSuite &sensor_suite): %p\n",_sensor_suite); delay(100); }
   //Serial.printf("lv_init START...\n"); delay(10);
   //diag();
 
@@ -121,6 +127,8 @@ void ScreenManager::begin(SensorSuite &sensor_suite)
   _system_header = std::make_unique<Header>(_sensor_suite);
   _system_header->begin();
 
+  _achievement_manager=std::make_unique<AchievementManager>(_sensor_suite);
+  _achievement_manager->begin();
 
   //Serial.printf("screen_manager.begin() DONE\n"); delay(10);
 }
@@ -226,18 +234,30 @@ void ScreenManager::update()
   lv_tick_inc(current_time_ms-_last_update_ms);
   _last_update_ms=current_time_ms;
 
-  //Serial.printf("lv_obj_invalidate\n");
-//lv_obj_invalidate(lv_screen_active());//FORCE DRAW every frame
-
+  _achievement_manager->update();
   if(_screen_stack.back()->is_allow_achivement_popup())
   {
     const std::string* achievement_str= _sensor_suite->save_state.get_first_unseen_achievement();
     if(achievement_str!=nullptr)
     {//achivement pop-up
-      auto achievement_ss = std::make_shared<ScreenSaver>(*achievement_str, _shared_input_group,&(_sensor_suite->save_state),true);
-      _sensor_suite->save_state.mark_as_seen(*achievement_str);
-      _sensor_suite->save_state.save();
-      _push_screen(achievement_ss);
+      //auto achievement_ss = std::make_shared<ScreenSaver>(*achievement_str, _shared_input_group,&(_sensor_suite->save_state),true);
+      for(auto achievement_ss : _screen_savers)
+      {
+        if(achievement_ss->get_title()==*achievement_str)
+        {
+          //while(1){Serial.printf("HERE PP:  %p %s\n",achievement_ss.get(),achievement_str->c_str()); delay(100); }
+          _sensor_suite->save_state.mark_as_seen(*achievement_str);
+          //Serial.printf("Save file..."); delay(3);
+          //_sensor_suite->save_state.save(); //causes lock-up on core 0/1?
+          //Serial.printf("File saved..."); delay(3);
+          achievement_ss->set_title_visible(true);
+          _push_screen(achievement_ss);
+        }
+      }
+
+      // This forces the processor to start a clean new loop pass next frame,
+      // giving LVGL room to map memory allocations before invoking ScreenSaver::update()
+      //return;
     }
   }
 
@@ -310,7 +330,7 @@ void ScreenManager::_pop_screen() {
   if (_screen_stack.empty()) return;
   _screen_stack.back()->end(true);
   _screen_stack.pop_back();
-  if (!_screen_stack.empty()) _screen_stack.back()->begin(false);
+  if (!_screen_stack.empty()) _screen_stack.back()->begin(false,_sensor_suite);
 }
 
 void ScreenManager::_push_screen(std::shared_ptr<Screen> new_screen)
@@ -336,7 +356,7 @@ void ScreenManager::_push_screen(std::shared_ptr<Screen> new_screen)
 
   // 4. Lifecycle startup for the fresh screen
   // Pass 'true' to signal it's entering from above (a fresh push)
-  _get_active_screen()->begin(true);
+  _get_active_screen()->begin(true,_sensor_suite);
 //Serial.printf("screen_manager._push_screen 4\n");
 }
 
@@ -348,4 +368,28 @@ void ScreenManager::diag(){
     Serial.printf("LVGL: Memory Used: %d%% (%d bytes)\n", mon.used_pct, mon.total_size - mon.free_size);
     Serial.printf("LVGL: Max Memory Ever Used: %d bytes\n", mon.max_used);
     Serial.printf("LVGL: Memory Fragmentation: %d%%\n", mon.frag_pct);
+}
+
+// ---- Achievement Manager
+
+AchievementManager::AchievementManager(SensorSuite* sensor_suite):_sensor_suite(sensor_suite){}
+
+void AchievementManager::update()
+{
+  //Serial.printf("457 MenuScreen::AchievementManager::update: %d, %p\n",_sensor_suite->save_state.is_unlocked("Snooper Booper"),_sensor_suite->save_state);
+  uint32_t mills=millis();
+  if(_sensor_suite->touch.get_down_button()==1)
+  {//if secret button
+    if(_booper_start_millis==0) _booper_start_millis=mills;
+  }else
+  {
+    if(_booper_start_millis>0 && (mills-_booper_start_millis)>=100) _sensor_suite->save_state.unlock("Snooper Booper"); //unlock on button release
+    _booper_start_millis=0;
+  }
+  float hall=_sensor_suite->analog.get_hall();
+  if(hall>0.5 || hall<-0.5)
+  {//if secret button
+    if(_hall_start_millis==0) _hall_start_millis=mills;
+    if((mills-_hall_start_millis)>=1000) _sensor_suite->save_state.unlock("Magnetic Personality");
+  }else _hall_start_millis=0;
 }

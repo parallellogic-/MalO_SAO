@@ -133,23 +133,35 @@ struct SaveState {
 
     bool save(const char* filename) {
         crc = calculate_crc();
-
         Serial.printf("save 1\n");
-        multicore_lockout_start_blocking(); 
-        File32 file = FlashInterface::fat_fs.open(filename, O_WRONLY | O_CREAT | O_TRUNC); // [INDEX]
-        if (!file)
-        {
-        Serial.printf("save 2\n");
-            multicore_lockout_end_blocking(); 
+
+        // 1. Pause Core 1 so it cannot read from XIP Flash during programming
+        bool lockout_success = multicore_lockout_start_timeout_us(100000); // 100ms max wait
+        if (!lockout_success) {
+            Serial.printf("Save Failed: Core 1 did not park.\n");
             return false;
         }
 
-        Serial.printf("save 3\n");
-        size_t written = file.write(reinterpret_cast<const uint8_t*>(this), sizeof(SaveState));
-        file.close();
-        multicore_lockout_end_blocking(); 
-        Serial.printf("save 4\n");
+        // 2. Disable local interrupts on Core 0 to prevent timing disruptions
+        uint32_t interrupts = save_and_disable_interrupts(); // [INDEX]
 
+        // 3. Execute the flash filesystem operations
+        File32 file = FlashInterface::fat_fs.open(filename, O_WRONLY | O_CREAT | O_TRUNC); // [INDEX]
+        size_t written = 0;
+        
+        if (file) {
+            Serial.printf("save 3\n");
+            written = file.write(reinterpret_cast<const uint8_t*>(this), sizeof(SaveState));
+            file.close();
+        } else {
+            Serial.printf("save 2 (Open Error)\n");
+        }
+
+        // 4. Restore interrupts and wake Core 1 immediately
+        restore_interrupts(interrupts);
+        multicore_lockout_end_blocking(); 
+
+        Serial.printf("save 4\n");
         return written == sizeof(SaveState);
     }
 
@@ -159,15 +171,29 @@ struct SaveState {
         const char* folder_path = "data";
         const char* file_path = "data/save.bin";
 
-        // Double check directory path existence prior to saving
-        if (!FlashInterface::fat_fs.exists(folder_path)) { // [INDEX]
-            multicore_lockout_start_blocking(); 
-            FlashInterface::fat_fs.mkdir(folder_path);     // [INDEX]
-            multicore_lockout_end_blocking(); 
+        // 1. Pause Core 1 for the directory validation and folder creation stage
+        bool lockout_success = multicore_lockout_start_timeout_us(100000);
+        if (!lockout_success) {
+            Serial.printf("Save Directory Check Failed: Core 1 did not park.\n");
+            return false;
         }
-        Serial.printf("save 7\n");
 
-        return save(file_path);
+        // 2. Turn off interrupts while modifying/checking flash tracking tables
+        uint32_t interrupts = save_and_disable_interrupts(); // [INDEX]
+
+        // 3. Perform directory operations safely inside the lock
+        if (!FlashInterface::fat_fs.exists(folder_path)) { // [INDEX]
+            FlashInterface::fat_fs.mkdir(folder_path);     // [INDEX]
+        }
+
+        // 4. Free Core 1 and interrupts before calling the nested save routine
+        restore_interrupts(interrupts);
+        multicore_lockout_end_blocking(); 
+
+        Serial.printf("save 7\n");
+        
+        // Calls the updated, safe save(filename) method above
+        return save(file_path); 
     }
 
     bool load(const char* filename) {

@@ -4,10 +4,18 @@
 
 class Game : public Screen {
   private:
+
   protected:
+    lv_obj_t* _overlay_card = nullptr;
+    lv_timer_t* _overlay_timer = nullptr;
+    lv_obj_t* _game_container;
+    
+    void _create_popup_overlay(const std::string& text_str);
+    void _clear_popup_overlay();
+    static void _overlay_timer_cb(lv_timer_t* timer);
   public:
     Game(const std::string& text, lv_group_t* shared_input_group);
-    virtual void begin(bool is_enter_from_above); //fetch resources from RAM like imagery or IR configuration 
+    virtual void begin(bool is_enter_from_above,SensorSuite *sensor_suite); //fetch resources from RAM like imagery or IR configuration 
     virtual ScreenAction update(); 
     virtual void end(bool is_leaving_upward);
 

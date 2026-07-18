@@ -72,18 +72,6 @@ const lv_image_dsc_t icon_lock_dsc = {
 
 // A simple 10x10 representation of a closed padlock (1 byte per pixel for simplicity / L8 format)
 const uint8_t unlock_bitmap_data[100] = {
-    // The top shackle arch shifted 2 pixels right, leaving a gap on the left
-    /*0x00,0x00,0x00,0x00,0x00,0xFF,0xFF,0xFF,0x00,0x00,
-    0x00,0x00,0x00,0x00,0xFF,0x00,0x00,0x00,0xFF,0x00,
-    0x00,0x00,0x00,0x00,0xFF,0x00,0x00,0x00,0x00,0x00,
-    0x00,0x00,0x00,0x00,0xFF,0x00,0x00,0x00,0x00,0x00,
-    0x00,0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0x00,0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0x00,0x00,0xFF,0xFF,0x00,0x00,0x00,0x00,0xFF,0xFF,
-    0x00,0x00,0xFF,0xFF,0x00,0x00,0x00,0x00,0xFF,0xFF,
-    0x00,0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0x00,0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF*/
-
     0x00,0x00,0x00,0x00,0x00,0xFF,0xFF,0xFF,0x00,0x00,
     0x00,0x00,0x00,0x00,0xFF,0x00,0x00,0x00,0x00,0x00,
     0x00,0x00,0x00,0x00,0xFF,0x00,0x00,0x00,0x00,0x00,
@@ -108,11 +96,13 @@ const lv_image_dsc_t icon_unlock_dsc = {
 
 class Screen{
   protected:
+    uint32_t _frame_id=0;//how many frames have been rendered to the screen
     std::string _title;
     bool _is_header=true; //if header at top of screen is visible
     bool _is_allow_achivement_popup=true; //allow achievenement to pop over this screen
     bool _is_menu=false; //when following POP_TO_MENU, stop on this Screen?
     ScreenConfig _screen_config;//flag for tailoring function of this screen 
+    SensorSuite* _sensor_suite;
     std::vector<std::shared_ptr<Screen>> _screen_stack; //pointers to lower-level menus
     //ScreenActionType _next_screen_action;
     // FIXED: Changed to weak_ptr to break the circular reference loop.
@@ -124,8 +114,8 @@ class Screen{
     //virtual void _on_focus(lv_group_t* input_group)=0;
   public:
     Screen(const std::string& text, lv_group_t* shared_input_group,ScreenConfig screen_config=ScreenConfig::DEFAULT);
-    ~Screen() = default; //release all memroy, including links to submenus //virtual
-    virtual void begin(bool is_enter_from_above); //fetch resources from RAM like imagery or IR configuration 
+    //virtual ~Screen(); //release all memroy, including links to submenus //virtual
+    virtual void begin(bool is_enter_from_above,SensorSuite *sensor_suite); //fetch resources from RAM like imagery or IR configuration 
     virtual ScreenAction update(); 
     virtual void end(bool is_leaving_upward);//release RAM resources acquired in begin(), but keep any inter-relationship pointers in place, ex submenus
     bool is_header(){ return _is_header; }//default to show header
@@ -160,8 +150,8 @@ class MenuScreen : public Screen{
     void _append_menu_item(const std::shared_ptr<Screen>& subscreen,const std::string& title);
   public:
     MenuScreen(const std::string& title, lv_group_t* shared_input_group,ScreenConfig screen_config=ScreenConfig::DEFAULT);
-    virtual ~MenuScreen();
-    void begin(bool is_enter_from_above) override;
+    //virtual ~MenuScreen();
+    void begin(bool is_enter_from_above,SensorSuite *sensor_suite) override;
     ScreenAction update() override;
     void end(bool is_leaving_upward) override;
     //led_function get_led_pattern(bool is_top);//return pointer to function to set leds.  defaults to depth-of-menu indication
@@ -192,13 +182,17 @@ class ScreenSaver : public Screen { //display a looping animation
   protected:
     //void _on_focus(lv_group_t* input_group) override;
   public:
-    ScreenSaver(const std::string& title, lv_group_t* shared_input_group,SaveState* _save_state,bool is_title_visible);//list of files, list of frame timings, frame order.  or enunm for internal config.  of have as config file in flash.
-    void begin(bool is_enter_from_above) override;
+    ScreenSaver(const std::string& title, lv_group_t* shared_input_group,SaveState* _save_state);//list of files, list of frame timings, frame order.  or enunm for internal config.  of have as config file in flash.
+    //~ScreenSaver() override;
+    void set_title_visible(bool is_title_visible){
+      if(_title=="Champion" || _title=="Favorite Food") _is_title_visible=false;
+      else _is_title_visible=is_title_visible; }
+    void begin(bool is_enter_from_above,SensorSuite *sensor_suite) override;
     ScreenAction update() override;
     void end(bool is_leaving_upward) override;
     uint8_t _get_current_frame();
     void _update_current_frame();
-    bool is_locked() const{ return false; /*if(_save_state==nullptr) return true; return !_save_state->is_unlocked(_title);*/ }
+    bool is_locked(){ /*return false;*/ if(_save_state==nullptr) return true; return !_save_state->is_unlocked(_title); }
     //void set_locked(bool is_locked){ _is_locked=is_locked; }
 };
 

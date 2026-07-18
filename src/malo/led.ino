@@ -6,8 +6,11 @@ const AnimationMapping animation_table[] = {
     {"Off",             &Charlieplex::animation_off},
     {"Auto Cycle",      &Charlieplex::animation_cycle},
     {"Blink",           &Charlieplex::animation_blink},
+    {"Evil",            &Charlieplex::animation_evil},
     {"Fire",            &Charlieplex::animation_fire},
     {"Gyroscope",       &Charlieplex::animation_gyroscope},
+    {"Innocent",        &Charlieplex::animation_innocent},
+    {"Love",            &Charlieplex::animation_love},
     //{"Menu Depth",      &Charlieplex::animation_menu_depth},
     {"Microphone",      &Charlieplex::animation_microphone},
     //{"Pulse",           &Charlieplex::animation_pulse},
@@ -226,6 +229,19 @@ void Charlieplex::animation_cycle(SensorSuite &sensor_suite)
     }
 }
 
+void Charlieplex::animation_evil(SensorSuite &sensor_suite)
+{
+    set_max_effective_led_count(2);
+    if(millis()%400<200)
+    {
+        set_brightness(4, 127/4);
+        set_brightness(6, 255/4);
+    }else{
+        set_brightness(4, 255/4);
+        set_brightness(6, 127/4);
+    }
+}
+
 void Charlieplex::animation_fire(SensorSuite &sensor_suite)
 {
     set_max_effective_led_count(CHARLIPLEX_LED_COUNT/4);
@@ -295,6 +311,44 @@ void Charlieplex::animation_gyroscope(SensorSuite &sensor_suite)
         brightness=min(brightness,255);
         uint8_t brightness8=(uint8_t)brightness;
         set_brightness(iter,brightness8);
+    }
+}
+
+void Charlieplex::animation_innocent(SensorSuite &sensor_suite)
+{
+    set_max_effective_led_count(3);
+
+    uint32_t mills=millis();
+    for(uint8_t green_offset=0;green_offset<CHARLIPLEX_LED_COUNT;green_offset+=CHARLIPLEX_LED_COUNT/2)
+    {
+        if(mills%400<200)
+        {
+            set_brightness(4+green_offset,255/4);
+            set_brightness(5+green_offset,255/4);
+            set_brightness(6+green_offset,127/4);
+        }else{
+            set_brightness(4+green_offset,127/4);
+            set_brightness(5+green_offset,255/4);
+            set_brightness(6+green_offset,255/4);
+        }
+    }
+}
+
+void Charlieplex::animation_love(SensorSuite &sensor_suite)
+{
+    set_max_effective_led_count(5);
+
+    if(millis()%400<200)
+    {
+        set_brightness(0,255/4);
+        set_brightness(1,127/4);
+        set_brightness(8,255/4);
+        set_brightness(10,127/4);
+    }else{
+        set_brightness(0,127/4);
+        set_brightness(1,255/4);
+        set_brightness(8,127/4);
+        set_brightness(10,255/4);
     }
 }
 
