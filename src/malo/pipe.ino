@@ -6,7 +6,6 @@ PipeGame::PipeGame(const std::string& text, lv_group_t* shared_input_group) : Ga
 
 void PipeGame::begin(bool is_enter_from_above, SensorSuite *sensor_suite) {
     Game::begin(is_enter_from_above, sensor_suite);
-    _sensors = sensor_suite;
     
     if (is_enter_from_above) {
         _overlay_card = nullptr;
@@ -307,8 +306,8 @@ void PipeGame::_process_fluid_simulation() {
                         
                         if (neighbor_connections[opposite_dir[d]]) {
                             _game_state = PipeState::WIN;
-                            if (_sensors) {
-                                _sensors->save_state.unlock("Plumber");
+                            if (_sensor_suite) {
+                                _sensor_suite->save_state.unlock("Plumber");
                             }
                             return; // Path completed successfully
                         }

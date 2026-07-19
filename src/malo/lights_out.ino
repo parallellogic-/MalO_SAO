@@ -92,7 +92,12 @@ void LightsOut::_handle_action() {
     if (_is_won) return;
 
     // RULE 1: User can only toggle a cell if it is currently ON.
-    if (!_grid[_cursor_r][_cursor_c]) return;
+    if (!_grid[_cursor_r][_cursor_c])
+    {
+      _create_popup_overlay("Turn lights off\nnot on!");
+      //while(1){Serial.printf("light\n");delay(100);}
+      return;
+    }
 
     // Toggle current cell
     _toggle_cell(_cursor_r, _cursor_c);

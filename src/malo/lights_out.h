@@ -12,7 +12,6 @@
 
 class LightsOut : public Game {
 private:
-    lv_obj_t* _game_container = nullptr;
     bool _grid[LO_GRID_SIZE][LO_GRID_SIZE]; // true = ON, false = OFF
     int8_t _cursor_r = 0;
     int8_t _cursor_c = 0;

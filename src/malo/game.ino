@@ -75,7 +75,7 @@ void Game::_create_popup_overlay(const std::string& text_str) {
     lv_label_set_text(label, text_str.c_str());
     lv_obj_set_style_text_color(label, lv_color_white(), 0);
     
-    if (text_str.length() > 15) {
+    if (text_str.length() > 15 && text_str.find('\n') == std::string::npos) {
         lv_obj_set_style_text_font(label, &lv_font_montserrat_8, 0); 
     } else {
         lv_obj_set_style_text_font(label, &lv_font_montserrat_10, 0); 

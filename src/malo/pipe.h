@@ -49,9 +49,6 @@ class PipeGame : public Game {
     float _fluid_speed = 0.02f;
     bool _is_path_viable = false;
 
-    // Track state persistence
-    SensorSuite* _sensors = nullptr;
-
     // Internal pipeline helpers
     static void _game_draw_cb(lv_event_t* e);
     static void _game_key_cb(lv_event_t* e);
