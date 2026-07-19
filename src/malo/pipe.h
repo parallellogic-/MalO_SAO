@@ -57,8 +57,8 @@ class PipeGame : public Game {
     static void _game_key_cb(lv_event_t* e);
     
     void _generate_solvable_board();
-    void _rotate_cursor(bool clockwise);
-    void _rotate_piece(int8_t y, int8_t x, bool clockwise);
+    void _rotate_cursor(PipeGame* self, bool clockwise);
+    void _rotate_piece(PipeGame* self, int8_t y, int8_t x, bool clockwise);
     void _process_fluid_simulation();
     bool _get_connections(int8_t y, int8_t x, bool connections[4]);
     bool _check_full_solvability(int8_t start_y, int8_t start_x, int8_t enter_dir);
@@ -68,4 +68,9 @@ class PipeGame : public Game {
     void begin(bool is_enter_from_above, SensorSuite *sensor_suite) override;
     ScreenAction update() override; 
     void end(bool is_leaving_upward) override;
+
+    lv_key_t touch_to_key(uint8_t touch) override{
+        static const lv_key_t touch2key[] = {(lv_key_t)0,(lv_key_t)0,LV_KEY_HOME,LV_KEY_ESC,LV_KEY_ENTER,(lv_key_t)';',LV_KEY_UP,(lv_key_t)'/',LV_KEY_LEFT,LV_KEY_DOWN,LV_KEY_RIGHT};
+        //unused, hidden, menu, no, yes, CCW, up, CW, left, down, right
+        if(touch>=sizeof(touch2key)/sizeof(touch2key[0])) return (lv_key_t)0; return touch2key[touch]; }
 };
