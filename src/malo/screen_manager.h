@@ -10,7 +10,8 @@
 #include "pong.h"
 #include "snake.h"
 #include "labyrinth.h"
-
+#include "pipe.h"
+#include "lights_out.h"
 
 // Forward declaration of LVGL object type to avoid including lvgl.h in the header
 //struct _lv_obj_t;

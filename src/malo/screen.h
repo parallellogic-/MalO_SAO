@@ -192,7 +192,7 @@ class ScreenSaver : public Screen { //display a looping animation
     void end(bool is_leaving_upward) override;
     uint8_t _get_current_frame();
     void _update_current_frame();
-    bool is_locked(){ /*return false;*/ if(_save_state==nullptr) return true; return !_save_state->is_unlocked(_title); }
+    bool is_locked(){ return false; if(_save_state==nullptr) return true; return !_save_state->is_unlocked(_title); }
     //void set_locked(bool is_locked){ _is_locked=is_locked; }
 };
 

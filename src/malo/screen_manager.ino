@@ -20,7 +20,10 @@ void ScreenManager::_set_menu_structure()
   auto pong_screen       = std::make_shared<Pong>("Pong",_shared_input_group);                   levels_screen->add_subscreen(pong_screen);
   auto snake_screen      = std::make_shared<SnakeGame>("Snake",_shared_input_group);             levels_screen->add_subscreen(snake_screen);
   auto labyrinth_screen  = std::make_shared<LabyrinthGame>("Labyrinth",_shared_input_group);     levels_screen->add_subscreen(labyrinth_screen);
+  auto plumber_screen    = std::make_shared<PipeGame>("Pipes",_shared_input_group);              levels_screen->add_subscreen(plumber_screen);
+  //auto light_screen    = std::make_shared<LightGame>("Lights",_shared_input_group);              levels_screen->add_subscreen(light_screen);
   //Quiz
+
   //auto box_screen        = std::make_shared<MenuScreen>("Box",_shared_input_group);         levels_screen->add_subscreen(box_screen);
   //auto site19_screen     = std::make_shared<MenuScreen>("Site 19",_shared_input_group);     levels_screen->add_subscreen(site19_screen);
   
@@ -30,27 +33,40 @@ void ScreenManager::_set_menu_structure()
       screen_screen->add_subscreen(var_name); \
       _screen_savers.push_back(var_name);
 
+  INIT_SCREEN_SAVER(balance_ss,      "Balancer");
+  INIT_SCREEN_SAVER(board_ss,        "Bored");
   INIT_SCREEN_SAVER(champion_ss,     "Champion");
   INIT_SCREEN_SAVER(chilly_ss,       "Chilly");
+  INIT_SCREEN_SAVER(completed_ss,    "Completed");
   INIT_SCREEN_SAVER(defeated_ss,     "Defeated");
   INIT_SCREEN_SAVER(dance_ss,        "Dance");
   INIT_SCREEN_SAVER(dizzy_ss,        "Dizzy");
   INIT_SCREEN_SAVER(guilty_ss,       "Evil");
   INIT_SCREEN_SAVER(exhausted_ss,    "Exhausted");
   INIT_SCREEN_SAVER(food_ss,         "Favorite Food");
+  INIT_SCREEN_SAVER(funny_ss,        "Funny");
+  INIT_SCREEN_SAVER(good_job_ss,     "Good Job");
   INIT_SCREEN_SAVER(hacker_ss,       "Hacker BSOD");
   INIT_SCREEN_SAVER(heatwave_ss,     "Heat Wave");
   INIT_SCREEN_SAVER(innocent_ss,     "Innocent");
   INIT_SCREEN_SAVER(quiet_ss,        "It Is Quiet");
   INIT_SCREEN_SAVER(quiet2_ss,       "It Is Too Quiet");
+  INIT_SCREEN_SAVER(jailed_ss,       "Jailed");
   INIT_SCREEN_SAVER(know_ss,         "Know MalO");
+  INIT_SCREEN_SAVER(love_ss,         "Love");
   INIT_SCREEN_SAVER(magnetic_ss,     "Magnetic Personality");
   INIT_SCREEN_SAVER(loser_ss,        "MalO Wins");
   INIT_SCREEN_SAVER(message_rxd_ss,  "Message Received");
   INIT_SCREEN_SAVER(message_sent_ss, "Message Sent");
+  INIT_SCREEN_SAVER(pong_champ_ss,   "Pong Champ");
+  INIT_SCREEN_SAVER(rain_ss,         "Rain");
+  INIT_SCREEN_SAVER(sheep_ss,        "Sheep");
+  INIT_SCREEN_SAVER(smelly_ss,       "Smelly");
   INIT_SCREEN_SAVER(lean_ss,         "Snooper Booper");
   INIT_SCREEN_SAVER(tanning_ss,      "Soaking Up Rays");
+  INIT_SCREEN_SAVER(upset_ss,        "Upset");
   INIT_SCREEN_SAVER(winner_ss,       "Winner");
+  INIT_SCREEN_SAVER(woot_ss,         "WOOT");
 
 
   auto mount_usb_screen  = std::make_shared<MenuScreen>("Mount USB",_shared_input_group,ScreenConfig::MOUNT_USB);     settings_screen->add_subscreen(mount_usb_screen);
@@ -63,6 +79,7 @@ void ScreenManager::_set_menu_structure()
       pong_screen->add_subscreen(pause_screen);
       snake_screen->add_subscreen(pause_screen);
       labyrinth_screen->add_subscreen(pause_screen);
+      labyrinth_screen->add_subscreen(plumber_screen);
 
 
 
@@ -398,7 +415,7 @@ void AchievementManager::update()
   if(hall.is_sustained(is_hall)) _sensor_suite->save_state.unlock("Magnetic Personality");
 
   float sound=_sensor_suite->microphone.get_mean_square();
-  Serial.printf("Sound: %f\n",sound);
+  //Serial.printf("Sound: %f\n",sound);
   bool is_sound=sound>500;//halfway between 0 and 127 (max) reading is 22 (in log2 space).  22*22 ~=500.  so mi-log range is cutoff for audio level
   if(music.is_sustained(is_sound)) _sensor_suite->save_state.unlock("Dance");
 
