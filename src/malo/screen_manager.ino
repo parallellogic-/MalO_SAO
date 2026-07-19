@@ -21,7 +21,7 @@ void ScreenManager::_set_menu_structure()
   auto snake_screen      = std::make_shared<SnakeGame>("Snake",_shared_input_group);             levels_screen->add_subscreen(snake_screen);
   auto labyrinth_screen  = std::make_shared<LabyrinthGame>("Labyrinth",_shared_input_group);     levels_screen->add_subscreen(labyrinth_screen);
   auto plumber_screen    = std::make_shared<PipeGame>("Pipes",_shared_input_group);              levels_screen->add_subscreen(plumber_screen);
-  //auto light_screen    = std::make_shared<LightGame>("Lights",_shared_input_group);              levels_screen->add_subscreen(light_screen);
+  auto light_screen      = std::make_shared<LightsOut>("Lights Out",_shared_input_group);        levels_screen->add_subscreen(light_screen);
   //Quiz
 
   //auto box_screen        = std::make_shared<MenuScreen>("Box",_shared_input_group);         levels_screen->add_subscreen(box_screen);
@@ -84,6 +84,7 @@ void ScreenManager::_set_menu_structure()
       snake_screen->add_subscreen(pause_screen);
       labyrinth_screen->add_subscreen(pause_screen);
       plumber_screen->add_subscreen(pause_screen);
+      light_screen->add_subscreen(pause_screen);
 
 
 

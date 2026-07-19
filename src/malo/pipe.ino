@@ -26,6 +26,7 @@ void PipeGame::begin(bool is_enter_from_above, SensorSuite *sensor_suite) {
         lv_obj_add_event_cb(_game_container, PipeGame::_game_key_cb, LV_EVENT_KEY, this);
 
         _generate_solvable_board();
+        _create_popup_overlay("Rotate!");
     } else {
         lv_obj_clear_flag(_game_container, LV_OBJ_FLAG_HIDDEN);
     }

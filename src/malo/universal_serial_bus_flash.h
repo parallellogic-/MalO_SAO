@@ -79,6 +79,8 @@ const char* const ACHIEVEMENTS[] = {
     "Balancer",
     "Champion",
     "Chilly",
+    "Completed",
+    "Dark MalO Rises",
     "Defeated",
     "Dance",
     "Dizzy",
