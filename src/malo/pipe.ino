@@ -50,7 +50,7 @@ void PipeGame::_generate_solvable_board() {
     // Step 2: Carve a definitive working path from (0,0) to exit (ROWS-1, COLS-1)
     int8_t cur_x = 0, cur_y = 0;
     int8_t last_dir = 1; // Started moving Right
-    _grid[0][0].type = PipeType::BEND; // Force curve out from edge entry
+    int8_t first_step_dir = -1; // Track which direction the first step took
 
     while (cur_x < PIPE_GRID_COLS - 1 || cur_y < PIPE_GRID_ROWS - 1) {
         int8_t next_x = cur_x;
@@ -61,6 +61,11 @@ void PipeGame::_generate_solvable_board() {
             next_x++;
         } else {
             next_y++;
+        }
+
+        // Capture direction of first departure out of (0,0)
+        if (cur_x == 0 && cur_y == 0) {
+            first_step_dir = (next_x > 0) ? 1 : 2; // 1: Right, 2: Down
         }
 
         // Determine junction styling needed to bridge the steps seamlessly
@@ -77,12 +82,39 @@ void PipeGame::_generate_solvable_board() {
         cur_x = next_x;
         cur_y = next_y;
     }
-    // Set exit pipe styling
-    _grid[PIPE_GRID_ROWS-1][PIPE_GRID_COLS-1].type = (last_dir == 1) ? PipeType::STRAIGHT : PipeType::BEND;
+
+    // --- FIX: Configure top-left cell (0,0) to reliably connect to the left border entrance (Port index 3) ---
+    if (first_step_dir == 1) {
+        // Path went Right: Straight horizontal line open Left (3) & Right (1)
+        _grid[0][0].type = PipeType::STRAIGHT; 
+        _grid[0][0].rotation = 0; // Default STRAIGHT connects ports 1 & 3
+    } else {
+        // Path went Down: Bend configuration curving open Left (3) & Down (2)
+        _grid[0][0].type = PipeType::BEND;
+        _grid[0][0].rotation = 1; // BEND(0) is Top/Right. Rotation 1 CW makes it Right/Bottom. Rotation 2 CW makes it Bottom/Left.
+        _grid[0][0].rotation = 2; // Port 2 (Down) and Port 3 (Left)
+    }
+
+    // --- FIX: Configure bottom-right cell to reliably connect to the right border goal exit (Port index 1) ---
+    int8_t ey = PIPE_GRID_ROWS - 1;
+    int8_t ex = PIPE_GRID_COLS - 1;
+    if (last_dir == 1) {
+        // Path approached from the Left: Straight horizontal line open Left (3) & Right (1)
+        _grid[ey][ex].type = PipeType::STRAIGHT;
+        _grid[ey][ex].rotation = 0;
+    } else {
+        // Path approached from Upwards: Bend configuration curving open Up (0) & Right (1)
+        _grid[ey][ex].type = PipeType::BEND;
+        _grid[ey][ex].rotation = 0; // Default BEND connects Port 0 (Up) and Port 1 (Right)
+    }
 
     // Step 3: Populate remaining grid tiles with chaotic variety
     for (int y = 0; y < PIPE_GRID_ROWS; y++) {
         for (int x = 0; x < PIPE_GRID_COLS; x++) {
+            // Avoid modifying start and end pieces
+            if ((x == 0 && y == 0) || (x == PIPE_GRID_COLS - 1 && y == PIPE_GRID_ROWS - 1)) {
+                continue;
+            }
             if (std::rand() % 5 == 0) { // Spice path up with intersection types
                 _grid[y][x].type = (std::rand() % 2 == 0) ? PipeType::THREE_WAY : PipeType::FOUR_WAY;
             }
@@ -93,7 +125,7 @@ void PipeGame::_generate_solvable_board() {
     for (int i = 0; i < 30; i++) {
         _cursor_x = 1 + (std::rand() % (PIPE_GRID_COLS - 2));
         _cursor_y = 1 + (std::rand() % (PIPE_GRID_ROWS - 2));
-        //if(_cursor_x>2 && _cursor_y>2) _rotate_cursor(this,std::rand() % 2 == 0); //only rotate away from starting area
+        _rotate_cursor(this, std::rand() % 2 == 0); 
     }
 
     // Reset baseline interactive cursor placement
@@ -103,6 +135,7 @@ void PipeGame::_generate_solvable_board() {
     // Calculate instant fluid routing state for the initial scramble layout
     _process_fluid_simulation();
 }
+
 
 void PipeGame::_rotate_piece(PipeGame* self, int8_t y, int8_t x, bool clockwise) {
     if (x < 0 || x >= PIPE_GRID_COLS || y < 0 || y >= PIPE_GRID_ROWS) return;
@@ -156,70 +189,136 @@ bool PipeGame::_get_connections(int8_t y, int8_t x, bool connections[4]) {
 }
 
 void PipeGame::_process_fluid_simulation() {
-    // Wipe old fluid tracing state entirely before calculating current route map
+    // 1. Clear previous fluid state completely
     for (int y = 0; y < PIPE_GRID_ROWS; y++) {
         for (int x = 0; x < PIPE_GRID_COLS; x++) {
             _grid[y][x].filled = false;
         }
     }
 
-    // Start instantaneous trajectory simulation from top-left cell
-    int8_t cx = 0;
-    int8_t cy = 0;
-    int8_t edir = 3; // Liquid structural entry index from left margin bounds
-    bool visited[PIPE_GRID_ROWS][PIPE_GRID_COLS] = {false};
+    struct FluidNode {
+        int8_t x;
+        int8_t y;
+    };
 
-    while (cx >= 0 && cx < PIPE_GRID_COLS && cy >= 0 && cy < PIPE_GRID_ROWS) {
-        if (visited[cy][cx]) break; // Closed tracking loop detected
-        visited[cy][cx] = true;
+    // Allocate queues and visited matrices for both paths
+    FluidNode queue_start[PIPE_GRID_ROWS * PIPE_GRID_COLS];
+    FluidNode queue_end[PIPE_GRID_ROWS * PIPE_GRID_COLS];
+    int head_start = 0, tail_start = 0;
+    int head_end = 0, tail_end = 0;
 
-        bool conn[4];
-        _get_connections(cy, cx, conn);
-        if (!conn[edir]) break; // Connection line breakdown mismatch
+    bool visited_from_start[PIPE_GRID_ROWS][PIPE_GRID_COLS] = {false};
+    bool visited_from_end[PIPE_GRID_ROWS][PIPE_GRID_COLS] = {false};
 
-        // Instantly mark the reached segment as illuminated path fluid
-        _grid[cy][cx].filled = true;
+    // Neighbor mapping configuration (0: Up, 1: Right, 2: Down, 3: Left)
+    int8_t dx[4] = {0, 1, 0, -1};
+    int8_t dy[4] = {-1, 0, 1, 0};
+    int8_t opposite_dir[4] = {2, 3, 0, 1};
 
-        // Win condition evaluation check
-        if (cx == PIPE_GRID_COLS - 1 && cy == PIPE_GRID_ROWS - 1) {
-            _game_state = PipeState::WIN;
-            if (_sensors) {
-                _sensors->save_state.unlock("Plumber");
-            }
-            return;
-        }
+    // --- PASS 1: Seed and Flood-Fill from the Start (Top-Left) ---
+    bool start_conn[4];
+    _get_connections(0, 0, start_conn);
+    if (start_conn[3]) { // Feeds from Left border
+        _grid[0][0].filled = true;
+        visited_from_start[0][0] = true;
+        queue_start[tail_start++] = {0, 0};
+    }
 
-        // Search out alternative connection routing paths
-        int8_t out_dir = -1;
+    while (head_start < tail_start) {
+        FluidNode curr = queue_start[head_start++];
+        bool current_connections[4];
+        _get_connections(curr.y, curr.x, current_connections);
+
         for (int d = 0; d < 4; d++) {
-            if (d != edir && conn[d]) {
-                out_dir = d;
-                break;
+            if (!current_connections[d]) continue;
+            int8_t nx = curr.x + dx[d];
+            int8_t ny = curr.y + dy[d];
+
+            if (nx >= 0 && nx < PIPE_GRID_COLS && ny >= 0 && ny < PIPE_GRID_ROWS) {
+                if (!visited_from_start[ny][nx]) {
+                    bool neighbor_connections[4];
+                    _get_connections(ny, nx, neighbor_connections);
+                    if (neighbor_connections[opposite_dir[d]]) {
+                        _grid[ny][nx].filled = true;
+                        visited_from_start[ny][nx] = true;
+                        queue_start[tail_start++] = {nx, ny};
+                    }
+                }
             }
         }
-        if (out_dir == -1) break; // Dead end branch configuration
+    }
 
-        // Transition step into neighbor coordinates
-        int8_t next_x = cx;
-        int8_t next_y = cy;
-        int8_t next_entry = -1;
+    // --- PASS 2: Seed and Flood-Fill from the End (Bottom-Right) ---
+    int8_t ey = PIPE_GRID_ROWS - 1;
+    int8_t ex = PIPE_GRID_COLS - 1;
+    bool end_conn[4];
+    _get_connections(ey, ex, end_conn);
+    if (end_conn[1]) { // Exits right border
+        _grid[ey][ex].filled = true;
+        visited_from_end[ey][ex] = true;
+        queue_end[tail_end++] = {ex, ey};
+    }
 
-        if (out_dir == 0) { next_y--; next_entry = 2; }
-        else if (out_dir == 1) { next_x++; next_entry = 3; }
-        else if (out_dir == 2) { next_y++; next_entry = 0; }
-        else if (out_dir == 3) { next_x--; next_entry = 1; }
+    while (head_end < tail_end) {
+        FluidNode curr = queue_end[head_end++];
+        bool current_connections[4];
+        _get_connections(curr.y, curr.x, current_connections);
 
-        // Test neighbor pipe alignment connection points
-        bool next_conn[4];
-        if (_get_connections(next_y, next_x, next_conn) && next_conn[next_entry]) {
-            cx = next_x;
-            cy = next_y;
-            edir = next_entry;
-        } else {
-            break; // Misaligned entry segment boundary
+        for (int d = 0; d < 4; d++) {
+            if (!current_connections[d]) continue;
+            int8_t nx = curr.x + dx[d];
+            int8_t ny = curr.y + dy[d];
+
+            if (nx >= 0 && nx < PIPE_GRID_COLS && ny >= 0 && ny < PIPE_GRID_ROWS) {
+                if (!visited_from_end[ny][nx]) {
+                    bool neighbor_connections[4];
+                    _get_connections(ny, nx, neighbor_connections);
+                    if (neighbor_connections[opposite_dir[d]]) {
+                        _grid[ny][nx].filled = true;
+                        visited_from_end[ny][nx] = true;
+                        queue_end[tail_end++] = {nx, ny};
+                    }
+                }
+            }
+        }
+    }
+
+    // --- Clean Win Evaluation Check ---
+    // The player wins if ANY cell reached by the start path directly connects to a cell reached by the end path.
+    // This allows branches to link up perfectly anywhere across the layout.
+    for (int y = 0; y < PIPE_GRID_ROWS; y++) {
+        for (int x = 0; x < PIPE_GRID_COLS; x++) {
+            if (!visited_from_start[y][x]) continue;
+
+            bool current_connections[4];
+            _get_connections(y, x, current_connections);
+
+            for (int d = 0; d < 4; d++) {
+                if (!current_connections[d]) continue;
+                int8_t nx = x + dx[d];
+                int8_t ny = y + dy[d];
+
+                if (nx >= 0 && nx < PIPE_GRID_COLS && ny >= 0 && ny < PIPE_GRID_ROWS) {
+                    // If the neighbor is part of the path linked to the end, check their physical joint connection
+                    if (visited_from_end[ny][nx]) {
+                        bool neighbor_connections[4];
+                        _get_connections(ny, nx, neighbor_connections);
+                        
+                        if (neighbor_connections[opposite_dir[d]]) {
+                            _game_state = PipeState::WIN;
+                            if (_sensors) {
+                                _sensors->save_state.unlock("Plumber");
+                            }
+                            return; // Path completed successfully
+                        }
+                    }
+                }
+            }
         }
     }
 }
+
+
 
 ScreenAction PipeGame::update() {
     // Game updates immediately through event input handles, no active tickers required
@@ -231,7 +330,7 @@ void PipeGame::_game_key_cb(lv_event_t* e) {
     uint32_t key = lv_event_get_key(e);
 
     if (self->_game_state == PipeState::WIN) {
-        if (key == LV_KEY_ENTER) self->_generate_solvable_board();
+        if (key == LV_KEY_ENTER || key == LV_KEY_ESC) self->_generate_solvable_board();
         if (key == LV_KEY_HOME) {
             self->_update_action.type = ScreenActionType::PUSH_SUBMENU;
             self->_update_action.next_screen = self->_screen_stack.empty() ? nullptr : self->_screen_stack.front();
@@ -313,8 +412,8 @@ void PipeGame::_game_draw_cb(lv_event_t* e)
             int16_t center_y = cell_y + half_cell;
 
             // Draw bounding boxes around items
-            rect_dsc.bg_color = lv_color_make(35, 35, 40);
-            rect_dsc.border_color = lv_color_make(50, 50, 55);
+            rect_dsc.bg_color = lv_color_make(0, 0, 0);
+            rect_dsc.border_color = lv_color_make(50, 50, 50);
             rect_dsc.border_width = 1;
             rect_dsc.bg_opa = LV_OPA_COVER; 
             
@@ -348,7 +447,7 @@ void PipeGame::_game_draw_cb(lv_event_t* e)
     // 3. Render Cross Selector Cursor Overlay Highlight
     if (self->_game_state == PipeState::GAMEPLAY) {
         rect_dsc.bg_opa = LV_OPA_TRANSP;
-        rect_dsc.border_color = lv_color_make(255, 200, 0);
+        rect_dsc.border_color = lv_color_make(255, 255, 255);
         rect_dsc.border_width = 2;
 
         // FIXED: Properly dimensioned matrix structure
@@ -374,11 +473,11 @@ void PipeGame::_game_draw_cb(lv_event_t* e)
     }
 
     // 4. State Status Alerts UI Overlays
-    if (self->_game_state == PipeState::WIN && bg_visible) {
+    /*if (self->_game_state == PipeState::WIN && bg_visible) {
         rect_dsc.bg_color = lv_color_black();
         rect_dsc.bg_opa = LV_OPA_70;
         lv_draw_rect(layer, &rect_dsc, &bg_area);
-    }
+    }*/
 }
 
 

@@ -27,6 +27,7 @@ void Pong::begin(bool is_enter_from_above, SensorSuite *sensor_suite) {
     lv_obj_add_event_cb(_game_container, _game_draw_cb, LV_EVENT_DRAW_MAIN, this);
     lv_obj_add_event_cb(_game_container, Pong::_game_key_cb, LV_EVENT_KEY, this);
 
+    //Serial.print("pong1\n");
     _reset_entire_match();
   } else {
     lv_obj_clear_flag(_game_container, LV_OBJ_FLAG_HIDDEN);
@@ -158,9 +159,10 @@ void Pong::_process_physics() {
   }
 
   // End Condition Assertions (Play to 5 Points)
-  if (_left_score >= 5 || _right_score >= 5) {
+  //if (_left_score >= 5 || _right_score >= 5) {
+  if (_right_score >= 3) {
     _game_state = PongState::MATCH_OVER;
-    _state_delay_timer = 90;
+    _state_delay_timer = 45;
   }
 }
 
@@ -213,7 +215,7 @@ ScreenAction Pong::update() {
     if (_state_delay_timer > 0) {
       _state_delay_timer--;
     } else {
-      if (_right_score >= 5 && _sensor_suite) {
+      if (_right_score >= 3 && _sensor_suite) {
         _sensor_suite->save_state.unlock("Pong Champ");
       }
       _reset_entire_match();

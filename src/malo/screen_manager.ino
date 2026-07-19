@@ -38,8 +38,10 @@ void ScreenManager::_set_menu_structure()
   INIT_SCREEN_SAVER(champion_ss,     "Champion");
   INIT_SCREEN_SAVER(chilly_ss,       "Chilly");
   INIT_SCREEN_SAVER(completed_ss,    "Completed");
-  INIT_SCREEN_SAVER(defeated_ss,     "Defeated");
+  INIT_SCREEN_SAVER(cubed_ss,        "Cubed");
   INIT_SCREEN_SAVER(dance_ss,        "Dance");
+  INIT_SCREEN_SAVER(dark_ss,         "Dark MalO Rises");
+  INIT_SCREEN_SAVER(defeated_ss,     "Defeated");
   INIT_SCREEN_SAVER(dizzy_ss,        "Dizzy");
   INIT_SCREEN_SAVER(guilty_ss,       "Evil");
   INIT_SCREEN_SAVER(exhausted_ss,    "Exhausted");
@@ -58,10 +60,12 @@ void ScreenManager::_set_menu_structure()
   INIT_SCREEN_SAVER(loser_ss,        "MalO Wins");
   INIT_SCREEN_SAVER(message_rxd_ss,  "Message Received");
   INIT_SCREEN_SAVER(message_sent_ss, "Message Sent");
+  INIT_SCREEN_SAVER(plumber_ss,      "Plumber");
   INIT_SCREEN_SAVER(pong_champ_ss,   "Pong Champ");
   INIT_SCREEN_SAVER(rain_ss,         "Rain");
   INIT_SCREEN_SAVER(sheep_ss,        "Sheep");
   INIT_SCREEN_SAVER(smelly_ss,       "Smelly");
+  INIT_SCREEN_SAVER(snake_ss,        "Snake");
   INIT_SCREEN_SAVER(lean_ss,         "Snooper Booper");
   INIT_SCREEN_SAVER(tanning_ss,      "Soaking Up Rays");
   INIT_SCREEN_SAVER(upset_ss,        "Upset");
@@ -79,7 +83,7 @@ void ScreenManager::_set_menu_structure()
       pong_screen->add_subscreen(pause_screen);
       snake_screen->add_subscreen(pause_screen);
       labyrinth_screen->add_subscreen(pause_screen);
-      labyrinth_screen->add_subscreen(plumber_screen);
+      plumber_screen->add_subscreen(pause_screen);
 
 
 

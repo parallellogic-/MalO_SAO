@@ -76,6 +76,7 @@ class UniversalSerialBus{
 // --- File System ----
 
 const char* const ACHIEVEMENTS[] = {
+    "Balancer",
     "Champion",
     "Chilly",
     "Defeated",
@@ -94,12 +95,14 @@ const char* const ACHIEVEMENTS[] = {
     "Message Received",
     "Message Sent",
     "MalO Wins",
+    "Plumber",
+    "Pong Champ",
+    "Snake",
     "Snooper Booper",
     "Soaking Up Rays",
     "Winner"
 };
 constexpr size_t ACHIEVEMENT_COUNT = sizeof(ACHIEVEMENTS) / sizeof(ACHIEVEMENTS[0]);
-
 
 // Packed alignment ensures exact bit-matching across compilers and disk sectors
 #pragma pack(push, 1)
@@ -119,8 +122,8 @@ struct SaveState {
     // ⚡ Changed username format constraints to 16 bytes
     uint8_t demo_mode = 0;          
     char username[16] = "malo0000"; 
-    uint32_t unlocks = 0;           
-    uint32_t seen = 0;              
+    uint64_t unlocks = 0;           //  Expanded to 64-bit to hold up to 64 achievements
+    uint64_t seen = 0;              //  Expanded to 64-bit to hold up to 64 achievements
     uint8_t ula_accepted = 0;       
     uint8_t alert_mode = 0;         
     uint8_t padding = 0;            
@@ -143,10 +146,10 @@ struct SaveState {
         }
 
         // 2. Disable local interrupts on Core 0 to prevent timing disruptions
-        uint32_t interrupts = save_and_disable_interrupts(); // [INDEX]
+        uint32_t interrupts = save_and_disable_interrupts(); 
 
         // 3. Execute the flash filesystem operations
-        File32 file = FlashInterface::fat_fs.open(filename, O_WRONLY | O_CREAT | O_TRUNC); // [INDEX]
+        File32 file = FlashInterface::fat_fs.open(filename, O_WRONLY | O_CREAT | O_TRUNC); 
         size_t written = 0;
         
         if (file) {
@@ -179,11 +182,11 @@ struct SaveState {
         }
 
         // 2. Turn off interrupts while modifying/checking flash tracking tables
-        uint32_t interrupts = save_and_disable_interrupts(); // [INDEX]
+        uint32_t interrupts = save_and_disable_interrupts(); 
 
         // 3. Perform directory operations safely inside the lock
-        if (!FlashInterface::fat_fs.exists(folder_path)) { // [INDEX]
-            FlashInterface::fat_fs.mkdir(folder_path);     // [INDEX]
+        if (!FlashInterface::fat_fs.exists(folder_path)) { 
+            FlashInterface::fat_fs.mkdir(folder_path);     
         }
 
         // 4. Free Core 1 and interrupts before calling the nested save routine
@@ -197,7 +200,7 @@ struct SaveState {
     }
 
     bool load(const char* filename) {
-        File32 file = FlashInterface::fat_fs.open(filename, O_RDONLY); // [INDEX]
+        File32 file = FlashInterface::fat_fs.open(filename, O_RDONLY); 
         if (!file) return false;
 
         SaveState temp_state;
@@ -207,33 +210,26 @@ struct SaveState {
         if (read_bytes != sizeof(SaveState)) return false;
 
         // Verify the binary payload integrity
-        bool is_hacker=temp_state.crc != temp_state.calculate_crc();
-        bool file_updated=false;
+        bool is_hacker = temp_state.crc != temp_state.calculate_crc();
+        bool file_updated = false;
 
-        //if (temp_state.crc == temp_state.calculate_crc()) {
-            *this = temp_state; // Map loaded memory layout locally
+        *this = temp_state; // Map loaded memory layout locally
 
-            // ⚡ CONDITION HOOK: Enforce special assignment rules if user agreement is incomplete
-            if (this->ula_accepted == 0) {
-                apply_default_rp2350_username();
-                file_updated=true;
-            }
-            //return true;
-        //}else{
-            
-        //}
-        if(is_hacker)
-        {
-            unlock("Hacker BSOD");
-            file_updated=true;
+        // ⚡ CONDITION HOOK: Enforce special assignment rules if user agreement is incomplete
+        if (this->ula_accepted == 0) {
+            apply_default_rp2350_username();
+            file_updated = true;
         }
 
-        if(file_updated) save();
+        if (is_hacker) {
+            unlock("Hacker BSOD");
+            file_updated = true;
+        }
+
+        if (file_updated) save();
 
         return true;
-        //return false; 
     }
-
 
     // Parameterless load wrapper matching your designated path logic
     bool load() {
@@ -246,8 +242,8 @@ struct SaveState {
         }
 
         // Folder/file missing or corrupt. Ensure directory tree exists
-        if (!FlashInterface::fat_fs.exists(folder_path)) { // [INDEX]
-            FlashInterface::fat_fs.mkdir(folder_path);     // [INDEX]
+        if (!FlashInterface::fat_fs.exists(folder_path)) { 
+            FlashInterface::fat_fs.mkdir(folder_path);     
         }
 
         // Reset memory back to fresh default values
@@ -270,7 +266,7 @@ struct SaveState {
     
     void apply_default_rp2350_username() {
         pico_unique_board_id_t board_id;
-        pico_get_unique_board_id(&board_id); // Returns the 8-byte unique OTP identifier [INDEX, INDEX]
+        pico_get_unique_board_id(&board_id); 
 
         // Combine the last two bytes of the identifier to generate a unique 4-digit number (0-9999)
         uint16_t dynamic_numeric_suffix = ((static_cast<uint16_t>(board_id.id[6]) << 8) | board_id.id[7]) % 10000;
@@ -305,18 +301,17 @@ struct SaveState {
     // =======================================================
     //  ACHIEVEMENT ASSISTANCE METHODS
     // =======================================================
-    
 
     bool is_unlocked(const std::string& name) const {
         int index = get_achievement_index(name);
-        if (index == -1 || index >= 32) return false; 
-        return (unlocks & (1UL << index)) != 0;
+        if (index == -1 || index >= 64) return false; //  Safeguard raised to 64
+        return (unlocks & (1ULL << index)) != 0;      //  Explicitly use 1ULL for 64-bit shifting
     }
 
     bool unlock(const std::string& name) {
         int index = get_achievement_index(name);
-        if (index == -1 || index >= 32) return false;
-        uint32_t mask = (1UL << index);
+        if (index == -1 || index >= 64) return false; //  Safeguard raised to 64
+        uint64_t mask = (1ULL << index);              //  Mask changed to uint64_t and 1ULL
         if ((unlocks & mask) != 0) return false;
         unlocks |= mask;
         return true; 
@@ -324,14 +319,14 @@ struct SaveState {
 
     bool is_seen(const std::string& name) const {
         int index = get_achievement_index(name);
-        if (index == -1 || index >= 32) return true; 
-        return (seen & (1UL << index)) != 0;
+        if (index == -1 || index >= 64) return true;  //  Safeguard raised to 64
+        return (seen & (1ULL << index)) != 0;         //  Explicitly use 1ULL for 64-bit shifting
     }
 
     bool mark_as_seen(const std::string& name) {
         int index = get_achievement_index(name);
-        if (index == -1 || index >= 32) return false;
-        uint32_t mask = (1UL << index);
+        if (index == -1 || index >= 64) return false; //  Safeguard raised to 64
+        uint64_t mask = (1ULL << index);              //  Mask changed to uint64_t and 1ULL
         if ((seen & mask) != 0) return false;
         seen |= mask;
         return true;
@@ -340,8 +335,8 @@ struct SaveState {
     const std::string* get_first_unseen_achievement() const {
         for (size_t i = 0; i < ACHIEVEMENT_COUNT; ++i) {
             // Unlocked but NOT seen criteria check
-            bool unlocked = (unlocks & (1UL << i)) != 0;
-            bool is_seen = (seen & (1UL << i)) != 0;
+            bool unlocked = (unlocks & (1ULL << i)) != 0;
+            bool is_seen = (seen & (1ULL << i)) != 0;
 
             if (unlocked && !is_seen) {
                 // Static ensures the object persists after returning from this scope
@@ -354,3 +349,4 @@ struct SaveState {
     }
 };
 #pragma pack(pop)
+

@@ -112,7 +112,7 @@ void SnakeGame::_process_movement() {
     // Check for precise win condition boundary transition at 15 points
     if (_score == 15) {
       if (_sensor_suite) {
-        _sensor_suite->save_state.unlock("Sleek Snake");
+        _sensor_suite->save_state.unlock("Snake");
       }
       //_create_popup_overlay("ACHIEVEMENT UNLOCKED:\nSLEEK SNAKE");
     }
