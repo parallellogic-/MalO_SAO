@@ -63,6 +63,7 @@ void ScreenManager::_set_menu_structure()
   auto labyrinth_screen  = std::make_shared<LabyrinthGame>("Labyrinth",_shared_input_group);     levels_screen->add_subscreen(labyrinth_screen);
   auto plumber_screen    = std::make_shared<PipeGame>("Pipes",_shared_input_group);              levels_screen->add_subscreen(plumber_screen);
   auto light_screen      = std::make_shared<LightsOut>("Lights Out",_shared_input_group);        levels_screen->add_subscreen(light_screen);
+  auto quiz_screen       = std::make_shared<Quiz>("Quiz",_shared_input_group);                   levels_screen->add_subscreen(quiz_screen);
 
   //Quiz
   //auto box_screen        = std::make_shared<MenuScreen>("Box",_shared_input_group);         levels_screen->add_subscreen(box_screen);
@@ -126,6 +127,7 @@ void ScreenManager::_set_menu_structure()
       labyrinth_screen->add_subscreen(pause_screen);
       plumber_screen->add_subscreen(pause_screen);
       light_screen->add_subscreen(pause_screen);
+      quiz_screen->add_subscreen(pause_screen);
 
 
 
@@ -354,28 +356,10 @@ void ScreenManager::_button_read_cb(lv_indev_t * indev, lv_indev_data_t * data) 
     }
 
     data->state = LV_INDEV_STATE_PRESSED;
-
-    // Prevent autofire repeat streams from breaking menu position transitions
-    /*if (current_button == instance->_last_raw_button) {
-        return; 
-    }*/
+    
     instance->_last_raw_button = current_button;
 
     data->key = instance->_get_active_screen()->touch_to_key(current_button);
-    /*switch (current_button) {
-        case 1:  data->key = 0;            break;//hidden
-        case 2:  data->key = LV_KEY_HOME;  break;//menu
-        case 3:  data->key = LV_KEY_ESC;   break;//no
-        case 4:  data->key = LV_KEY_ENTER; break;//yes
-        case 5:  data->key = LV_KEY_ESC;   break;//CCW
-        case 6:  data->key = LV_KEY_PREV;  break;//up
-        case 7:  data->key = LV_KEY_ENTER; break;//CW
-        case 8:  data->key = LV_KEY_LEFT;  break;//left
-        case 9:  data->key = LV_KEY_NEXT;  break;//down
-        case 10: data->key = LV_KEY_RIGHT; break;//right
-        default: break;
-    }*/
-    //lv_obj_invalidate(lv_screen_active());//work-around for sticky menu that shows selected option at the top of the screen instead of the middle where it should be
 }
 
 // Custom function to process the canvas buffer, pack upper nibbles, and transmit

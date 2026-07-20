@@ -12,6 +12,7 @@
 #include "labyrinth.h"
 #include "pipe.h"
 #include "lights_out.h"
+#include "quiz.h"
 
 // Forward declaration of LVGL object type to avoid including lvgl.h in the header
 //struct _lv_obj_t;
@@ -38,7 +39,7 @@ class AchivementState{
 class AchievementManager{
   private:
     SensorSuite* _sensor_suite;
-    AchivementState booper=AchivementState(100);
+    AchivementState booper=AchivementState(70);
     AchivementState hall=AchivementState(1000);
     AchivementState music=AchivementState(250);
     float potentiometer=0;
