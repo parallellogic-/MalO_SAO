@@ -50,6 +50,25 @@ class AchievementManager{
 
 class ScreenManager {
 private:
+  // -- demo setup --
+    bool _is_demo_mode = false;
+    size_t _demo_step_index = 0;
+    uint32_t _demo_step_start_ms = 0;
+    enum class DemoStepType { SCREENSAVER, STATIC_TEXT };
+    struct DemoStep {
+        DemoStepType type;
+        std::string payload; // Title string for screensavers, text string for static screen
+        uint32_t duration_ms;
+    };
+    std::vector<DemoStep> _demo_routine;
+    lv_obj_t* _demo_text_screen = nullptr;
+    lv_obj_t* _demo_text_label = nullptr;
+    void _init_demo_mode();
+    void _handle_demo_mode();
+    void _show_static_text_screen(const std::string& text);
+    void _hide_static_text_screen();
+
+    // -- standard config --
     SensorSuite* _sensor_suite;
     uint8_t _canvas_buffer[SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX] __attribute__((aligned(4)));
     //uint8_t _screen_buffer[SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX] __attribute__((aligned(4)));

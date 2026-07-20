@@ -5,6 +5,47 @@ ScreenManager::ScreenManager(){}
 
 void ScreenManager::_set_menu_structure()
 {
+  _is_demo_mode = _sensor_suite->save_state.is_demo();
+  if(_is_demo_mode)
+  {
+    _sensor_suite->touch.set_master_disable();//disable all user input while in demo mode
+
+    _demo_routine = {
+        {DemoStepType::SCREENSAVER, "Balancer",            3000},
+        {DemoStepType::STATIC_TEXT, "OLED Screen",         3000},
+        {DemoStepType::SCREENSAVER, "Rain",                3000},
+        {DemoStepType::STATIC_TEXT, ">50 LEDs",            3000}, // 3 seconds of text
+        {DemoStepType::SCREENSAVER, "Heat Wave",           3000},
+        {DemoStepType::STATIC_TEXT, "Infrared RX/TX",      3000},
+        {DemoStepType::SCREENSAVER, "Dark MalO Rises",     3000},
+        {DemoStepType::STATIC_TEXT, "Buzzer",              3000},
+        {DemoStepType::SCREENSAVER, "Sheep",               3000},
+        {DemoStepType::STATIC_TEXT, "Games!",              3000},
+        {DemoStepType::SCREENSAVER, "Dance",               3000},
+        {DemoStepType::STATIC_TEXT, "Message friends!",    3000},
+        {DemoStepType::SCREENSAVER, "Pong Champ",          3000},
+        {DemoStepType::STATIC_TEXT, "Vibration Motor",     3000},
+        {DemoStepType::SCREENSAVER, "Know MalO",           3000},
+        {DemoStepType::STATIC_TEXT, "Voltage Monitor",     3000},
+        {DemoStepType::SCREENSAVER, "Snooper Booper",      3000},
+        {DemoStepType::STATIC_TEXT, "USB-C Hackable",      3000},
+        {DemoStepType::SCREENSAVER, "Dizzy",               3000},
+        {DemoStepType::STATIC_TEXT, "Capacitive Touch",    3000},
+        {DemoStepType::SCREENSAVER, "Message Sent",        3000},
+        {DemoStepType::STATIC_TEXT, "Microphone",          3000},
+        {DemoStepType::SCREENSAVER, "Winner",              3000},
+        {DemoStepType::STATIC_TEXT, "Magnet Sensor",       3000},
+        {DemoStepType::SCREENSAVER, "Chilly",              3000},
+        {DemoStepType::STATIC_TEXT, "Gyroscope",           3000},
+        {DemoStepType::SCREENSAVER, "Soaking Up Rays",     3000},
+        {DemoStepType::STATIC_TEXT, "[REDACTED]!!!",       3000},
+        {DemoStepType::SCREENSAVER, "It Is Too Quiet",     3000},
+        {DemoStepType::STATIC_TEXT, "Stickers",            3000}
+    };
+
+  }
+
+
   auto main_screen       = std::make_shared<MenuScreen>("Main",_shared_input_group);
 
   auto animations_screen = std::make_shared<MenuScreen>("Animations",_shared_input_group,ScreenConfig::ANIMATIONS);  main_screen->add_subscreen(animations_screen);
@@ -96,6 +137,127 @@ Serial.printf("screen_manager._push_screen\n");
 
   //_push_screen(animations_screen);
   //_push_screen(screen_screen);
+  if(_is_demo_mode) _init_demo_mode();
+}
+
+void ScreenManager::_show_static_text_screen(const std::string& text) {
+    if (_demo_text_screen == nullptr) {
+        // Create a full-screen overlay panel on top of the existing active screen
+        _demo_text_screen = lv_obj_create(lv_scr_act());
+        
+        // Remove default panel borders, padding, and roundness for a true clean canvas
+        lv_obj_set_size(_demo_text_screen, LV_PCT(100), LV_PCT(100));
+        lv_obj_set_style_radius(_demo_text_screen, 0, 0);
+        lv_obj_set_style_border_width(_demo_text_screen, 0, 0);
+        lv_obj_set_style_pad_all(_demo_text_screen, 0, 0);
+        
+        // Style as flat black background
+        lv_obj_set_style_bg_color(_demo_text_screen, lv_color_black(), 0);
+        lv_obj_set_style_bg_opa(_demo_text_screen, LV_OPA_COVER, 0);
+
+        // Add a giant white font label to the canvas center
+        _demo_text_label = lv_label_create(_demo_text_screen);
+        lv_obj_set_style_text_color(_demo_text_label, lv_color_white(), 0);
+        lv_obj_set_style_text_font(_demo_text_label, &lv_font_montserrat_14, 0);
+        lv_obj_align(_demo_text_label, LV_ALIGN_CENTER, 0, 0);
+    }
+    
+    // Update the text string payload
+    lv_label_set_text(_demo_text_label, text.c_str());
+    
+    // Make sure the overlay is visible
+    lv_obj_remove_flag(_demo_text_screen, LV_OBJ_FLAG_HIDDEN);
+    
+    // Move to the very front of the parent container stack using the suggested method
+    lv_obj_move_to_index(_demo_text_screen, 0xFFFFFFF); 
+}
+
+
+void ScreenManager::_hide_static_text_screen() {
+    // Simply hide the full-screen overlay to instantly reveal the panels underneath
+    if (_demo_text_screen != nullptr) {
+        lv_obj_add_flag(_demo_text_screen, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+
+void ScreenManager::_init_demo_mode() {
+    if (_demo_routine.empty()) return;
+    
+    _demo_step_index = 0;
+    _demo_step_start_ms = millis();
+    
+    const auto& step = _demo_routine[_demo_step_index];
+    
+    if (step.type == DemoStepType::SCREENSAVER) {
+        for (auto& ss : _screen_savers) {
+            if (ss->get_title() == step.payload) {
+                ss->set_title_visible(false);
+                _push_screen(ss);
+                break;
+            }
+        }
+        //while(1){Serial.printf("Screen saver not found: %s\n",step.payload.c_str()); delay(100);}
+    } else {
+        _show_static_text_screen(step.payload);
+    }
+}
+
+void ScreenManager::_handle_demo_mode() {
+  Serial.printf("demo3 %d %d %d %d %d %d\n",_demo_step_index,_demo_routine.size(),DemoStepType::SCREENSAVER,millis(),_demo_step_start_ms,_demo_routine[_demo_step_index].duration_ms);
+    if (!_is_demo_mode || _demo_routine.empty()) return;
+
+    if ( ( millis() - _demo_step_start_ms ) >= _demo_routine[_demo_step_index].duration_ms) {
+        
+        // --- CLEAN UP CURRENT STEP ---
+        const auto& current_step = _demo_routine[_demo_step_index];
+        if (current_step.type == DemoStepType::SCREENSAVER) {
+            _pop_screen(); // Pull the screensaver off the manager logic stack
+        } else {
+            _hide_static_text_screen();
+        }
+
+        // --- INCREMENT STEP INDEX ---
+        _demo_step_index = (_demo_step_index + 1) % _demo_routine.size();
+        _demo_step_start_ms = millis();
+
+        //leds...
+        //uint8_t led_index=_demo_step_index*(sizeof(animation_table)/sizeof(animation_table[0])-1)/_demo_routine.size();//skip _off at [0]
+        for(uint8_t is_upper=0;is_upper<2;is_upper++)
+        {
+          AnimationFunc afunc=nullptr;
+          switch((_demo_step_index+is_upper*3)/2%5){
+            case 0: Charlieplex::get_animation_by_name("Blink",afunc); break;
+            case 1: Charlieplex::get_animation_by_name("Fire",afunc); break;
+            case 2: Charlieplex::get_animation_by_name("Rainbow Fade",afunc); break;
+            case 3: Charlieplex::get_animation_by_name("Stars",afunc); break;
+            case 4: Charlieplex::get_animation_by_name("Steeple Chase",afunc); break;
+          }
+          //parent_menu->_update_action.led_upper_func=afunc;
+          if(is_upper) _led_upper_func=afunc;
+          else         _led_lower_func=afunc;
+        }
+
+        // --- LOAD NEXT STEP ---
+        const auto& next_step = _demo_routine[_demo_step_index];
+        
+        //while(1){Serial.printf("demo2 %d %d %d %d %d %d %d\n",_demo_step_index,_demo_routine.size(),next_step.type,DemoStepType::SCREENSAVER,millis(),_demo_step_start_ms,_demo_routine[_demo_step_index].duration_ms);delay(100);}
+        if (next_step.type == DemoStepType::SCREENSAVER) {
+            bool found = false;
+            for (auto& ss : _screen_savers) {
+                if (ss->get_title() == next_step.payload) {
+                    ss->set_title_visible(false);
+                    _push_screen(ss);
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) _demo_step_start_ms = millis(); // Instantly bypass string typo safety skip
+        } 
+        else if (next_step.type == DemoStepType::STATIC_TEXT) {
+            _show_static_text_screen(next_step.payload);
+        }
+    }
 }
 
 void ScreenManager::begin(SensorSuite &sensor_suite)
@@ -264,8 +426,12 @@ void ScreenManager::update()
   lv_tick_inc(current_time_ms-_last_update_ms);
   _last_update_ms=current_time_ms;
 
+  if (_is_demo_mode) {
+      _handle_demo_mode();
+  }
+
   _achievement_manager->update();
-  if(_screen_stack.back()->is_allow_achivement_popup())
+  if(!_is_demo_mode && _screen_stack.back()->is_allow_achivement_popup())
   {
     const std::string* achievement_str= _sensor_suite->save_state.get_first_unseen_achievement();
     if(achievement_str!=nullptr)
@@ -293,6 +459,18 @@ void ScreenManager::update()
 
   // Ticks physical interface engine processing every loop frame pass
   uint32_t time_till_next = lv_timer_handler();
+
+  if (_is_demo_mode && _demo_routine[_demo_step_index].type == DemoStepType::STATIC_TEXT) {
+      if (_led_upper_func != nullptr) {
+          (_sensor_suite->led_upper.*(_led_upper_func))(*_sensor_suite);
+          _sensor_suite->led_upper.flush();
+      }
+      if (_led_lower_func != nullptr) {
+          (_sensor_suite->led_lower.*(_led_lower_func))(*_sensor_suite);
+          _sensor_suite->led_lower.flush();
+      }
+      return; // Skip execution processing logic below while displaying text screens
+  }
 
 //Serial.printf("Next internal task in: %d ms\n", time_till_next); 
 

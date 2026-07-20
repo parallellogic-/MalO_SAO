@@ -322,6 +322,8 @@ void PipeGame::_process_fluid_simulation() {
 
 ScreenAction PipeGame::update() {
     // Game updates immediately through event input handles, no active tickers required
+  _update_action.led_upper_func = &Charlieplex::animation_off;
+  _update_action.led_lower_func = &Charlieplex::animation_off;
     return Game::update();
 }
 

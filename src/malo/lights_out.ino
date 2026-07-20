@@ -48,6 +48,13 @@ void LightsOut::end(bool is_leaving_upward) {
     }
 }
 
+ScreenAction LightsOut::update() {
+    // Game updates immediately through event input handles, no active tickers required
+  _update_action.led_upper_func = &Charlieplex::animation_off;
+  _update_action.led_lower_func = &Charlieplex::animation_off;
+    return Game::update();
+}
+
 void LightsOut::_scramble_grid() {
     // Generate a solvable arrangement where at least a few random outer cells are set to true (ON)
     // Make sure center cell is explicitly dead out of precautions
@@ -115,6 +122,7 @@ void LightsOut::_handle_action() {
         if (_sensor_suite!=nullptr) {
             _sensor_suite->save_state.unlock("Dark MalO Rises");
         }
+        _create_popup_overlay("You win!");
     }
     
     lv_obj_invalidate(_game_container);
@@ -139,19 +147,15 @@ void LightsOut::_game_key_cb(lv_event_t* e) {
         case LV_KEY_DOWN:  game->_move_cursor(1, 0);   break;
         case LV_KEY_LEFT:  game->_move_cursor(0, -1);  break;
         case LV_KEY_RIGHT: game->_move_cursor(0, 1);   break;
-        case LV_KEY_ENTER: game->_handle_action();     break;
-        /*case LV_KEY_ESC:
-            game->_is_won = false;
-            game->_cursor_r = 0;
-            game->_cursor_c = 0;
-            game->_scramble_grid();
-          break;*/
+        case LV_KEY_ENTER: game->_handle_action();     if(game->_is_won){ game->_is_won = false; game->_cursor_r = 0; game->_cursor_c = 0; game->_scramble_grid(); } break;
+        case LV_KEY_ESC:                               if(game->_is_won){ game->_is_won = false; game->_cursor_r = 0; game->_cursor_c = 0; game->_scramble_grid(); } break;
         case LV_KEY_HOME:
             game->_update_action.type = ScreenActionType::PUSH_SUBMENU;
             game->_update_action.next_screen = game->_screen_stack.empty() ? nullptr : game->_screen_stack.front();
           break;
     }
 }
+
 void LightsOut::_game_draw_cb(lv_event_t* e) {
     lv_layer_t* layer = lv_event_get_layer(e);
     LightsOut* game = static_cast<LightsOut*>(lv_event_get_user_data(e));
@@ -176,15 +180,15 @@ void LightsOut::_game_draw_cb(lv_event_t* e) {
     for (int8_t r = 0; r < LO_GRID_SIZE; r++) {
         for (int8_t c = 0; c < LO_GRID_SIZE; c++) {
             lv_area_t cell_area;
-            cell_area.x1 = container_coords.x1+start_x + (c * LO_CELL_DIM);
-            cell_area.y1 = container_coords.y1+start_y + (r * LO_CELL_DIM);
+            cell_area.x1 = container_coords.x1 + start_x + (c * LO_CELL_DIM);
+            cell_area.y1 = container_coords.y1 + start_y + (r * LO_CELL_DIM);
             cell_area.x2 = cell_area.x1 + LO_CELL_DIM - 4;
             cell_area.y2 = cell_area.y1 + LO_CELL_DIM - 4;
 
-            //  RULE 1: Center cell (1,1) is permanently locked and NEVER selectable
+            // RULE 1: Center cell (1,1) is permanently locked and NEVER selectable
             if (r == 1 && c == 1) {
-                rect_dsc.bg_color = lv_color_make(40, 40, 40);
-                rect_dsc.border_color = lv_color_make(60, 60, 60); // Keep normal border
+                rect_dsc.bg_color = lv_color_make(0, 0, 0);
+                rect_dsc.border_color = lv_color_make(0, 0, 0); // Keep normal border
                 rect_dsc.border_width = 2;
                 lv_draw_rect(layer, &rect_dsc, &cell_area);
                 
@@ -200,32 +204,25 @@ void LightsOut::_game_draw_cb(lv_event_t* e) {
 
             // Define light states colors
             if (game->_grid[r][c]) {
-                rect_dsc.bg_color = lv_color_make(150, 150, 150); // Cyan Neon ON state
+                rect_dsc.bg_color = lv_color_make(100, 100, 100); // ON state
             } else {
-                rect_dsc.bg_color = lv_color_make(40, 40, 40);  // Deep darkness OFF state
+                rect_dsc.bg_color = lv_color_make(0, 0, 0);  // OFF state
             }
 
-            //  RULE 2: Calculate primary vs neighbor highlights dynamically
+            // RULE 2: Only show the cursor itself
             if (!game->_is_won) {
                 if (game->_cursor_r == r && game->_cursor_c == c) {
                     // Current primary cell under cursor gets a thick, bright white border
                     rect_dsc.border_color = lv_color_make(255, 255, 255); 
                     rect_dsc.border_width = 4;
-                } 
-                else if ((abs(game->_cursor_r - r) == 1 && game->_cursor_c == c) || 
-                         (game->_cursor_r == r && abs(game->_cursor_c - c) == 1)) {
-                    // Valid neighboring cells get a medium, dimmed border indicator
-                    rect_dsc.border_color = lv_color_make(255, 255, 255); 
-                    rect_dsc.border_width = 3;
-                } 
-                else {
-                    // Normal unselected borders
-                    rect_dsc.border_color = lv_color_make(60, 60, 60);
+                } else {
+                    //  FIXED: Neighbors now fall through here, keeping normal unselected borders
+                    rect_dsc.border_color = lv_color_make(0, 0, 0);
                     rect_dsc.border_width = 2;
                 }
             } else {
                 // Game is won, drop all cursor borders to default
-                rect_dsc.border_color = lv_color_make(60, 60, 60);
+                rect_dsc.border_color = lv_color_make(0, 0, 0);
                 rect_dsc.border_width = 2;
             }
 
@@ -233,5 +230,3 @@ void LightsOut::_game_draw_cb(lv_event_t* e) {
         }
     }
 }
-
-

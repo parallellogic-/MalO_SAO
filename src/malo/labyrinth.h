@@ -34,6 +34,10 @@ struct LabyPoint {
 
 class LabyrinthGame : public Game {
   private:
+    uint8_t _current_level = 0;
+    static const uint8_t LABY_MAX_LEVELS = 3; // Change this to your level count
+    static const uint8_t _maps[LABY_MAX_LEVELS][LABY_GRID_ROWS][LABY_GRID_COLS];
+    
     LabyState _game_state = LabyState::GAMEPLAY;
     uint32_t _frame_id = 0;
     uint16_t _state_delay_timer = 0;

@@ -32,6 +32,7 @@ public:
     LightsOut(const char* name, lv_group_t* input_group) : Game(name, input_group) {}
 
     void begin(bool is_enter_from_above, SensorSuite *sensor_suite) override;
+    ScreenAction update() override;
     void end(bool is_leaving_upward) override;
 };
 

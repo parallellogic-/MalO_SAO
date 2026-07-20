@@ -349,6 +349,8 @@ struct SaveState {
         }
         return nullptr; // No matching achievements found
     }
+
+    bool is_demo(){ return demo_mode; }
 };
 #pragma pack(pop)
 

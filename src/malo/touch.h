@@ -27,6 +27,7 @@ enum class TOUCH_KEY : uint8_t{
 
 class Touch{
   private:
+    bool _is_master_disable=false; //when true, will always read 0 as no touch
     uint32_t _capture_buffer[CAPACITIVE_TOUCH_RING_BUFFER_SIZE] __attribute__((aligned(CAPACITIVE_TOUCH_RING_BUFFER_SIZE*sizeof(uint32_t))));
     uint16_t _capture_buffer_index=0;//index of the end of the last update
     uint32_t _rc_decay[2][CAPACITIVE_TOUCH_COUNT]; //count the number of steps of a 25 Mhz clock until pin toggles.
@@ -47,4 +48,5 @@ class Touch{
     void debug();
     uint8_t get_down_button();//0 for no touch, 1-10 for which button is touched
     uint32_t get_capacitive_touch(uint8_t index);//low values means button is unpressed, high value means button is pressed
+    void set_master_disable(){ _is_master_disable=true; }
 };

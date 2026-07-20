@@ -213,7 +213,7 @@ void Touch::update(uint32_t frame_id)
 }
 
 //make a hard determiantion of which button is down and assume the rest ofare not
-uint8_t Touch::get_down_button(){ return _button_down; }
+uint8_t Touch::get_down_button(){ if(_is_master_disable) return 0; return _button_down; }
 
 //index 0 is pwm pin, cap touch are indexes 1-10
 //gets "analog" reading of each pin, dc-bias-corrected

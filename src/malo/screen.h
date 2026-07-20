@@ -37,7 +37,12 @@ enum class ScreenConfig{
   LED_LOWER,
   SCREEN_SAVER,//screen savers
   MOUNT_USB,
-  PAUSE //turn off led indicator below screen, special action Resume button, and Exit has different behavior
+  PAUSE, //turn off led indicator below screen, special action Resume button, and Exit has different behavior
+  USER_AGREEMENT,
+  IR_RXD,
+  IR_TXD,
+  VIBRATION_ALERT,
+  AUDIO_ALERT
 };
 
 struct ScreenAction {
