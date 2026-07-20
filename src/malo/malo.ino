@@ -53,15 +53,17 @@ SensorSuite sensor_suite = {
 
   //.graphics=Graphics(),
   .analog=Analog(),
-  .imu=IMU(),
+  .buzzer=Buzzer(),
   .led_lower=Charlieplex(0),
   .led_upper=Charlieplex(1),
   .decoder_ir_rxd=DecoderGeneric(0,PIN_DEBUG_R), //monitor the 0th pin, starting at the default offset (IR input pin).
   //.decoder_sao_gp1=DecoderGeneric(1), //FUTURE
   //.decoder_sao_gp1=DecoderGeneric(2), //Note: beware heavy usage of RAM for decode buffers - there is opportunity for RAM usage optimization with more advance WS2812 decode state machine
   .decoder_ir_rxd_ws2812=DecoderWS2812(),
+  .imu=IMU(),
   .light_sensor=LightSensor(),
   .microphone=Microphone(),
+  .motor=Motor(),
   .oled=OLED(),
   .pio_charlieplex=PIOProgramManager(pio0,&charlieplex_dma_program,0), //pio needs to be on lower bank to reach gp0.  duty cycle pairs of LEDs spread across 8 output pins
   .pio_logic_analyzer=PIOProgramManager(pio1,&logic_analyzer_program,16), //needs to be a separate pio to reach above pin 32 (configured at bank level.  run-length encoder of 11 pin states
@@ -110,6 +112,7 @@ void setup() {//core 0
   //TODO: RFID init here on same shared i2c bus...
   
   sensor_suite.microphone.begin();
+  sensor_suite.motor.begin();
   sensor_suite.scatterer_gatherer_engine_general.begin(true); //I2C needs aux channels to perform sync'd reads.  also uses sniff0 to compute the length of the imu fifo
   sensor_suite.scatterer_gatherer_engine_screen.begin(false); //limit to only 2 channels for screen
   sensor_suite.oled.begin();
@@ -120,6 +123,7 @@ void setup() {//core 0
   sensor_suite.led_lower.begin(sensor_suite.pio_charlieplex);
   sensor_suite.touch.begin(sensor_suite.pio_logic_analyzer);
   sensor_suite.ir_txd.begin(sensor_suite.pio_addr);
+  sensor_suite.buzzer.begin(sensor_suite.pio_addr);
   //pinMode(VIBRATION_MOTOR_PIN,OUTPUT);
 
   setup0_complete=true;
@@ -200,6 +204,8 @@ void __not_in_flash_func(loop1)(){ //core 1
       sensor_suite.touch.update(frame_id1);//kicked off very near the beginning of the frame, normally it takes core0 notably longer to compute what to display on the screen
       //Serial.printf("core1 sensor_suite.microphone.update...\n");
       sensor_suite.microphone.update();
+      sensor_suite.motor.update();
+      sensor_suite.buzzer.update();
       //Serial.printf("core1 sensor_suite.decoder_ir_rxd.update...\n");
       sensor_suite.decoder_ir_rxd.update();
       //Serial.printf("core1 sensor_suite.ir_txd.update...\n");

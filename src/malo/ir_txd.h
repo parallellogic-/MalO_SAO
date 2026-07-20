@@ -3,7 +3,7 @@
 #include "dma_control_block.h"
 #include "pulse_chain.h"
 
-#define TRANSMITTER_ACTIVITY_BRIGHTNESS (65535/10) //how long of 65535 should the PWM indicator be ON for each cycle (less is dimmer).  this is just thevisible indicator LED, independent of the IR LED
+#define TRANSMITTER_ACTIVITY_BRIGHTNESS (65535/10) //how long of 65535 should the PWM indicator be ON for each cycle (less is dimmer).  this is just the visible indicator LED, independent of the IR LED
 #define IR_TXD_FREQUENCY_HZ 38'000.0f //lowest frequency the system generates (256 counts on period)
 #define IR_TXD_PIN 16
 #define USERNAME_MAX_LENGTH 16 //max numbers of letters in a username, there is no \0, will be compressed from 8-bit char to 7-bit value

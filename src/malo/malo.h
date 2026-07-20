@@ -17,6 +17,8 @@ bool core1_separate_stack = true;
 #include "ir_rxd.h"
 #include "ir_txd.h"
 #include "analog.h"
+#include "motor.h"
+#include "buzzer.h"
 
 // -- define --
 
@@ -39,13 +41,15 @@ struct SensorSuite{//bundle into an object to make easier to pass through graphi
 
   //Graphics graphics;
   Analog analog;
-  IMU imu;
+  Buzzer buzzer;
   Charlieplex led_lower;
   Charlieplex led_upper;
   DecoderGeneric decoder_ir_rxd;
   DecoderWS2812 decoder_ir_rxd_ws2812;
+  IMU imu;
   LightSensor light_sensor;
   Microphone microphone;
+  Motor motor;
   OLED oled;
   PIOProgramManager pio_charlieplex;
   PIOProgramManager pio_logic_analyzer;

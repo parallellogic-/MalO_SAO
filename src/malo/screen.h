@@ -174,6 +174,8 @@ class ScreenSaver : public Screen { //display a looping animation
     bool _is_title_visible=false;
     SaveState* _save_state=nullptr;
     lv_obj_t* _overlay_card = nullptr;
+    bool _is_vibration_alert=false; //if true, then will buzz the motor on begin(from_above) until timeout
+    bool _is_audio_alert=false;//if true, will play tune on achievement
     //lv_obj_t* _lv_canvas; //_lv_panel absorbs button pushes, _lv_canvas is the pixel draw buffer
     std::vector<uint8_t> _frame_duration;//how many frames at 60 FPS to show this image on the screen for (1= 16.6 ms, 2=30 ms, 4=60 ms...)
     std::vector<uint8_t> _frame_order;//list of which frames to show in what order (can show the same frame multiple times in one animation).  last value is which index within THIS list to jump to on completion
@@ -192,6 +194,8 @@ class ScreenSaver : public Screen { //display a looping animation
     void set_title_visible(bool is_title_visible){
       if(_title=="Champion" || _title=="Favorite Food") _is_title_visible=false;
       else _is_title_visible=is_title_visible; }
+    void set_vibration_alert(bool is_vibration_alert){_is_vibration_alert=is_vibration_alert;}
+    void set_audio_alert(bool is_audio_alert){_is_audio_alert=is_audio_alert;}
     void begin(bool is_enter_from_above,SensorSuite *sensor_suite) override;
     ScreenAction update() override;
     void end(bool is_leaving_upward) override;

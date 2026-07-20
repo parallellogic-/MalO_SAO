@@ -63,8 +63,8 @@ void ScreenManager::_set_menu_structure()
   auto labyrinth_screen  = std::make_shared<LabyrinthGame>("Labyrinth",_shared_input_group);     levels_screen->add_subscreen(labyrinth_screen);
   auto plumber_screen    = std::make_shared<PipeGame>("Pipes",_shared_input_group);              levels_screen->add_subscreen(plumber_screen);
   auto light_screen      = std::make_shared<LightsOut>("Lights Out",_shared_input_group);        levels_screen->add_subscreen(light_screen);
-  //Quiz
 
+  //Quiz
   //auto box_screen        = std::make_shared<MenuScreen>("Box",_shared_input_group);         levels_screen->add_subscreen(box_screen);
   //auto site19_screen     = std::make_shared<MenuScreen>("Site 19",_shared_input_group);     levels_screen->add_subscreen(site19_screen);
   
@@ -193,6 +193,8 @@ void ScreenManager::_init_demo_mode() {
         for (auto& ss : _screen_savers) {
             if (ss->get_title() == step.payload) {
                 ss->set_title_visible(false);
+                ss->set_vibration_alert(false);
+                ss->set_audio_alert(false);
                 _push_screen(ss);
                 break;
             }
@@ -247,6 +249,8 @@ void ScreenManager::_handle_demo_mode() {
             for (auto& ss : _screen_savers) {
                 if (ss->get_title() == next_step.payload) {
                     ss->set_title_visible(false);
+                    ss->set_vibration_alert(false);
+                    ss->set_audio_alert(false);
                     _push_screen(ss);
                     found = true;
                     break;
@@ -447,6 +451,8 @@ void ScreenManager::update()
           //_sensor_suite->save_state.save(); //causes lock-up on core 0/1?
           //Serial.printf("File saved..."); delay(3);
           achievement_ss->set_title_visible(true);
+          achievement_ss->set_vibration_alert(true);
+          achievement_ss->set_audio_alert(true);
           _push_screen(achievement_ss);
         }
       }

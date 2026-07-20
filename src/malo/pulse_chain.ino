@@ -4,6 +4,7 @@
 
 void PulseChain::begin(PIOProgramManager &pio_program_manager,uint8_t pwm_pin,float base_frequency_hz)
 {
+  //Serial.printf("PulseChain::begin...\n"); delay(1);
   _pwm_pin=pwm_pin;
 
   gpio_set_function(pwm_pin, GPIO_FUNC_PWM);
@@ -20,12 +21,14 @@ void PulseChain::begin(PIOProgramManager &pio_program_manager,uint8_t pwm_pin,fl
   pwm_set_clkdiv(slice_num, dynamic_div);
   pwm_set_enabled(slice_num, true); 
 
+  //Serial.printf("ScatterGatherEngine::begin...\n"); delay(1);
   ScatterGatherEngine::begin(false); //false means data and ctrl dma's only, no aux allocation
 
   _pio=pio_program_manager.get_pio();
   _sm=pio_program_manager.allocate_sm();
   _initial_pc_offset=pio_program_manager.get_offset();
   int sm_offset=pio_program_manager.get_offset();
+  //static uint8_t debug=0; debug++; while(debug==2){Serial.printf("pulse_chain %d, %d, %d, %d\n",_pio,_sm,_initial_pc_offset,sm_offset);delay(100); }
 
 
   // 4. Configure the PIO State Machine to listen
@@ -67,13 +70,19 @@ bool PulseChain::play() {
     _pwm_config[write_buffer][idx].duty = 0; 
     _pwm_config[write_buffer][idx].cycle_count = 0; 
     
-
     // Swap buffers so compileAndRun reads the newly filled data partition
-    _pwm_command_length[write_buffer]=0;
-    _is_ping_pong = !_is_ping_pong;
+    //_pwm_command_length[write_buffer]=0;
+    //_is_ping_pong = !_is_ping_pong;
+    clear();
 
     // Fire the Scatter-Gather Engine compilation pass using an arbitrary frame ID
     compileAndRun(0); 
+    return true;
+}
+
+bool PulseChain::clear(){
+    _pwm_command_length[_is_ping_pong]=0;
+    _is_ping_pong = !_is_ping_pong;
     return true;
 }
 

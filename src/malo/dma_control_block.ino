@@ -69,6 +69,7 @@ void ScatterGatherEngine::begin(bool is_aux) {
           _aux0_chan = dma_claim_unused_channel(true);
           _aux1_chan = dma_claim_unused_channel(true);
         }
+        while(_ctrl_chan<0 || _data_chan<0 || ( is_aux && (_aux0_chan<0 || _aux1_chan<0) ) ){ Serial.printf("Unable to allocate any more DMA channels"); delay(100); }
     }
 
 void ScatterGatherEngine::end() {

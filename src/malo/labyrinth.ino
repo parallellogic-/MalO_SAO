@@ -277,7 +277,7 @@ void LabyrinthGame::_game_draw_cb(lv_event_t* e) {
         lv_draw_rect(layer, &rect_dsc, &cell_area);
       } else if (cell == (uint8_t)CellType::HOLE) {
         rect_dsc.radius = LV_RADIUS_CIRCLE; 
-        rect_dsc.bg_color = lv_color_make(70, 70, 70); // Dark Crimson Warning Danger Holes
+        rect_dsc.bg_color = lv_color_make(90, 90, 90); // Dark Crimson Warning Danger Holes
         lv_draw_rect(layer, &rect_dsc, &cell_area);
         rect_dsc.radius = 0; 
       } else if (cell == (uint8_t)CellType::GOAL) {

@@ -7,7 +7,7 @@
 #include <hardware/dma.h>
 #include "dma_control_block.h"
 
-#define MAX_PWM_CHAIN_LENGTH (256*2*8*5/4) //256 characters, 1/0, 8 bits, 20% margin
+#define MAX_PWM_CHAIN_LENGTH (256*2*5/4) //256 characters, 1/0, 20% margin.  8x bits is OBE
 
 struct PulseChainConfig{
   uint8_t period; //duration of pulses in counts of system clock (or downsampled system clock) 
@@ -48,6 +48,7 @@ public:
     
     bool append_note(uint8_t period, uint8_t duty, uint16_t cycle_count);
     bool play();
+    bool clear();//reset command sequence
     bool is_busy();
     void debug(uint32_t frame_id);
 };

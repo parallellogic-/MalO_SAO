@@ -644,35 +644,35 @@ void ScreenSaver::_screensaver_event_cb(lv_event_t * e) {
     ScreenSaver* screen = (ScreenSaver*)lv_event_get_user_data(e);
         
     if (screen != nullptr) {
-        Serial.printf("ScreenSaver Event Code: %d\n", code);
+        //Serial.printf("ScreenSaver Event Code: %d\n", code);
 
         bool should_exit = false;
 
         // 1. IF IT'S A GENERIC KEY EVENT (Fires for PREV, NEXT, and early ENTER)
         if (code == LV_EVENT_KEY) {
             uint32_t key = lv_event_get_key(e);
-            Serial.printf("ScreenSaver Key Intercepted: %u\n", key);
+            //Serial.printf("ScreenSaver Key Intercepted: %u\n", key);
 
             if (key != LV_KEY_ENTER) {
                 // If it's a navigation key (PREV/NEXT), it only ever generates this single event.
                 // It is 100% safe to exit immediately.
-                Serial.println("Wake up triggered by safe navigation key.");
-                should_exit = true;
+                //Serial.println("Wake up triggered by safe navigation key.");
+                if(key>0) should_exit = true;
             } else {
                 // It is the ENTER key! We explicitly IGNORE its early generic key loop.
                 // This lets it pass quietly without triggering a premature screen swap.
-                Serial.println("ENTER key loop 1 ignored. Waiting for definitive click...");
+                //Serial.println("ENTER key loop 1 ignored. Waiting for definitive click...");
             }
         }
 
         // 2. IF IT'S A CLIMACTIC CLICK EVENT (Fires ONLY for the final phase of ENTER)
         if (code == LV_EVENT_CLICKED) {
-            Serial.println("Wake up triggered by definitive ENTER click completion.");
+            //Serial.println("Wake up triggered by definitive ENTER click completion.");
             should_exit = true;
         }
 
         // 3. EXECUTE EXHAUSTIVE TERMINATION AND EXIT
-        if (should_exit && screen->_frame_id>6) { //100ms dirty hack to be dead to duplicate "ENTER" button pushes for 100 ms upon entering screen saver
+        if (should_exit && screen->_frame_id>6) { //100ms dirty hack to become deaf to duplicate "ENTER" button pushes for 100 ms upon entering screen saver
             /*lv_indev_t * indev = lv_event_get_indev(e);
             if (indev != nullptr) {
                 // Kills the processing token for this frame slice completely, 
@@ -680,7 +680,7 @@ void ScreenSaver::_screensaver_event_cb(lv_event_t * e) {
                 lv_indev_stop_processing(indev);
             }*/
 
-            Serial.println("ScreenSaver: Screen exiting cleanly.");
+            //Serial.println("ScreenSaver: Screen exiting cleanly.");
             screen->_update_action.type = ScreenActionType::POP_BACK;
         }
     }
@@ -781,6 +781,14 @@ void ScreenSaver::begin(bool is_enter_from_above,SensorSuite *sensor_suite)
     }
 
     if(_is_title_visible) _create_unlock_overlay(_lv_panel, _title);
+    if(_is_vibration_alert) _sensor_suite->motor.set_on();
+    if(_is_audio_alert)
+    {
+        //_sensor_suite->buzzer.append_tone(250,1.0f,0);//silence while vibration motor runs, try to balance power draw
+        //_sensor_suite->buzzer.append_tone(1000,1.0f,1);
+        //_sensor_suite->buzzer.append_tone(100,1.0f,0);
+        _sensor_suite->buzzer.play_tone(440.0f,1000.0f);//freq_hz, duration_ms
+    } 
   }
 
   _frame_index=255;//trigger an immediaate redraw upon entering frame
@@ -859,6 +867,8 @@ void ScreenSaver::_update_current_frame()
 void ScreenSaver::end(bool is_leaving_upward)
 {
     set_title_visible(false);
+    set_vibration_alert(false);
+    set_audio_alert(false);
 
   if (is_leaving_upward)
   {
