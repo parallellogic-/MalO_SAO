@@ -784,10 +784,28 @@ void ScreenSaver::begin(bool is_enter_from_above,SensorSuite *sensor_suite)
     if(_is_vibration_alert) _sensor_suite->motor.set_on();
     if(_is_audio_alert)
     {
-        //_sensor_suite->buzzer.append_tone(250,1.0f,0);//silence while vibration motor runs, try to balance power draw
-        //_sensor_suite->buzzer.append_tone(1000,1.0f,1);
-        //_sensor_suite->buzzer.append_tone(100,1.0f,0);
-        _sensor_suite->buzzer.play_tone(440.0f,1000.0f);//freq_hz, duration_ms
+        //_sensor_suite->buzzer.play_tone(440.0f,1000.0f);//freq_hz, duration_ms
+        _sensor_suite->buzzer.append_tone(4000.0f,250.0f,0);//initial silence while vibration motor runs, try to balance power draw
+
+        /*_sensor_suite->buzzer.append_tone(440, 100.0f, 1);
+        _sensor_suite->buzzer.append_tone(523, 100.0f, 1);
+        _sensor_suite->buzzer.append_tone(659, 100.0f, 1);
+        _sensor_suite->buzzer.append_tone(880, 150.0f, 1);
+        _sensor_suite->buzzer.append_tone(831, 400.0f, 1);*/
+
+        // Total Timing Calculation: 350 + 50 + 350 + 50 + 350 + 50 + 500 + 300 = 2000ms
+        _sensor_suite->buzzer.append_tone(740,  350); // F#5 (High warning marker)
+        _sensor_suite->buzzer.append_tone(0,    50);  // Quick mechanical break
+        _sensor_suite->buzzer.append_tone(659,  350); // E5 
+        _sensor_suite->buzzer.append_tone(0,    50);  
+        _sensor_suite->buzzer.append_tone(587,  350); // D5
+
+        _sensor_suite->buzzer.append_tone(0,    50);  // Final transition gap
+        _sensor_suite->buzzer.append_tone(349,  500); // F4 (Deep, dramatic base drone)
+        _sensor_suite->buzzer.append_tone(0,    300); // Clear out the buffer safely
+
+        _sensor_suite->buzzer.append_tone(4000.0f,1.0f,0); //end OFF
+        _sensor_suite->buzzer.play();
     } 
   }
 
