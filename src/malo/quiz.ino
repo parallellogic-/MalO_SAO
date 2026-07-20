@@ -17,9 +17,28 @@ Quiz::Quiz(const std::string& text, lv_group_t* shared_input_group)
             "Favorite Food" 
         },
         {
+            "A strange screeching noise emits from the speaker. MalO is forcing raw hex code down the audio path.",
+            {"Mute the speaker", "Listen closely", "Amplfiy the signal"},
+            ""
+        },
+        {
+            "The application requests root access. Do you authorize it?",
+            {
+                "Force safe mode", 
+                "Overwrite bootloader",
+                "Grant total control"
+            },
+            "Evil"
+        },
+        {
             "An encrypted terminal feed opens: Who shall I follow home tonight?",
             {"User", "SCP Guard", "O5 Council"},
             "" 
+        },
+        {
+            "MalO presents a corrupted folder of lost memories she found in old sectors.",
+            {"Accept the gift", "Inspect for malware", "Delete the cache"},
+            ""
         },
         {
             "You scold MalO for breaching containment.  She looks up with oversized digital eyes.",
@@ -31,13 +50,9 @@ Quiz::Quiz(const std::string& text, lv_group_t* shared_input_group)
             "Innocent"
         },
         {
-            "The application requests root access. Do you authorize it?",
-            {
-                "Force safe mode", 
-                "Overwrite bootloader",
-                "Grant total control"
-            },
-            "Evil"
+            "You breathe on a cold mirror. MalO writes a smiley face in the condensation from the other side.",
+            {"Wipe it away fast", "Draw a heart back", "Smash the glass"},
+            ""
         },
         {
             "The entity is now standing directly behind you.  How do you respond?",
@@ -74,8 +89,10 @@ void Quiz::begin(bool is_enter_from_above, SensorSuite *sensor_suite) {
         
         // SQUEEZE: Force the space between stacked items (gap) to be tight (only 3 pixels)
         lv_obj_set_style_pad_row(_lv_panel, 3, LV_PART_MAIN);
-        
+
+        lv_obj_set_style_radius(_lv_panel, 0, LV_PART_MAIN);
         lv_obj_set_style_bg_color(_lv_panel, lv_color_black(), LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(_lv_panel, LV_OPA_COVER, LV_PART_MAIN);
         lv_obj_set_style_border_width(_lv_panel, 0, LV_PART_MAIN);
         
         // SQUEEZE: Tight outer margins on the overall screen space
