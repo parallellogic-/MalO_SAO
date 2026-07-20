@@ -13,30 +13,35 @@ Quiz::Quiz(const std::string& text, lv_group_t* shared_input_group)
         },
         {
             "Images arrive showing a skull-headed entity inside your home. What do you leave out for her?",
-            {"Sandwich", "Lasagna", "Pancakes", "Copper wire"},
+            {"Sandwich", "Lasagna", "Copper wires"},
             "Favorite Food" 
         },
         {
-            "MalO is caught standing over your broken badge, holding a tiny screwdriver. She looks up with oversized digital eyes.",
+            "An encrypted terminal feed opens: Who shall I follow home tonight?",
+            {"User", "SCP Guard", "O5 Council"},
+            "" 
+        },
+        {
+            "You scold MalO for breaching containment.  She looks up with oversized digital eyes.",
             {
-                "Pat her skull", 
-                "Give her 1s and 0s", 
-                "It was an accident"
+                "Patch the firewall",
+                "Sigh and forgive her", 
+                "Boop her snout"
             },
             "Innocent"
         },
         {
             "The application requests root access. Do you authorize it?",
             {
-                "Grant total control", 
-                "Overwrite bootloader", 
-                "Pomise to not break it"
+                "Force safe mode", 
+                "Overwrite bootloader",
+                "Grant total control"
             },
-            "Villain_Takeover" // Triggers aggressive glitched text / matrix cutscene
+            "Evil"
         },
         {
-            "The entity is now standing directly behind you in reflections. How do you respond?",
-            {"Wave back", "Don't look in mirrors", "Take selfie together"},
+            "The entity is now standing directly behind you.  How do you respond?",
+            {"Freeze in place", "Recoil in fear", "Take selfie together"},
             ""
         },
         {
