@@ -49,13 +49,16 @@ void ScreenManager::_set_menu_structure()
   auto main_screen       = std::make_shared<MenuScreen>("Main",_shared_input_group);
 
   auto animations_screen = std::make_shared<MenuScreen>("Animations",_shared_input_group,ScreenConfig::ANIMATIONS);  main_screen->add_subscreen(animations_screen);
-  auto levels_screen     = std::make_shared<MenuScreen>("Games",_shared_input_group);                               main_screen->add_subscreen(levels_screen);
+  auto levels_screen     = std::make_shared<MenuScreen>("Games",_shared_input_group);                                main_screen->add_subscreen(levels_screen);
   auto messages_screen   = std::make_shared<MenuScreen>("Messages",_shared_input_group);                             main_screen->add_subscreen(messages_screen);
   auto settings_screen   = std::make_shared<MenuScreen>("Settings",_shared_input_group);                             main_screen->add_subscreen(settings_screen);
 
   auto upper_led_screen  = std::make_shared<MenuScreen>("Upper LEDs",_shared_input_group,ScreenConfig::LED_UPPER);  animations_screen->add_subscreen(upper_led_screen);
   auto lower_led_screen  = std::make_shared<MenuScreen>("Lower LEDs",_shared_input_group,ScreenConfig::LED_LOWER);  animations_screen->add_subscreen(lower_led_screen);
   auto screen_screen     = std::make_shared<MenuScreen>("Screen",_shared_input_group,ScreenConfig::SCREEN_SAVER);   animations_screen->add_subscreen(screen_screen);
+
+  auto ir_txd_screen     = std::make_shared<MenuScreen>("Send",_shared_input_group,ScreenConfig::IR_TXD);           messages_screen->add_subscreen(ir_txd_screen);
+  //auto ir_rxd_screen     = std::make_shared<MenuScreen>("Received",_shared_input_group,ScreenConfig::IR_TXD);       messages_screen->add_subscreen(ir_rxd_screen);
   
   auto tictactoe_screen  = std::make_shared<TicTacToe>("TicTacToe",_shared_input_group);         levels_screen->add_subscreen(tictactoe_screen);
   auto pong_screen       = std::make_shared<Pong>("Pong",_shared_input_group);                   levels_screen->add_subscreen(pong_screen);
@@ -568,14 +571,11 @@ void ScreenManager::diag(){
     Serial.printf("LVGL: Memory Fragmentation: %d%%\n", mon.frag_pct);
 }
 
-// ---- Achievement Manager
-
-AchievementManager::AchievementManager(SensorSuite* sensor_suite):_sensor_suite(sensor_suite){}
+// -- Achievement Manager --
 
 void AchievementManager::begin(){
       potentiometer=_sensor_suite->analog.get_potentiometer();
 }
-
 void AchievementManager::update()
 {
   //Serial.printf("457 MenuScreen::AchievementManager::update: %d, %p\n",_sensor_suite->save_state.is_unlocked("Snooper Booper"),_sensor_suite->save_state);
@@ -594,4 +594,25 @@ void AchievementManager::update()
 
   bool is_pot=abs(_sensor_suite->analog.get_potentiometer()-potentiometer)>0.2;
   if(is_pot) _sensor_suite->save_state.unlock("Screwing Around");
+
+  bool is_undervolt=_sensor_suite->analog.get_vcc()<2.7;
+  if(undervolt.is_sustained(is_undervolt)) _sensor_suite->save_state.unlock("Exhausted");
+
+  bool is_sunny=_sensor_suite->light_sensor.getBrightness()>800;
+  if(sunny.is_sustained(is_sunny)) _sensor_suite->save_state.unlock("Soaking Up Rays");
+
+  bool is_hot=_sensor_suite->analog.get_internal_celsius()>=40;
+  if(hot.is_sustained(is_hot)) _sensor_suite->save_state.unlock("Heat Wave");
+
+  bool is_cold=_sensor_suite->analog.get_internal_celsius()<=28;
+  if(cold.is_sustained(is_cold)) _sensor_suite->save_state.unlock("Chilly");
+
+  uint8_t deg_sec=100;
+  bool is_dizzy=abs(_sensor_suite->imu.get_gyro(0))>deg_sec || abs(_sensor_suite->imu.get_gyro(1))>deg_sec || abs(_sensor_suite->imu.get_gyro(2))>deg_sec;
+  if(dizzy.is_sustained(is_dizzy)) _sensor_suite->save_state.unlock("Dizzy");
+
+  bool is_bored_0=!_sensor_suite->save_state.is_unlocked("It Is Quiet") && _sensor_suite->touch.get_down_button()==0;
+  bool is_bored_1=!_sensor_suite->save_state.is_unlocked("It Is Too Quiet") && !is_bored_0 && _sensor_suite->touch.get_down_button()==0;
+  if(bored_0.is_sustained(is_bored_0)) _sensor_suite->save_state.unlock("It Is Quiet");
+  if(bored_1.is_sustained(is_bored_1)) _sensor_suite->save_state.unlock("It Is Too Quiet");
 }

@@ -42,9 +42,16 @@ class AchievementManager{
     AchivementState booper=AchivementState(70);
     AchivementState hall=AchivementState(1000);
     AchivementState music=AchivementState(250);
+    AchivementState undervolt=AchivementState(1000);
+    AchivementState sunny=AchivementState(1000);
+    AchivementState hot=AchivementState(1000);
+    AchivementState cold=AchivementState(1000);
+    AchivementState dizzy=AchivementState(300);
+    AchivementState bored_0=AchivementState(5*60*1000);
+    AchivementState bored_1=AchivementState(15*60*1000);
     float potentiometer=0;
   public:
-    AchievementManager(SensorSuite* sensor_suite);
+    AchievementManager(SensorSuite* sensor_suite):_sensor_suite(sensor_suite){}
     void begin();
     void update();
 };

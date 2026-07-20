@@ -351,6 +351,16 @@ struct SaveState {
     }
 
     bool is_demo(){ return demo_mode; }
+
+    std::string get_username() const {
+        // Find the actual length up to the first null terminator, capped at array boundaries
+        size_t len = 0;
+        while (len < sizeof(username) && username[len] != '\0') {
+            len++;
+        }
+        // Explicit constructor prevents reading past the 16-byte structure bound
+        return std::string(username, len);
+    }
 };
 #pragma pack(pop)
 

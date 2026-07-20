@@ -205,25 +205,27 @@ void MenuScreen::_append_menu_item(const std::shared_ptr<Screen>& subscreen,cons
     lv_obj_t * lbl = lv_label_create(_lv_panel); 
     lv_label_set_text(lbl, title.c_str());
 
-    lv_label_set_text(lbl, title.c_str());
+    //lv_label_set_text(lbl, title.c_str());
     if(subscreen != nullptr && _screen_config == ScreenConfig::SCREEN_SAVER)
-    {
-        // Add 3 safe spaces to push the text title words cleanly out of the left gutter's way
-        //char buffer[128];
-        //snprintf(buffer, sizeof(buffer), "   %s", title.c_str());
-        //lv_label_set_text(lbl, title);
-        
-        // Attach the ScreenContext FIRST so the draw callback can access it
-        //ScreenContext* context = new ScreenContext{ subscreen, this };
-        //lv_obj_set_user_data(lbl, context);
-
-        // Register the lightweight graphics drawing hook
+    {//draw lock/unlocked icon
         lv_obj_add_event_cb(lbl, _label_icon_draw_cb, LV_EVENT_DRAW_MAIN, lbl); //event draw is unstable because lv_draw_layer is intermittent errors.   lv_canvas_create is more immediate failures --> draw one pixel at a time with rect...
 
         lv_obj_set_style_pad_left(lbl, 16, LV_PART_MAIN); 
     }
     lv_obj_set_style_pad_top(lbl, 5, LV_PART_MAIN);
     lv_obj_set_style_pad_bottom(lbl, 5, LV_PART_MAIN);
+
+     // DYNAMIC SIZING: Override style parameters specifically when viewing the IR transmitter catalog
+    if (_screen_config == ScreenConfig::IR_TXD) 
+    {
+        // Force the smaller size-10 font asset onto this menu item line
+        lv_obj_set_style_text_font(lbl, &lv_font_montserrat_10, LV_PART_MAIN);
+
+        // Adjust padding down from 5 to 3 pixels so text stays tightly packed vertically
+        lv_obj_set_style_pad_top(lbl, 3, LV_PART_MAIN);
+        lv_obj_set_style_pad_bottom(lbl, 3, LV_PART_MAIN);
+    }
+
     lv_obj_set_width(lbl, LV_PCT(100)); 
     lv_obj_add_flag(lbl, LV_OBJ_FLAG_CLICKABLE); 
     lv_obj_add_style(lbl, &_style_main, LV_STATE_DEFAULT); 
@@ -281,6 +283,46 @@ void MenuScreen::begin(bool is_enter_from_above,SensorSuite *sensor_suite)
     if(_screen_config==ScreenConfig::LED_UPPER || _screen_config==ScreenConfig::LED_LOWER)
     {
       for(uint8_t iter=0;iter<Charlieplex::get_animation_count();iter++) _append_menu_item(nullptr,Charlieplex::get_animation_at(iter));
+    }
+    if(_screen_config==ScreenConfig::IR_TXD)
+    {
+        Serial.println("Opening IR transmission string asset catalog...");
+        File32 msg_file = FlashInterface::fat_fs.open("/data/messages_send.csv", O_RDONLY);
+        
+        if (msg_file) {
+            std::string line_buffer = "";
+            char read_char;
+            
+            // Loop sequentially through file contents byte-by-byte
+            while (msg_file.read(&read_char, 1) == 1) {
+                if (read_char == '\n' || read_char == '\r') {
+                    // Check if we accumulated a valid string before hitting a line ending
+                    if (!line_buffer.empty()) {
+                        _append_menu_item(nullptr, line_buffer);
+                        line_buffer.clear(); // Reset working buffer for next string entry
+                    }
+                } else {
+                    // Collect standard displayable text characters
+                    line_buffer += read_char;
+                }
+            }
+            
+            // Capture any trailing entries that lack an explicit trailing newline
+            if (!line_buffer.empty()) {
+                _append_menu_item(nullptr, line_buffer);
+            }
+            
+            msg_file.close(); // Clean up system file lock handles safely
+            Serial.printf("Successfully loaded IR_TXD menu strings from CSV.\n");
+        } 
+        else {
+            Serial.println("IR_TXD Critical Error: /data/messages_send.csv missing from Flash storage!");
+            
+            // Safe fallbacks to keep the menu interactive if file system drops
+            _append_menu_item(nullptr, "data/messages_send.csv missing");
+            _append_menu_item(nullptr, "Test Signal A");
+            _append_menu_item(nullptr, "Test Signal B");
+        }
     }
 
     if(_is_pause_menu())
@@ -484,6 +526,11 @@ void MenuScreen::_lv_menu_item_event_cb(lv_event_t * e) {
             {
               UniversalSerialBus::set_mounted();
               //while(1){ Serial.printf("HERE: %s, %d\n",target_screen->get_title().c_str(),target_screen->get_screen_config()); delay(100); }
+            }
+            if(parent_menu->get_screen_config()==ScreenConfig::IR_TXD)
+            {
+                parent_menu->_sensor_suite->ir_txd.push_message(parent_menu->_sensor_suite->save_state.get_username().c_str(),button_text.c_str(),button_text.length());
+                parent_menu->_sensor_suite->save_state.unlock("Message Sent");
             }
 
 

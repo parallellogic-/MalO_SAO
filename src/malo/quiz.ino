@@ -260,6 +260,8 @@ void Quiz::_option_click_cb(lv_event_t* e) {
 ScreenAction Quiz::update() {
     // Relying strictly on the callback loop for button updates.
     // Retaining pure pass-through return layer.
+    _update_action.led_upper_func = &Charlieplex::animation_off;
+    _update_action.led_lower_func = &Charlieplex::animation_off;
     return _update_action;
 }
 
