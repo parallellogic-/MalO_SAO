@@ -7,23 +7,41 @@ Quiz::Quiz(const std::string& text, lv_group_t* shared_input_group)
     
     _questions = {
         {
-            "An unknown app named 'MalO ver1.0.0' appears on your device. Do you open it?",
+            "An unknown app named 'MalO ver1.0.0' appears on your device. Open it?",
             {"Install immediately", "Ignore it", "Try to delete it"},
             "" 
         },
         {
-            "Images arrive showing a skull-headed entity inside your home. What do you leave out for them?",
-            {"Raw meat", "A bowl of dry kibble", "Batteries & copper wire"},
+            "Images arrive showing a skull-headed entity inside your home. What do you leave out for her?",
+            {"Sandwich", "Lasagna", "Pancakes", "Copper wire"},
             "Favorite Food" 
         },
         {
+            "MalO is caught standing over your broken badge, holding a tiny screwdriver. She looks up with oversized digital eyes.",
+            {
+                "Pat her skull", 
+                "Give her 1s and 0s", 
+                "It was an accident"
+            },
+            "Innocent"
+        },
+        {
+            "The application requests root access. Do you authorize it?",
+            {
+                "Grant total control", 
+                "Overwrite bootloader", 
+                "Pomise to not break it"
+            },
+            "Villain_Takeover" // Triggers aggressive glitched text / matrix cutscene
+        },
+        {
             "The entity is now standing directly behind you in reflections. How do you respond?",
-            {"Wave back", "Avoid looking at mirrors", "Take a selfie together"},
+            {"Wave back", "Don't look in mirrors", "Take selfie together"},
             ""
         },
         {
-            "MalO has integrated with your badge completely. Do you accept your new companion?",
-            {"Yes, forever.", "We are one now."},
+            "MalO has integrated into your life completely. Do you accept your new companion?",
+            {"Yes!", "Definitely!", "Absolutely!"},
             "Know MalO" 
         }
     };
@@ -85,7 +103,7 @@ void Quiz::begin(bool is_enter_from_above, SensorSuite *sensor_suite) {
         // Clear hidden state flags cleanly
         lv_obj_clear_flag(_lv_panel, LV_OBJ_FLAG_HIDDEN);
     } else {
-        // 🔄 Returning from below (e.g. out of an unrolled cutscene submenu): unhide base canvas
+        //  Returning from below (e.g. out of an unrolled cutscene submenu): unhide base canvas
         lv_obj_clear_flag(_lv_panel, LV_OBJ_FLAG_HIDDEN);
         
         // Ensure options tracking pointers are re-attached to the active input group safely
