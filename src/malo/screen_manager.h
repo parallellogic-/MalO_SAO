@@ -92,6 +92,9 @@ private:
     lv_obj_t* _header = nullptr;
     lv_group_t* _shared_input_group = nullptr; 
     uint8_t _last_raw_button=0;
+    std::string _ir_rxd_str = ""; //this is a list of the recent IR messages received
+    std::shared_ptr<LongTextScreen> _ir_rxd_screen=nullptr;
+    //bool _ir_rxd_ping_pong=false;
 
     //animations - when in aniamtions menu, track which aniamtions are shown
     AnimationFunc _led_upper_func = nullptr;
@@ -104,6 +107,7 @@ private:
     void _push_screen(std::shared_ptr<Screen> new_screen);
     std::shared_ptr<Screen> _get_active_screen(){ if (_screen_stack.empty()) return nullptr; return _screen_stack.back(); }
     void _set_menu_structure();
+    void _update_ir_rxd();//fetch any strings that came in, update the internal state tracker to show the full list of recent messages
 public:
   ScreenManager();
   void begin(SensorSuite &sensor_suite);
@@ -111,4 +115,5 @@ public:
   void end();
   void diag();
   int8_t get_screen_stack_depth(){ return _screen_stack.size(); }
+  std::string get_ir_rxd_text(){ if(_ir_rxd_str.length()==0) return "No messages received yet"; return _ir_rxd_str; }
 };

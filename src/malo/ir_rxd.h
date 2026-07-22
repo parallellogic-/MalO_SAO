@@ -18,7 +18,7 @@
 #define SHARED_BUFFER_PIN_COUNT 3 //IR_RXD, SAO_GP1, SAO_GP2
 #define DECODER_MAX_GENERIC_MESSAGE_LENGTH (256*2*5/4) //256 characters, 2x 1/0 transitions, margin
 #define DECODER_ACTIVITY_BRIGHTNESS (65535/10) //how long of 65535 should the PWM indicator be ON for each cycle (less is dimmer)
-#define DECODER_TIMEOUT_US 10'000 //IR remote has 25 ms blanking between end of trnamissions and beginning of next one, so key off this.  need to be >7 ms to pick up on a 0xFF transmission
+#define DECODER_TIMEOUT_US 10'000 //IR remote has 25 ms blanking between end of transmissions and beginning of next one, so key off this.  need to be >7 ms to pick up on a 0xFF transmission
 
 class SharedDecoderBuffer{
   private: 

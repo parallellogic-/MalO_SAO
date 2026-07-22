@@ -1,7 +1,7 @@
 #pragma once
 
 #define MAX_DMA_CONTROL_REGISTRANTS 8
-#define MAX_DMA_CONTROL_ACTIONS 256
+#define MAX_DMA_CONTROL_ACTIONS (64)
 
 // Standard RP2040/RP2350 DMA Descriptors layout (this specific argument order is required by the hardware for alternate_register_mapping_0)
 struct DmaDescriptor {

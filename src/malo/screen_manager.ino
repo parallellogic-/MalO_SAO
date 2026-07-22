@@ -11,36 +11,36 @@ void ScreenManager::_set_menu_structure()
     _sensor_suite->touch.set_master_disable();//disable all user input while in demo mode
 
     _demo_routine = {
-        {DemoStepType::SCREENSAVER, "Balancer",            3000},
-        {DemoStepType::STATIC_TEXT, "OLED Screen",         3000},
-        {DemoStepType::SCREENSAVER, "Rain",                3000},
-        {DemoStepType::STATIC_TEXT, ">50 LEDs",            3000}, // 3 seconds of text
-        {DemoStepType::SCREENSAVER, "Heat Wave",           3000},
-        {DemoStepType::STATIC_TEXT, "Infrared RX/TX",      3000},
-        {DemoStepType::SCREENSAVER, "Dark MalO Rises",     3000},
-        {DemoStepType::STATIC_TEXT, "Buzzer",              3000},
-        {DemoStepType::SCREENSAVER, "Sheep",               3000},
-        {DemoStepType::STATIC_TEXT, "Games!",              3000},
-        {DemoStepType::SCREENSAVER, "Dance",               3000},
-        {DemoStepType::STATIC_TEXT, "Message friends!",    3000},
-        {DemoStepType::SCREENSAVER, "Pong Champ",          3000},
-        {DemoStepType::STATIC_TEXT, "Vibration Motor",     3000},
-        {DemoStepType::SCREENSAVER, "Know MalO",           3000},
-        {DemoStepType::STATIC_TEXT, "Voltage Monitor",     3000},
-        {DemoStepType::SCREENSAVER, "Snooper Booper",      3000},
-        {DemoStepType::STATIC_TEXT, "USB-C Hackable",      3000},
-        {DemoStepType::SCREENSAVER, "Dizzy",               3000},
-        {DemoStepType::STATIC_TEXT, "Capacitive Touch",    3000},
-        {DemoStepType::SCREENSAVER, "Message Sent",        3000},
-        {DemoStepType::STATIC_TEXT, "Microphone",          3000},
-        {DemoStepType::SCREENSAVER, "Winner",              3000},
-        {DemoStepType::STATIC_TEXT, "Magnet Sensor",       3000},
-        {DemoStepType::SCREENSAVER, "Chilly",              3000},
-        {DemoStepType::STATIC_TEXT, "Gyroscope",           3000},
-        {DemoStepType::SCREENSAVER, "Soaking Up Rays",     3000},
-        {DemoStepType::STATIC_TEXT, "[REDACTED]!!!",       3000},
-        {DemoStepType::SCREENSAVER, "It Is Too Quiet",     3000},
-        {DemoStepType::STATIC_TEXT, "Stickers",            3000}
+        {DemoStepType::SCREENSAVER, "Balancer",            2000},
+        {DemoStepType::STATIC_TEXT, "OLED Screen",         1500},
+        {DemoStepType::SCREENSAVER, "Rain",                2000},
+        {DemoStepType::STATIC_TEXT, ">50 LEDs",            1500}, // 3 seconds of text
+        {DemoStepType::SCREENSAVER, "Heat Wave",           2000},
+        {DemoStepType::STATIC_TEXT, "Infrared RX/TX",      1500},
+        {DemoStepType::SCREENSAVER, "Dark MalO Rises",     2000},
+        {DemoStepType::STATIC_TEXT, "Buzzer",              1500},
+        {DemoStepType::SCREENSAVER, "Sheep",               2000},
+        {DemoStepType::STATIC_TEXT, "Games!",              1500},
+        {DemoStepType::SCREENSAVER, "Pong Champ",          2000},
+        {DemoStepType::STATIC_TEXT, "Message Friends!",    1500},
+        {DemoStepType::SCREENSAVER, "Dance",               2000},
+        {DemoStepType::STATIC_TEXT, "Vibration Motor",     1500},
+        {DemoStepType::SCREENSAVER, "Know MalO",           2000},
+        {DemoStepType::STATIC_TEXT, "Puzzles!",            1500}, //Voltage Monitor, Potentiometer
+        {DemoStepType::SCREENSAVER, "Snooper Booper",      2000},
+        {DemoStepType::STATIC_TEXT, "USB-C Hackable",      1500},
+        {DemoStepType::SCREENSAVER, "Dizzy",               2000},
+        {DemoStepType::STATIC_TEXT, "Capacitive Touch",    1500},
+        {DemoStepType::SCREENSAVER, "Message Sent",        2000},
+        {DemoStepType::STATIC_TEXT, "Microphone",          1500},
+        {DemoStepType::SCREENSAVER, "Winner",              2000},
+        {DemoStepType::STATIC_TEXT, "Magnet Sensor",       1500},
+        {DemoStepType::SCREENSAVER, "Chilly",              2000},
+        {DemoStepType::STATIC_TEXT, "Gyroscope",           1500},
+        {DemoStepType::SCREENSAVER, "Soaking Up Rays",     2000},
+        {DemoStepType::STATIC_TEXT, "[REDACTED]!!!",       1500},
+        {DemoStepType::SCREENSAVER, "It Is Too Quiet",     2000},
+        {DemoStepType::STATIC_TEXT, "Stickers",            1500}
     };
 
   }
@@ -58,7 +58,7 @@ void ScreenManager::_set_menu_structure()
   auto screen_screen     = std::make_shared<MenuScreen>("Screen",_shared_input_group,ScreenConfig::SCREEN_SAVER);   animations_screen->add_subscreen(screen_screen);
 
   auto ir_txd_screen     = std::make_shared<MenuScreen>("Send",_shared_input_group,ScreenConfig::IR_TXD);           messages_screen->add_subscreen(ir_txd_screen);
-  //auto ir_rxd_screen     = std::make_shared<MenuScreen>("Received",_shared_input_group,ScreenConfig::IR_TXD);       messages_screen->add_subscreen(ir_rxd_screen);
+  _ir_rxd_screen         = std::make_shared<LongTextScreen>("Received",_shared_input_group,ScreenConfig::IR_RXD);   messages_screen->add_subscreen(_ir_rxd_screen);
   
   auto tictactoe_screen  = std::make_shared<TicTacToe>("TicTacToe",_shared_input_group);         levels_screen->add_subscreen(tictactoe_screen);
   auto pong_screen       = std::make_shared<Pong>("Pong",_shared_input_group);                   levels_screen->add_subscreen(pong_screen);
@@ -68,9 +68,10 @@ void ScreenManager::_set_menu_structure()
   auto light_screen      = std::make_shared<LightsOut>("Lights Out",_shared_input_group);        levels_screen->add_subscreen(light_screen);
   auto quiz_screen       = std::make_shared<Quiz>("Quiz",_shared_input_group);                   levels_screen->add_subscreen(quiz_screen);
 
-  //Quiz
   //auto box_screen        = std::make_shared<MenuScreen>("Box",_shared_input_group);         levels_screen->add_subscreen(box_screen);
   //auto site19_screen     = std::make_shared<MenuScreen>("Site 19",_shared_input_group);     levels_screen->add_subscreen(site19_screen);
+
+
   
 
   #define INIT_SCREEN_SAVER(var_name, title_str) \
@@ -118,7 +119,8 @@ void ScreenManager::_set_menu_structure()
   INIT_SCREEN_SAVER(woot_ss,         "WOOT");
 
 
-  auto mount_usb_screen  = std::make_shared<MenuScreen>("Mount USB",_shared_input_group,ScreenConfig::MOUNT_USB);     settings_screen->add_subscreen(mount_usb_screen);
+  auto mount_usb_screen  = std::make_shared<MenuScreen>("Mount USB",_shared_input_group,ScreenConfig::MOUNT_USB);                        settings_screen->add_subscreen(mount_usb_screen);
+  auto user_agreement_screen  = std::make_shared<LongTextScreen>("User Agreement",_shared_input_group,ScreenConfig::USER_AGREEMENT);     settings_screen->add_subscreen(user_agreement_screen);
   //haptic
   //message motor
   //
@@ -450,6 +452,8 @@ void ScreenManager::update()
     }
   }
 
+  if(!_is_demo_mode) _update_ir_rxd();
+
   // Ticks physical interface engine processing every loop frame pass
   uint32_t time_till_next = lv_timer_handler();
 
@@ -561,6 +565,52 @@ void ScreenManager::_push_screen(std::shared_ptr<Screen> new_screen)
 //Serial.printf("screen_manager._push_screen 4\n");
 }
 
+void ScreenManager::_update_ir_rxd()
+{
+  char ir_rxd_username_char_array[USERNAME_MAX_LENGTH];
+  char ir_rxd_message_char_array[MESSAGE_MAX_LENGTH];
+  bool is_message=_sensor_suite->decoder_ir_rxd_ws2812.get_message(ir_rxd_username_char_array,ir_rxd_message_char_array);
+  std::string ir_rxd_username(ir_rxd_username_char_array);
+  if(is_message && (ir_rxd_username!=_sensor_suite->save_state.get_username()) && ir_rxd_username.length()>0)
+  {//if this is a message from a device other than a mirror reflection...
+    _sensor_suite->save_state.unlock("Message Received"); //ack first message received
+
+    char buffer[256]; 
+    int formattedLength = snprintf(buffer, sizeof(buffer), "%s: %s\n", ir_rxd_username_char_array, ir_rxd_message_char_array);
+    
+    if (formattedLength <= 0) return; // Formatting error safety check
+    _ir_rxd_str.insert(0, buffer, formattedLength);
+
+    // 3. Keep only the first 8 entries/lines
+    size_t lineCount = 0;
+    size_t pos = 0;
+
+    while (pos < _ir_rxd_str.length()) {
+        // Find the next newline character
+        pos = _ir_rxd_str.find('\n', pos);
+
+        if (pos == std::string::npos) {
+            break; // No more newlines found
+        }
+
+        lineCount++;
+        
+        // If we just processed the 8th newline, erase everything after it
+        if (lineCount == 8) {
+            size_t eraseStart = pos + 1; // Keep the '\n' itself
+            if (eraseStart < _ir_rxd_str.length()) {
+                _ir_rxd_str.erase(eraseStart); // Truncates the rest of the string
+            }
+            break; 
+        }
+        
+        pos++; // Move past the current newline to keep searching
+    }
+
+    if(_ir_rxd_screen!=nullptr) _ir_rxd_screen->setText(_ir_rxd_str);
+  }
+}
+
 void ScreenManager::diag(){
     lv_mem_monitor_t mon;
     lv_mem_monitor(&mon);
@@ -584,7 +634,7 @@ void AchievementManager::update()
   if(!is_booper && booper.was_sustained()) _sensor_suite->save_state.unlock("Snooper Booper"); //unlock on button release
 
   float hall_reading=_sensor_suite->analog.get_hall();
-  bool is_hall=hall_reading>0.5 || hall_reading<-0.5;
+  bool is_hall=hall_reading>0.1 || hall_reading<-0.1;
   if(hall.is_sustained(is_hall)) _sensor_suite->save_state.unlock("Magnetic Personality");
 
   float sound=_sensor_suite->microphone.get_mean_square();

@@ -348,14 +348,7 @@ void MenuScreen::begin(bool is_enter_from_above,SensorSuite *sensor_suite)
             }
         }
     }
-
-
   }
-
-  // Focus the initial topmost list option
-  /*if (lv_obj_get_child_cnt(_lv_panel) > 0 && _input_group) {
-      lv_group_focus_obj(lv_obj_get_child(_lv_panel, 0));
-  }*/
 
     // =======================================================
     // FIX: RESTORE SPECIFIC ITEM FOCUS
@@ -369,34 +362,10 @@ void MenuScreen::begin(bool is_enter_from_above,SensorSuite *sensor_suite)
         // Directly focus the tracked menu item from our vector array
         lv_group_focus_obj(_menu_items[_saved_menu_index]);
     }
-
-
-  /*if (_input_group) {
-      _on_focus(_input_group); 
-  }*/
-
 }
 
 ScreenAction MenuScreen::update()
 {
-    /*if (user_selected_brightness) {
-      // Instantiate the submenu
-      auto sub = std::make_shared<BrightnessScreen>(); 
-      return { ScreenAction::PUSH_SUBMENU, sub };
-  }*/
-
-  //POP_BACK
-  /*ScreenAction action;
-  memcpy(&action,&_update_action,sizeof(_update_action));
-  //update_action.type=_next_screen_action;
-  //_next_screen_action=ScreenActionType::NONE;
-  if(action.type==ScreenActionType::PUSH_SUBMENU)
-  {
-      action.next_screen=_next_screen.lock();
-      _next_screen.reset();//release pointer
-  }
-  _update_action={ScreenActionType::NONE}; //reset for next frame
-  return action; // Stay on this screen*/
   return Screen::update();
 }
 
@@ -528,7 +497,7 @@ void MenuScreen::_lv_menu_item_event_cb(lv_event_t * e) {
               //while(1){ Serial.printf("HERE: %s, %d\n",target_screen->get_title().c_str(),target_screen->get_screen_config()); delay(100); }
             }
             if(parent_menu->get_screen_config()==ScreenConfig::IR_TXD)
-            {
+            {//send the message the user selected
                 parent_menu->_sensor_suite->ir_txd.push_message(parent_menu->_sensor_suite->save_state.get_username().c_str(),button_text.c_str(),button_text.length());
                 parent_menu->_sensor_suite->save_state.unlock("Message Sent");
             }
@@ -1192,6 +1161,244 @@ void Header::process_news_ticker() {
                 _is_ticker_running = false;
                 _active_msg = "";
             }
+        }
+    }
+}
+
+// ---- LongTextScreen ----
+
+lv_style_t LongTextScreen::_style_text;
+lv_style_t LongTextScreen::_style_btn_normal;
+lv_style_t LongTextScreen::_style_btn_focused;
+bool LongTextScreen::_styles_initialized = false;
+
+// Extern your project font asset mapping
+
+LongTextScreen::LongTextScreen(const std::string& title, lv_group_t* shared_input_group, ScreenConfig screen_config)
+    : Screen(title, shared_input_group, screen_config) 
+{
+    _init_custom_styles();
+
+    // 1. Create base frame layer container matching your design architecture
+    _lv_panel = lv_obj_create(lv_screen_active());
+    if (is_header()) {
+        lv_obj_set_size(_lv_panel, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX - HEADER_HEIGHT_PX);
+    } else {
+        lv_obj_set_size(_lv_panel, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX);
+    }
+
+    // Set up standard container variables
+    lv_obj_set_flex_flow(_lv_panel, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(_lv_panel, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+    lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(_lv_panel, LV_OBJ_FLAG_SCROLL_ELASTIC);
+    lv_obj_remove_flag(_lv_panel, LV_OBJ_FLAG_SCROLL_MOMENTUM);
+    
+    // Force Scrollbar Always Visible as requested
+    lv_obj_set_scrollbar_mode(_lv_panel, LV_SCROLLBAR_MODE_ACTIVE);
+    
+    lv_obj_set_style_bg_color(_lv_panel, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(_lv_panel, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(_lv_panel, 8, LV_PART_MAIN); // Give edge room for reading
+    if (is_header()) lv_obj_set_style_pad_top(_lv_panel, HEADER_HEIGHT_PX, LV_PART_MAIN);
+
+    // 2. Instantiate Long Text Block
+    _text_label = lv_label_create(_lv_panel);
+    lv_obj_set_width(_text_label, LV_PCT(100)); // Dynamic wrapping
+    lv_label_set_long_mode(_text_label, LV_LABEL_LONG_WRAP);
+    lv_obj_add_style(_text_label, &_style_text, LV_PART_MAIN);
+
+    // 3. Instantiate Bottom Control Element
+    _back_btn = lv_button_create(_lv_panel);
+    lv_obj_set_width(_back_btn, LV_PCT(80));
+    lv_obj_add_style(_back_btn, &_style_btn_normal, LV_PART_MAIN);
+    lv_obj_add_style(_back_btn, &_style_btn_focused, LV_STATE_FOCUSED);
+    lv_obj_remove_flag(_back_btn, LV_OBJ_FLAG_SCROLL_ON_FOCUS);//Stop LVGL from jumping the scroll window down when this grabs focus!
+    
+    // Add reference pointer back to class for callback evaluation
+    lv_obj_set_user_data(_back_btn, this);
+
+    _btn_label = lv_label_create(_back_btn);
+    lv_label_set_text(_btn_label, "Scroll Down to Exit");
+    lv_obj_center(_btn_label);
+
+    // Attach interaction handling logic callbacks
+    lv_obj_add_event_cb(_lv_panel, &LongTextScreen::_scroll_event_cb, LV_EVENT_SCROLL, this);
+    lv_obj_add_event_cb(_back_btn, &LongTextScreen::_back_btn_event_cb, LV_EVENT_ALL, this);
+
+    // Hide initially until active lifecycle begins
+    lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_HIDDEN);
+}
+
+void LongTextScreen::_init_custom_styles() {
+    if (_styles_initialized) return;
+
+    // Label styling setup
+    lv_style_init(&_style_text);
+    lv_style_set_text_font(&_style_text, &lv_font_montserrat_12);
+    lv_style_set_text_color(&_style_text, lv_color_white());
+
+    // Back Button Base Style
+    lv_style_init(&_style_btn_normal);
+    lv_style_set_bg_color(&_style_btn_normal, lv_color_make(60, 60, 60));
+    lv_style_set_text_color(&_style_btn_normal, lv_color_make(180, 180, 180)); // Dim when locked
+
+    // Back Button Focused State Style
+    lv_style_init(&_style_btn_focused);
+    lv_style_set_bg_color(&_style_btn_focused, lv_color_make(0, 150, 255)); // Active highlight
+    lv_style_set_text_color(&_style_btn_focused, lv_color_white());
+
+    _styles_initialized = true;
+}
+
+void LongTextScreen::setText(const std::string& text) {
+    if (_current_text != text) {
+        _current_text = text;
+        _text_changed = true;
+    }
+}
+
+void LongTextScreen::begin(bool is_enter_from_above, SensorSuite *sensor_suite) {
+    Screen::begin(is_enter_from_above, sensor_suite);
+
+    switch(_screen_config)
+    {
+        case ScreenConfig::USER_AGREEMENT: setText(USER_AGREEMENT_TEXT); break;
+        case ScreenConfig::IR_RXD: setText(_sensor_suite->screen_manager.get_ir_rxd_text()); break;
+    }
+
+    // Force refresh or clean context string
+    if (_text_label) {
+        lv_label_set_text(_text_label, _current_text.c_str());
+    }
+
+    //_scrolled_to_bottom = false;
+    //if (_btn_label) lv_label_set_text(_btn_label, "Locked: Back");//Locked: Scroll to End");
+
+    // Clear dynamic states, move scroll panel instantly back to index home position
+    lv_obj_scroll_to_y(_lv_panel, 0, LV_ANIM_OFF);
+
+    // This tells LVGL to calculate text wrapping sizes right now, instead of waiting for the next frame
+    lv_obj_update_layout(_lv_panel);
+
+    // Get the maximum possible scroll depth remaining below the viewport
+    int32_t scroll_bottom = lv_obj_get_scroll_bottom(_lv_panel);
+
+    // Check if the text is short enough to fit entirely on the screen
+    if (scroll_bottom <= 2) {
+        // Short text: Auto-unlock the button instantly
+        _scrolled_to_bottom = true;
+        if (_btn_label) {
+            lv_label_set_text(_btn_label, "Back");
+            //lv_obj_set_style_text_color(_btn_label, lv_color_white(), LV_PART_MAIN);
+        }
+    } else {
+        // Long text: Lock the button until they scroll down
+        _scrolled_to_bottom = false;
+        if (_btn_label) {
+            lv_label_set_text(_btn_label, "Back");//Locked: Scroll to End");
+            // Set dim color using your normal style rule format
+            //lv_obj_set_style_text_color(_btn_label, lv_color_make(180, 180, 180), LV_PART_MAIN);
+        }
+    }
+
+    // Route your input keys to look at this control screen context layer
+    if (_input_group) {
+        lv_group_add_obj(_input_group, _back_btn);
+        lv_group_focus_obj(_back_btn);
+    }
+    
+    _text_changed = false;
+}
+
+ScreenAction LongTextScreen::update() {
+    // If text modified dynamically during operational ticks, update graphics layer
+    if (_text_changed) {
+        lv_label_set_text(_text_label, _current_text.c_str());
+        _text_changed = false;
+    }
+    return Screen::update();
+}
+
+void LongTextScreen::end(bool is_leaving_upward) {
+    Screen::end(is_leaving_upward);
+    
+    if (is_leaving_upward && _input_group) {
+        lv_group_remove_all_objs(_input_group);
+    }
+}
+
+// Intercepts scroll actions across parent container panels
+void LongTextScreen::_scroll_event_cb(lv_event_t* e) {
+    LongTextScreen* instance = static_cast<LongTextScreen*>(lv_event_get_user_data(e));
+    lv_obj_t* panel = (lv_obj_t*)lv_event_get_target(e);
+    if (!instance || !panel) return;
+
+    // Calculate if bottom layout space target boundary achieved
+    int32_t scroll_y = lv_obj_get_scroll_y(panel);
+    
+    // Get the maximum possible scroll coordinate threshold
+    int32_t scroll_bottom = lv_obj_get_scroll_bottom(panel);
+
+    // If the space remaining at the bottom is negligible (or 0), bottom has been encountered
+    if (scroll_bottom <= 2 && !instance->_scrolled_to_bottom) {
+        instance->_scrolled_to_bottom = true;
+        lv_label_set_text(instance->_btn_label, "Back");
+        lv_obj_set_style_text_color(instance->_btn_label, lv_color_white(), LV_PART_MAIN);
+    }
+}
+
+// Handles user actions on the confirmation button element
+void LongTextScreen::_back_btn_event_cb(lv_event_t* e) {
+    LongTextScreen* instance = static_cast<LongTextScreen*>(lv_event_get_user_data(e));
+    lv_event_code_t code = lv_event_get_code(e);
+
+    if (!instance) return;
+
+    // --- INTERCEPT NAVIGATION KEYS FOR BOUNDED SCROLLING ---
+    if (code == LV_EVENT_KEY) {
+        uint32_t key = lv_event_get_key(e);
+        const int32_t scroll_step = 20; // Number of pixels to scroll per keypress
+        
+        // Match up-arrow, previous-item, or left-direction adjustments
+        if (key == LV_KEY_UP || key == LV_KEY_PREV || key == LV_KEY_LEFT) {
+            // Get hidden pixels available ABOVE the viewport
+            int32_t scroll_top = lv_obj_get_scroll_top(instance->_lv_panel);
+            
+            if (scroll_top > 0) {
+                // Prevent over-scrolling past the very top (0)
+                int32_t amt = (scroll_top < scroll_step) ? scroll_top : scroll_step;
+                lv_obj_scroll_by(instance->_lv_panel, 0, amt, LV_ANIM_OFF);
+            }
+            return; // Consume the key event
+        }
+        
+        // Match down-arrow, next-item, or right-direction adjustments
+        if (key == LV_KEY_DOWN || key == LV_KEY_NEXT || key == LV_KEY_RIGHT) {
+            // Get hidden pixels available BELOW the viewport
+            int32_t scroll_bottom = lv_obj_get_scroll_bottom(instance->_lv_panel);
+            
+            if (scroll_bottom > 0) {
+                // Prevent over-scrolling past the very bottom
+                int32_t amt = (scroll_bottom < scroll_step) ? scroll_bottom : scroll_step;
+                lv_obj_scroll_by(instance->_lv_panel, 0, -amt, LV_ANIM_OFF);
+            }
+            return; // Consume the key event
+        }
+
+        if(key==LV_KEY_HOME || key==LV_KEY_ESC)
+        {//user wants to exit
+            instance->_update_action.type = ScreenActionType::POP_TO_MENU; 
+        }
+    }
+
+    // --- EXISTING CLICK LOGIC ---
+    if (code == LV_EVENT_CLICKED) {
+        if (instance->_scrolled_to_bottom) {
+            instance->_update_action.type = ScreenActionType::POP_TO_MENU; 
+        } else {
+            lv_obj_scroll_to_y(instance->_lv_panel, lv_obj_get_scroll_bottom(instance->_lv_panel), LV_ANIM_ON);
         }
     }
 }
