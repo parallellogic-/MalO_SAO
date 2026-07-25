@@ -4,6 +4,7 @@
 #include <vector>
 #include "universal_serial_bus_flash.h" //file operations
 #include <malloc.h> // Required for mallinfo()
+#include <functional>
 
 //WAS ~/Arduino/libraries/lv_conf.h
 //IS ~/Arduino/libraries/lvgl/src/lv_conf.h
@@ -294,4 +295,59 @@ class LongTextScreen : public Screen {
         static const lv_key_t touch2key[] = {(lv_key_t)0,(lv_key_t)0,LV_KEY_HOME,LV_KEY_ESC,LV_KEY_ENTER,LV_KEY_PREV,LV_KEY_UP,LV_KEY_NEXT,LV_KEY_LEFT,LV_KEY_DOWN,LV_KEY_RIGHT};
         //unused, hidden, menu, no, yes, CCW, up, CW, left, down, right
         if(touch>=sizeof(touch2key)/sizeof(touch2key[0])) return (lv_key_t)0; return touch2key[touch]; }
+};
+
+// ---- BoolScreen ----
+
+class BoolScreen : public Screen
+{
+
+private:
+    static void _init_custom_styles();
+
+    static void _switch_event_cb(lv_event_t* e);
+    static void _back_btn_event_cb(lv_event_t* e);
+
+    // -------- LVGL Objects --------
+    lv_obj_t* _switch = nullptr;
+    lv_obj_t* _text_label = nullptr;
+
+    lv_obj_t* _back_btn = nullptr;
+    lv_obj_t* _btn_label = nullptr;
+
+    // -------- Data --------
+    bool _value = false;
+    std::string _description;
+
+    std::function<void(bool)> _on_value_changed;
+
+    // -------- Shared Styles --------
+    static lv_style_t _style_text;
+    static lv_style_t _style_btn_normal;
+    static lv_style_t _style_btn_focused;
+    static bool _styles_initialized;
+public:
+    BoolScreen(const std::string& title,
+               lv_group_t* shared_input_group,
+               ScreenConfig screen_config);
+
+    void begin(bool is_enter_from_above,
+               SensorSuite* sensor_suite) override;
+
+    ScreenAction update() override
+    {
+        return Screen::update();
+    }
+
+    void end(bool is_leaving_upward) override;
+
+    void setText(const std::string& text);
+
+    void setValue(bool value);
+    bool getValue() const;
+
+    void setValueChangedCallback(std::function<void(bool)> callback)
+    {
+        _on_value_changed = std::move(callback);
+    }
 };

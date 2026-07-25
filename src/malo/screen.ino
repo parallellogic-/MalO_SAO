@@ -1,5 +1,6 @@
 #include "screen.h"
 
+
 lv_style_t MenuScreen::_style_main;
 lv_style_t MenuScreen::_style_focused;
 bool MenuScreen::_styles_initialized = false;
@@ -1401,5 +1402,206 @@ void LongTextScreen::_back_btn_event_cb(lv_event_t* e) {
         } else {
             lv_obj_scroll_to_y(instance->_lv_panel, lv_obj_get_scroll_bottom(instance->_lv_panel), LV_ANIM_ON);
         }
+    }
+}
+
+// ---- BoolScreen ----
+
+lv_style_t BoolScreen::_style_text;
+lv_style_t BoolScreen::_style_btn_normal;
+lv_style_t BoolScreen::_style_btn_focused;
+bool BoolScreen::_styles_initialized = false;
+
+BoolScreen::BoolScreen(const std::string& title,
+                       lv_group_t* shared_input_group,
+                       ScreenConfig screen_config)
+    : Screen(title, shared_input_group, screen_config)
+{
+    _init_custom_styles();
+
+    _lv_panel = lv_obj_create(lv_screen_active());
+
+    if (is_header()) {
+        lv_obj_set_size(_lv_panel, SCREEN_WIDTH_PX,
+                        SCREEN_HEIGHT_PX - HEADER_HEIGHT_PX);
+    } else {
+        lv_obj_set_size(_lv_panel,
+                        SCREEN_WIDTH_PX,
+                        SCREEN_HEIGHT_PX);
+    }
+
+    lv_obj_set_flex_flow(_lv_panel, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(_lv_panel,
+                          LV_FLEX_ALIGN_START,
+                          LV_FLEX_ALIGN_CENTER,
+                          LV_FLEX_ALIGN_CENTER);
+
+    lv_obj_set_style_bg_color(_lv_panel, lv_color_black(), 0);
+    lv_obj_set_style_border_width(_lv_panel, 0, 0);
+    lv_obj_set_style_pad_all(_lv_panel, 8, 0);
+
+    if (is_header())
+        lv_obj_set_style_pad_top(_lv_panel, HEADER_HEIGHT_PX, 0);
+
+    // Toggle
+    _switch = lv_switch_create(_lv_panel);
+
+    // Description
+    _text_label = lv_label_create(_lv_panel);
+    lv_obj_set_width(_text_label, LV_PCT(100));
+    lv_label_set_long_mode(_text_label, LV_LABEL_LONG_WRAP);
+    lv_obj_add_style(_text_label, &_style_text, 0);
+
+    // Back button
+    _back_btn = lv_button_create(_lv_panel);
+    lv_obj_set_width(_back_btn, LV_PCT(80));
+    lv_obj_add_style(_back_btn, &_style_btn_normal, LV_PART_MAIN);
+    lv_obj_add_style(_back_btn, &_style_btn_focused, LV_STATE_FOCUSED);
+
+    lv_obj_set_user_data(_back_btn, this);
+    lv_obj_set_user_data(_switch, this);
+
+    _btn_label = lv_label_create(_back_btn);
+    lv_label_set_text(_btn_label, "Back");
+    lv_obj_center(_btn_label);
+
+    lv_obj_add_event_cb(_switch,
+                        &_switch_event_cb,
+                        LV_EVENT_VALUE_CHANGED,
+                        this);
+
+    lv_obj_add_event_cb(_back_btn,
+                        &_back_btn_event_cb,
+                        LV_EVENT_ALL,
+                        this);
+
+    lv_obj_add_flag(_lv_panel, LV_OBJ_FLAG_HIDDEN);
+}
+
+void BoolScreen::_init_custom_styles()
+{
+    if (_styles_initialized)
+        return;
+
+    lv_style_init(&_style_text);
+    lv_style_set_text_font(&_style_text, &lv_font_montserrat_12);
+    lv_style_set_text_color(&_style_text, lv_color_white());
+
+    lv_style_init(&_style_btn_normal);
+    lv_style_set_bg_color(&_style_btn_normal,
+                          lv_color_make(60,60,60));
+
+    lv_style_init(&_style_btn_focused);
+    lv_style_set_bg_color(&_style_btn_focused,
+                          lv_color_make(0,150,255));
+
+    _styles_initialized = true;
+}
+
+void BoolScreen::begin(bool is_enter_from_above,
+                       SensorSuite *sensor_suite)
+{
+    Screen::begin(is_enter_from_above, sensor_suite);
+
+    //lv_label_set_text(_text_label, _description.c_str());
+    if(_screen_config==ScreenConfig::AUDIO_ALERT){ setText(_sensor_suite->buzzer.get_master_disable()?"Audio is OFF":"Audio is ON"); _value=!_sensor_suite->buzzer.get_master_disable(); }//make response to save state... _sensor_suite->save_state.
+    if(_screen_config==ScreenConfig::VIBRATION_ALERT){ setText(_sensor_suite->motor.get_master_disable()?"Vibration is OFF":"Vibration is ON"); _value=!_sensor_suite->motor.get_master_disable(); }
+
+    if (_value)
+        lv_obj_add_state(_switch, LV_STATE_CHECKED);
+    else
+        lv_obj_remove_state(_switch, LV_STATE_CHECKED);
+
+    if (_input_group)
+    {
+        lv_group_add_obj(_input_group, _switch);
+        lv_group_add_obj(_input_group, _back_btn);
+
+        lv_group_focus_obj(_switch);
+    }
+}
+
+void BoolScreen::end(bool is_leaving_upward)
+{
+    Screen::end(is_leaving_upward);
+
+    if (is_leaving_upward && _input_group)
+        lv_group_remove_all_objs(_input_group);
+}
+
+void BoolScreen::setText(const std::string& text)
+{
+    _description = text;
+    lv_label_set_text(_text_label, _description.c_str());
+}
+
+void BoolScreen::setValue(bool value)
+{
+    _value = value;
+
+    if (_switch)
+    {
+        if (_value)
+            lv_obj_add_state(_switch, LV_STATE_CHECKED);
+        else
+            lv_obj_remove_state(_switch, LV_STATE_CHECKED);
+    }
+}
+
+bool BoolScreen::getValue() const
+{
+    return _value;
+}
+
+void BoolScreen::_switch_event_cb(lv_event_t *e)
+{
+    auto *instance = static_cast<BoolScreen*>(lv_event_get_user_data(e));
+
+    lv_event_code_t code = lv_event_get_code(e);
+    bool eaten=false;
+    if (code == LV_EVENT_KEY)
+    {
+        uint32_t key = lv_event_get_key(e);
+
+        if (key == LV_KEY_HOME)// || key == LV_KEY_ESC)
+        {
+            instance->_update_action.type = ScreenActionType::POP_TO_MENU;
+            eaten=true;
+        }
+    }
+    if(!eaten){
+
+        instance->_value = lv_obj_has_state(instance->_switch, LV_STATE_CHECKED);
+        if(instance->_screen_config==ScreenConfig::AUDIO_ALERT) instance->_sensor_suite->buzzer.set_master_disable(!instance->_value);
+        if(instance->_screen_config==ScreenConfig::VIBRATION_ALERT) instance->_sensor_suite->motor.set_master_disable(!instance->_value);
+    }
+    if(instance->_screen_config==ScreenConfig::AUDIO_ALERT) instance->setText(instance->_sensor_suite->buzzer.get_master_disable()?"Audio is OFF":"Audio is ON");//make response to save state... _sensor_suite->save_state.
+    if(instance->_screen_config==ScreenConfig::VIBRATION_ALERT) instance->setText(instance->_sensor_suite->motor.get_master_disable()?"Vibration is OFF":"Vibration is ON");
+}
+
+void BoolScreen::_back_btn_event_cb(lv_event_t *e)
+{
+    auto *instance = static_cast<BoolScreen*>(lv_event_get_user_data(e));
+
+    if (!instance)
+        return;
+
+    lv_event_code_t code = lv_event_get_code(e);
+
+    if (code == LV_EVENT_KEY)
+    {
+        uint32_t key = lv_event_get_key(e);
+
+        if (key == LV_KEY_HOME)// || key == LV_KEY_ESC)
+        {
+            instance->_update_action.type =
+                ScreenActionType::POP_TO_MENU;
+        }
+    }
+
+    if (code == LV_EVENT_CLICKED)
+    {
+        instance->_update_action.type =
+            ScreenActionType::POP_TO_MENU;
     }
 }

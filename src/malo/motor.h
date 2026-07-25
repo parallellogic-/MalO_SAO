@@ -18,4 +18,5 @@ public:
     void set_on(){ if(_is_master_disable) return; _last_update_us=time_us_64(); digitalWrite(MOTOR_PIN,1); }
     void update(){ if(_timeout_ms>=0 && (time_us_64()-_last_update_us)/1000>_timeout_ms) set_off(); }//eval against timeout
     void set_master_disable(bool is_master_disable){_is_master_disable=is_master_disable;}
+    bool get_master_disable(){return _is_master_disable; }
 };

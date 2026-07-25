@@ -116,6 +116,7 @@ public:
   // Retained for backwards compatibility interface matches
   void play() {}
 
+  bool get_master_disable() { return _is_master_disable;}
   void set_master_disable(bool is_master_disable) {
     _is_master_disable = is_master_disable; 
     if (_is_master_disable) {

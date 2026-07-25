@@ -108,8 +108,8 @@ void ScreenManager::_set_menu_structure()
   INIT_SCREEN_SAVER(message_sent_ss, "Message Sent");
   INIT_SCREEN_SAVER(plumber_ss,      "Plumber");
   INIT_SCREEN_SAVER(pong_champ_ss,   "Pong Champ");
-  if(_is_demo_mode){INIT_SCREEN_SAVER(rain_ss,         "Rain");  }//save time during device programming
-  if(_is_demo_mode){INIT_SCREEN_SAVER(sheep_ss,        "Sheep"); }
+  if(_is_demo_mode){ INIT_SCREEN_SAVER(rain_ss,         "Rain");  }//save time during device programming
+  if(_is_demo_mode){ INIT_SCREEN_SAVER(sheep_ss,        "Sheep"); }
   INIT_SCREEN_SAVER(smelly_ss,       "Smelly");
   INIT_SCREEN_SAVER(snake_ss,        "Snake");
   INIT_SCREEN_SAVER(lean_ss,         "Snooper Booper");
@@ -119,6 +119,8 @@ void ScreenManager::_set_menu_structure()
   INIT_SCREEN_SAVER(woot_ss,         "WOOT");
 
 
+  auto audio_screen           = std::make_shared<BoolScreen>("Audio Alert",_shared_input_group,ScreenConfig::AUDIO_ALERT);               settings_screen->add_subscreen(audio_screen);
+  auto vibration_screen       = std::make_shared<BoolScreen>("Vibration Alert",_shared_input_group,ScreenConfig::VIBRATION_ALERT);       settings_screen->add_subscreen(vibration_screen);
   auto mount_usb_screen       = std::make_shared<MenuScreen>("Mount USB",_shared_input_group,ScreenConfig::MOUNT_USB);                   settings_screen->add_subscreen(mount_usb_screen);
   auto user_agreement_screen  = std::make_shared<LongTextScreen>("User Agreement",_shared_input_group,ScreenConfig::USER_AGREEMENT);     settings_screen->add_subscreen(user_agreement_screen);
   auto info_screen            = std::make_shared<LongTextScreen>("Info",_shared_input_group,ScreenConfig::INFO);                         settings_screen->add_subscreen(info_screen);
