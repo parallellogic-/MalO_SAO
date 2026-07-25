@@ -1265,6 +1265,7 @@ void LongTextScreen::begin(bool is_enter_from_above, SensorSuite *sensor_suite) 
     switch(_screen_config)
     {
         case ScreenConfig::USER_AGREEMENT: setText(USER_AGREEMENT_TEXT); break;
+        case ScreenConfig::INFO: setText(INFO_TEXT); break;
         case ScreenConfig::IR_RXD: setText(_sensor_suite->screen_manager.get_ir_rxd_text()); break;
     }
 

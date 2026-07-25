@@ -212,6 +212,11 @@ void __not_in_flash_func(loop1)(){ //core 1
       //sensor_suite.decoder_ir_rxd_ws2812.debug();
       //sensor_suite.ir_txd.debug(frame_id1);
       sensor_suite.analog.debug();
+
+      while (Serial.available() > 0) { 
+        char incomingChar = Serial.read(); // Read the next character
+        if (incomingChar == 'm') is_core1_shutdown_request = true;
+      }
     }else{
       sensor_suite.screen_manager.end();
       sensor_suite.scatterer_gatherer_engine_screen.end();

@@ -19,6 +19,8 @@
 "Be part of the new craze that is quickly becoming the next social substitute. "\
 "Remember, the more you participate, the more MalO will engage you. Your experience is completely up to you. Absolutely NO ADS. Enjoy!"
 
+#define INFO_TEXT "Software v1.0.0"
+
 class Screen;
 
 enum class ScreenActionType : uint8_t { 
@@ -48,7 +50,8 @@ enum class ScreenConfig{
   IR_RXD,
   IR_TXD,
   VIBRATION_ALERT,
-  AUDIO_ALERT
+  AUDIO_ALERT,
+  INFO
 };
 
 struct ScreenAction {
