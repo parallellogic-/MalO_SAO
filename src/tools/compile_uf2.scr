@@ -1,0 +1,87 @@
+#!/bin/bash
+
+# Force script exit if any subcommand returns a failure code
+set -e
+
+# Capture start time for runtime evaluation
+START_TIME=$(date +%s.%N)
+
+# Establish the tools folder where this script lives as our runtime base
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+# Relative paths pointing away from /src/tools/
+BUILD_DIR="../malo/build/rp2040.rp2040.generic_rp2350"
+SRC_ASSETS_DIR="../malo/flash_extended"
+PICOTOOL_BIN="../../lib/picotool/dist/picotool/picotool"
+
+# Target the clean raw binary baseline produced BEFORE the IDE wraps it into a UF2
+if [ -f "$BUILD_DIR/malo.ino.bin.signed" ]; then
+    TARGET_APP_BIN="$BUILD_DIR/malo.ino.bin.signed"
+    echo "[BUILD] Found signed binary foundation block: $TARGET_APP_BIN"
+elif [ -f "$BUILD_DIR/malo.ino.bin" ]; then
+    TARGET_APP_BIN="$BUILD_DIR/malo.ino.bin"
+else
+    echo "CRITICAL ERROR: Cannot locate a compiled Arduino application binary file inside $BUILD_DIR!"
+    exit 1
+fi
+
+echo "[BUILD] Cleaning target destination workspace directory..."
+rm -f "$BUILD_DIR/fat16_partition.bin" \
+      "$BUILD_DIR/production_16mb.bin" \
+      "$BUILD_DIR/production_16mb.uf2" \
+      "$BUILD_DIR/mbr_sector.bin"
+
+echo "[BUILD] Creating a clean 14MB partition file container..."
+dd if=/dev/zero bs=512 count=28672 2>/dev/null | tr '\000' '\377' > "$BUILD_DIR/fat16_partition.bin"
+
+echo "[BUILD] Generating an authentic, byte-aligned MBR partition table map..."
+dd if=/dev/zero bs=512 count=1 2>/dev/null | tr '\000' '\377' > "$BUILD_DIR/mbr_sector.bin"
+printf '\x80\x00\x01\x00\x06\x00\x00\x00\x40\x00\x00\x00\xC0\x6F\x00\x00\x55\xAA' | dd of="$BUILD_DIR/mbr_sector.bin" bs=1 seek=446 conv=notrunc 2>/dev/null
+
+echo "[BUILD] Merging the MBR sector track into the file template..."
+dd if="$BUILD_DIR/mbr_sector.bin" of="$BUILD_DIR/fat16_partition.bin" bs=512 count=1 conv=notrunc
+
+echo "[BUILD] Formatting inner partition track slice starting at sector offset 64..."
+mkfs.vfat -F 16 -n "MALO" -s 4 -S 512 --offset 64 "$BUILD_DIR/fat16_partition.bin"
+
+echo "[BUILD] Injecting assets repository directly into the partition block..."
+cd "$SRC_ASSETS_DIR"
+mcopy -i "$SCRIPT_DIR/$BUILD_DIR/fat16_partition.bin@@32K" -s * ::/
+
+cd "$SCRIPT_DIR"
+
+echo "[BUILD] Merging binary partitions seamlessly at the structural level..."
+# Create a base binary image copy of the signed application code
+cp "$TARGET_APP_BIN" "$BUILD_DIR/production_16mb.bin"
+
+# FIX: Use dd to insert the 14MB filesystem partition directly into the binary layout 
+# at the exact 2MB boundary mark. This removes any unassigned memory address gaps 
+# and builds a continuous binary array that satisfies Secure Boot requirements.
+dd if="$BUILD_DIR/fat16_partition.bin" of="$BUILD_DIR/production_16mb.bin" bs=1M seek=2 conv=notrunc
+
+echo "[BUILD] Converting unified layout container into a single continuous UF2..."
+"$PICOTOOL_BIN" uf2 convert -t bin "$BUILD_DIR/production_16mb.bin" "$BUILD_DIR/production_16mb.uf2" --abs-block 0x10000000 --family rp2350-arm-s --platform rp2350
+
+# Clean up build artifacts safely
+rm -f "$BUILD_DIR/mbr_sector.bin"
+
+echo "=========================================================="
+echo " SUCCESS: Built production image at: $BUILD_DIR/production_16mb.uf2"
+echo "=========================================================="
+
+echo "[HARDWARE] Attempting direct device flashing via raw hardware endpoint streams..."
+echo "Please ensure the RP2350 is connected in BOOTSEL mode."
+echo "Press [ENTER] to flash immediately, or Ctrl+C to abort..."
+read -r
+
+# Flash the single continuous block stream safely (fast and stable)
+sudo "$PICOTOOL_BIN" load -v "$BUILD_DIR/production_16mb.uf2" -x
+
+echo "[HARDWARE] Flash successful! Device has been rebooted into application code."
+
+# Calculate and output script execution performance duration metrics
+END_TIME=$(date +%s.%N)
+RUN_TIME=$(echo "$END_TIME - $START_TIME" | bc)
+printf "\n[PERFORMANCE] Total Script Execution Run Time: %.3f seconds\n" "$RUN_TIME"
+
