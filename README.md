@@ -25,7 +25,7 @@ Among other things, these MalO units have a screen, LEDs and buttons to allow th
     - [Video](https://www.youtube.com/watch?v=Qe8of66Nkio)
     - [Wiki](https://scp-wiki.wikidot.com/scp-1471)
 
-![Feature Highlights Video](https://www.youtube.com/watch?v=lrK-HDk0pKE]
+[Feature Highlights Video](https://www.youtube.com/watch?v=lrK-HDk0pKE]
 
 Renders
 ![Front](doc/r2/render_front.png)
