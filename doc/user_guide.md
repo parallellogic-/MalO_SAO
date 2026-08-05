@@ -82,7 +82,8 @@ Press Ctrl+U to compile and upload the sketch to the MalO SAO
 ## Adding LED Pattern
 
 Look for the `animation_static_red` method in the led.ino file.  Add the following new method below it:
-```void Charlieplex::animation_static_yellow(SensorSuite &sensor_suite)
+```
+void Charlieplex::animation_static_yellow(SensorSuite &sensor_suite)
 {
     set_max_effective_led_count(CHARLIPLEX_LED_COUNT/2);
     for (uint8_t iter = 0; iter < CHARLIPLEX_LED_COUNT; iter++) set_brightness(iter,128);
@@ -90,7 +91,8 @@ Look for the `animation_static_red` method in the led.ino file.  Add the followi
 ```
 
 In the array at the top, add the string and method name:
-```const AnimationMapping animation_table[] = {
+```
+const AnimationMapping animation_table[] = {
 ...
 {"Static Yellow",      &Charlieplex::animation_static_yellow},
 ...
