@@ -54,9 +54,9 @@ inside your lvgl scr folder:
 
 # Demos
 
-Note: compiling and uploading new firmware to the MalO SAO will wipe any existing content up to and possibly including the file system.
+Note: compiling and uploading new firmware to the MalO SAO will wipe any existing content up to and possibly including the file system.  This will not damage the hardware, but may lose any files that have been uploaded to the device.  In the production application, these can be re-uploaded by setting the MalO SAO device into USB mass storage mode: Settings >> Mount USB, and then copying these files into the USB device: [files](/src/malo/flash_extended/).  Upload may take a minute or so, ensure to safely dismount the device before disconnecting.
 
-The processor used in project can be rebooted by pressing the "Reboot" button on the rear of the device.  It is possible that the device gets hung up or is otherwise non-response.  In these cases, press and hold down the "BOOTSEL" button and then tap the "Reboot" button.  In BOOTSEL mode the device will enumerate as a uf2 USB slave.  From here you can drag and drop uf2 files into it as if it were a USB mass storage drive or compile and uplaod Arduino IDE sketches.  In normal circumstances, it is not necessary to put the device into BOOTSEL mode to upload new code.
+The processor used in project can be rebooted by pressing the "Reboot" button on the rear of the device.  It is possible that the device gets hung up or is otherwise non-response.  In these cases, press and hold down the "BOOTSEL" button and then tap the "Reboot" button.  In BOOTSEL mode the device will enumerate as a uf2 USB slave.  From here you can drag and drop uf2 files into it as if it were a USB mass storage drive.  In this case the [flash_nuke2.uf2](/src/universal_flash_nuke.uf2) can be uploaded to clear the entire processor's back to factory settings, ready for new file upload in BOOTSEL mode.  Uploading this uf2 may take a minute or so before the buzzer chitters to acknowledge completion. 
 
 Use the following settings in the Arduino IDE:
 
