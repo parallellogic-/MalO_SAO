@@ -2,7 +2,7 @@
 
 Note: the following steps are abbreviated.  If you encounter any issues or would like any additional clarification, please file an [issue ticket](https://github.com/parallellogic-/MalO_SAO/issues).
 
-This documentation will cover two topics:
+This documentation will cover the following topics:
 - Blinking an LED
 - Compiling the application software
 - Adding a new LED pattern
@@ -50,7 +50,7 @@ In Arduino IDE, go to the "Manage Libraries" ( Ctrl+Shift+I ) screen.  Install t
 - "Adafruit SSD1327" by Adafruit
 
 Make a copy of this file:
-[src/malo/support/lv_conf.h](../../src/malo/support/lv_conf.h)
+[src/malo/support/lv_conf.h](../../../src/malo/support/lv_conf.h)
 inside your lvgl scr folder:
 ~/Arduino/libraries/lvgl/src/
 
