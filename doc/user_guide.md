@@ -50,7 +50,7 @@ In Arduino IDE, go to the "Manage Libraries" ( Ctrl+Shift+I ) screen.  Install t
 - "Adafruit SSD1327" by Adafruit
 
 Make a copy of this file:
-[src/malo/support/lv_conf.h](../../../src/malo/support/lv_conf.h)
+[/src/malo/support/lv_conf.h](/src/malo/support/lv_conf.h)
 inside your lvgl scr folder:
 ~/Arduino/libraries/lvgl/src/
 
@@ -66,7 +66,7 @@ Use the following settings in the Arduino IDE:
 ## Blink LED
 
 Open this Arduino sketch:
-[src/experimentation/blink/blink.ino](../../src/experimentation/blink/blink.ino)
+[/src/experimentation/blink/blink.ino](/src/experimentation/blink/blink.ino)
 
 Press Ctrl+U to compile and upload the sketch to the MalO SAO
 
@@ -75,7 +75,7 @@ The green LED will blink.  Refer to the left side of page 1 of the [schematic](r
 ## Build Production
 
 Open this Arduino sketch:
-[src/malo/malo.ino](../../src/malo/malo.ino)
+[/src/malo/malo.ino](/src/malo/malo.ino)
 
 Press Ctrl+U to compile and upload the sketch to the MalO SAO
 
