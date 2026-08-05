@@ -46,8 +46,6 @@ click "Install" for the single search hit
 
 In Arduino IDE, go to the "Manage Libraries" ( Ctrl+Shift+I ) screen.  Install the following:
 - "lvgl" by kisvegabor
-- "Adafruit GFX Library" by Adafruit
-- "Adafruit SSD1327" by Adafruit
 
 Make a copy of this file:
 [/src/malo/support/lv_conf.h](/src/malo/support/lv_conf.h)
@@ -61,6 +59,7 @@ Note: compiling and uploading new firmware to the MalO SAO will wipe any existin
 The processor used in project can be rebooted by pressing the "Reboot" button on the rear of the device.  It is possible that the device gets hung up or is otherwise non-response.  In these cases, press and hold down the "BOOTSEL" button and then tap the "Reboot" button.  In BOOTSEL mode the device will enumerate as a uf2 USB slave.  From here you can drag and drop uf2 files into it as if it were a USB mass storage drive or compile and uplaod Arduino IDE sketches.  In normal circumstances, it is not necessary to put the device into BOOTSEL mode to upload new code.
 
 Use the following settings in the Arduino IDE:
+
 ![RP2350B Configuration](rp2350b_configuration.png)
 
 ## Blink LED
