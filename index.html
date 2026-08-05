@@ -14,26 +14,28 @@
 
         body {
             font-family: 'Courier New', Courier, monospace;
-            /* Monochromatic void black and deep matted grey gradient */
-            background: radial-gradient(circle, #12161a 0%, #050709 100%);
+            background-color: #050709;
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
             color: #00ff66; /* Glowing anomalous green */
             overflow-x: hidden;
+            position: relative;
         }
 
-        /* Matrix/Digital Static Overlay */
+        /* 1. Global background screen with scanlines */
         body::before {
             content: " ";
             display: block;
             position: fixed;
             top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            z-index: 10;
-            background-size: 100% 4px, 6px 100%;
+            background: radial-gradient(circle, #12161a 0%, #050709 100%),
+                        linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 100%, 100% 4px, 6px 100%;
             pointer-events: none;
+            z-index: 1;
         }
 
         /* Container */
@@ -42,38 +44,53 @@
             max-width: 500px;
             padding: 2.5rem 1.5rem;
             text-align: center;
-            z-index: 2;
+            position: relative;
+            z-index: 2; /* Sits cleanly over the background layer */
+            margin-top: -3vh;
         }
 
         /* MalO Profile Section */
         .profile {
-            margin-bottom: 2.5rem;
+            margin-bottom: 1.0rem;
             position: relative;
         }
 
         /* Skull/Canid Inspired Avatar Frame */
         .profile .avatar-frame {
-            width: 110px;
-            height: 110px;
-            border-radius: 50%;
+            width: 150px;
+            height: 150px;
             margin: 0 auto 1.2rem;
-            background: #000;
-            border: 2px solid #00ff66;
-            box-shadow: 0 0 15px rgba(0, 255, 102, 0.4);
             display: flex;
             justify-content: center;
             align-items: center;
             overflow: hidden;
+            position: relative;
+            /* 👈 Kept completely bare. No scanlines can reach this element. */
         }
 
         .profile img {
-            width: 90%;
-            height: 90%;
-            border-radius: 50%;
-            object-fit: cover;
-            filter: grayscale(100%) contrast(150%);
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
 
+        /* 2. Target scanlines to overlay just the text headings */
+        .profile h1, .profile p, .profile .warning {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+        
+        .profile h1::after, .profile p::after, .profile .warning::after {
+            content: " ";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 4px, 6px 100%;
+            pointer-events: none;
+        }
+        
         .profile h1 {
             color: #ffffff;
             font-size: 1.6rem;
@@ -109,7 +126,7 @@
             background-color: rgba(10, 14, 12, 0.85);
             padding: 1.2rem;
             border: 1px solid #00ff66;
-            border-radius: 4px; /* Sharp, utilitarian rectangle shapes */
+            border-radius: 4px; 
             text-decoration: none;
             color: #00ff66;
             font-weight: bold;
@@ -119,6 +136,18 @@
             box-shadow: inset 0 0 8px rgba(0, 255, 102, 0.1), 0 4px 10px rgba(0, 0, 0, 0.7);
             transition: all 0.25s ease-in-out;
             position: relative;
+        }
+
+        /* 3. Target scanlines to overlay the buttons */
+        .link-btn::after {
+            content: " ";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 4px, 6px 100%;
+            pointer-events: none;
+            border-radius: 4px;
         }
 
         /* Glitchy Hover Effects */
@@ -169,17 +198,17 @@
 
         <!-- Rectangular Links -->
         <div class="links">
-            <a href="https://github.com/parallellogic-/MalO_SAO/tree/main/doc/user_guide.md" class="link-btn">
+            <a href="https://github.com" class="link-btn">
                 User Guide
                 <span>Application installation & operational parameters.</span>
             </a>
             
-            <a href="https://uberflux.com/product/PL-1471" class="link-btn">
+            <a href="https://uberflux.com" class="link-btn">
                 Buy Now!
                 <span>Secure official containment purchase on the badge market place.</span>
             </a>
             
-            <a href="https://www.youtube.com/watch?v=Qe8of66Nkio" class="link-btn">
+            <a href="https://youtube.com" class="link-btn">
                 MalO / SCP-1471-A Lore
                 <span>Archived files from the SCP Foundation Database.</span>
             </a>
@@ -189,12 +218,12 @@
                 <span>Visual rendering by Hotglewd.</span>
             </a>
             
-            <a href="https://bitassembly.itch.io/" class="link-btn">
+            <a href="https://itch.io" class="link-btn">
                 Pixel Artwork
                 <span>Sprite visualization by BitAssembly.</span>
             </a>
             
-            <a href="https://github.com/parallellogic-" class="link-btn">
+            <a href="https://github.com" class="link-btn">
                 SAO Schematic & Layout
                 <span>Anomalous hardware mapping by ParallelLogic.</span>
             </a>
