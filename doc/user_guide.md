@@ -50,7 +50,7 @@ In Arduino IDE, go to the "Manage Libraries" ( Ctrl+Shift+I ) screen.  Install t
 - "Adafruit SSD1327" by Adafruit
 
 Make a copy of this file:
-[src/malo/support/lv_conf.h](src/malo/support/lv_conf.h)
+[src/malo/support/lv_conf.h](../../src/malo/support/lv_conf.h)
 inside your lvgl scr folder:
 ~/Arduino/libraries/lvgl/src/
 
@@ -66,7 +66,7 @@ Use the following settings in the Arduino IDE:
 ## Blink LED
 
 Open this Arduino sketch:
-[src/experimentation/blink/blink.ino](src/experimentation/blink/blink.ino)
+[src/experimentation/blink/blink.ino](../../src/experimentation/blink/blink.ino)
 
 Press Ctrl+U to compile and upload the sketch to the MalO SAO
 
@@ -75,24 +75,24 @@ The green LED will blink.  Refer to the left side of page 1 of the [schematic](r
 ## Build Production
 
 Open this Arduino sketch:
-[src/malo/malo.ino](src/malo/malo.ino)
+[src/malo/malo.ino](../../src/malo/malo.ino)
 
 Press Ctrl+U to compile and upload the sketch to the MalO SAO
 
 ## Adding LED Pattern
 
 Look for the `animation_static_red` method in the led.ino file.  Add the following new method below it:
-`void Charlieplex::animation_static_yellow(SensorSuite &sensor_suite)
+```void Charlieplex::animation_static_yellow(SensorSuite &sensor_suite)
 {
     set_max_effective_led_count(CHARLIPLEX_LED_COUNT/2);
     for (uint8_t iter = 0; iter < CHARLIPLEX_LED_COUNT; iter++) set_brightness(iter,128);
-}`
+}```
 
 In the array at the top, add the string and method name:
-`const AnimationMapping animation_table[] = {
+```const AnimationMapping animation_table[] = {
 ...
 {"Static Yellow",      &Charlieplex::animation_static_yellow},
 ...
-};`
+};```
 
 Press Ctrl+U to compile and upload the sketch to the MalO SAO.  The new LED pattern will appear in Animations >> LED Upper >> Static Yellow 
