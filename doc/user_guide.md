@@ -86,13 +86,15 @@ Look for the `animation_static_red` method in the led.ino file.  Add the followi
 {
     set_max_effective_led_count(CHARLIPLEX_LED_COUNT/2);
     for (uint8_t iter = 0; iter < CHARLIPLEX_LED_COUNT; iter++) set_brightness(iter,128);
-}```
+}
+```
 
 In the array at the top, add the string and method name:
 ```const AnimationMapping animation_table[] = {
 ...
 {"Static Yellow",      &Charlieplex::animation_static_yellow},
 ...
-};```
+};
+```
 
 Press Ctrl+U to compile and upload the sketch to the MalO SAO.  The new LED pattern will appear in Animations >> LED Upper >> Static Yellow 
