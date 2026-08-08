@@ -129,7 +129,7 @@ class Screen{
     //virtual void _on_focus(lv_group_t* input_group)=0;
   public:
     Screen(const std::string& text, lv_group_t* shared_input_group,ScreenConfig screen_config=ScreenConfig::DEFAULT);
-    //virtual ~Screen(); //release all memroy, including links to submenus //virtual
+    virtual ~Screen()=default; //release all memroy, including links to submenus //virtual
     virtual void begin(bool is_enter_from_above,SensorSuite *sensor_suite); //fetch resources from RAM like imagery or IR configuration 
     virtual ScreenAction update(); 
     virtual void end(bool is_leaving_upward);//release RAM resources acquired in begin(), but keep any inter-relationship pointers in place, ex submenus
@@ -282,7 +282,7 @@ class LongTextScreen : public Screen {
 
   public:
     LongTextScreen(const std::string& title, lv_group_t* shared_input_group, ScreenConfig screen_config = ScreenConfig::DEFAULT);
-    virtual ~LongTextScreen() = default;
+    //virtual ~LongTextScreen() = default;
 
     // Set the initial text to parse
     void setText(const std::string& text);
