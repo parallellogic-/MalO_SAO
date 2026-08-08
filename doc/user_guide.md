@@ -1,11 +1,41 @@
 # Overview
 
-Note: the following steps are abbreviated.  If you encounter any issues or would like any additional clarification, please file an [issue ticket](https://github.com/parallellogic-/MalO_SAO/issues).
+If you encounter any issues or would like any additional clarification, please file an issue ticket [here](https://github.com/parallellogic-/MalO_SAO/issues).
 
 This documentation will cover the following topics:
+- How to perform a factory reset
 - Blinking an LED
 - Compiling the application software
 - Adding a new LED pattern
+
+# Factory Reset - Friday, August 7
+
+Some users have reported the following issues:
+- Animations are black (except for text along the bottom like "Chilly") or incomplete (only part of the animation frame is visible)
+- Units become stuck in Demo mode (alternating between an animation and full-screen text, and otherwise non-responsive to user input)
+- Missing IR send.csv file
+
+The following steps will resolve the above issues (the entire process should take ~5 minutes):
+1. Connect the device to your computer using a Data USB-C cable (power-only cables are insufficient)
+1. Press AND HOLD the "BOOTSEL" button on the back of the device
+1. While keeping the "BOOTSEL" button pressed, tap the "Reboot" button
+1. Release the "BOOTSEL" button
+1. The device will appear as a USB mass storage device "RP2350" containing files "INDEX.HTM" and "INFO_UF2.TXT"
+1. Copy the following .uf2 file adjacent to "INFO_UF2.TXT": [universal_flash_nuke.uf2](/src/universal_flash_nuke.uf2)
+1. The device will promptly disappear from your list of connected devices
+1. Roughly one minute later, the speaker will click 3 times
+1. The device will re-appear as a connected device "RP2350"
+1. Copy the following .uf2 file adjacent to "INFO_UF2.TXT": [malo.uf2](/src/malo.ino.uf2)
+1. Tap the "Reboot" button
+1. On the MalO SAO, navigate to "Settings"
+1. Navigate to "Mount USB" and press the "check" key.  The red LED on the rear of the device will begin flashing
+1. A new drive will appear on your computer, format this as FAT with drive name "MALO"
+1. Navigate inside the "MALO" drive, you should see no contents
+1. Copy the two folders "animations" and "data" from here into the Flash drive: [flash](/src/malo/flash)
+1. Observe the red LED on the back of the device begins flickering erratically for approximately one minute
+1. Safely dismount the device from your computer
+1. Power cycle the device by tapping the "Reset" button
+1. The MalO SAO has now been factory reset
 
 # Hardware Setup
 
