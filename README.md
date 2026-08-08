@@ -37,11 +37,7 @@ Renders
 
 # User Guide
 
-- [Arduino IDE](https://www.arduino.cc/en/software/)
-    - [earlephilhower library](https://github.com/earlephilhower/arduino-pico) for RP2350B
-    - [kisvegabor lvgl library](https://github.com/lvgl/lvgl)
-- git clone git@github.com:parallellogic-/MalO_SAO.git
-TODO: supporting compiler library installs, Win/Linux...
+Located [here](/doc/user_guide.md)
 
 # Hardware
 
