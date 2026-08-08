@@ -4,14 +4,14 @@ Thank you all for your support, please note the following details to pick up you
 
 Drop times (two options) and location:
 
-- 10:30-11 AM Friday August 7, Badge Life Village: main convention floor on the first floor, at location 209 in W1, ![map](https://imgur.com/a/UpSGXXy)
+- 10:30-11 AM Friday August 7, Badge Life Village: main convention floor on the first floor, at location 209 in W1, [map](https://imgur.com/a/UpSGXXy)
 - 1:30-2 PM Saturday August 8, same location
 
 Please bring the QR and alpha-numeric code that was emailed to you by the Uberflux platform as verification of your purchase
 
-I will be wearing a ![bright orange jacket](https://imgur.com/a/K76Ryd8)
+I will be wearing a [bright orange jacket](https://imgur.com/a/K76Ryd8)
 
-I am very interested in your feedback. Please capture questions/comments/thoughts/requests ![here](https://github.com/parallellogic-/MalO_SAO/issues)
+I am very interested in your feedback. Please capture questions/comments/thoughts/requests [here](https://github.com/parallellogic-/MalO_SAO/issues)
 
 # Overview
 
@@ -25,7 +25,7 @@ Among other things, these MalO units have a screen, LEDs and buttons to allow th
     - [Video](https://www.youtube.com/watch?v=Qe8of66Nkio)
     - [Wiki](https://scp-wiki.wikidot.com/scp-1471)
 
-[Feature Highlights Video](https://www.youtube.com/watch?v=lrK-HDk0pKE]
+[Feature Highlights Video](https://www.youtube.com/watch?v=lrK-HDk0pKE)
 
 Renders
 ![Front](doc/r2/render_front.png)
