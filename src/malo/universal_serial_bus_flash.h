@@ -171,7 +171,9 @@ struct SaveState {
 
     // Parameterless save wrapper targeting the persistent file pathway
     bool save() {
-        Serial.printf("save 5\n");
+        Serial.printf("save 5 - bypass save(), skip file write IO\n");
+        return true;
+
         const char* folder_path = "data";
         const char* file_path = "data/save.bin";
 

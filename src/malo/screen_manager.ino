@@ -660,7 +660,7 @@ void AchievementManager::update()
   bool is_cold=_sensor_suite->analog.get_internal_celsius()<=28;
   if(cold.is_sustained(is_cold)) _sensor_suite->save_state.unlock("Chilly");
 
-  uint8_t deg_sec=100;
+  uint8_t deg_sec=150;
   bool is_dizzy=abs(_sensor_suite->imu.get_gyro(0))>deg_sec || abs(_sensor_suite->imu.get_gyro(1))>deg_sec || abs(_sensor_suite->imu.get_gyro(2))>deg_sec;
   if(dizzy.is_sustained(is_dizzy)) _sensor_suite->save_state.unlock("Dizzy");
 

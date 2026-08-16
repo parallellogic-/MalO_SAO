@@ -120,7 +120,17 @@ void UniversalSerialBus::update(bool is_core1_shutdown)
   //if any character received over Serial terminal, drop into mounted mode
   if(_is_mount_request && is_core1_shutdown && !_is_mounted)
   {//if core1 has stopped interacting with Flash, then servie the mount request on core0
+      delay(20);
       Serial.println("Mount USB... _is_mount_request && is_core1_shutdown && !_is_mounted");
+
+
+    // 2. CONFIGURE THE USB DEVICE APPEARANCE
+    usb_msc.setID("MalO", "Flash Drive", "1.0");
+    usb_msc.setReadWriteCallback(msc_read_cb, msc_write_cb, msc_flush_cb); 
+    usb_msc.setReadyCallback(msc_ready_cb);
+    usb_msc.setCapacity(DISK_SIZE_BYTES / USB_BLOCK_SIZE, USB_BLOCK_SIZE);
+    //usb_msc.setUnitReady(false);
+
 
     // 1. CHECK IF THE DRIVE IS FORMATTED BEFORE INITIALIZING THE USB INTERFACE
     // fatfs.begin returns false if it can't mount a valid FAT partition
@@ -152,13 +162,6 @@ void UniversalSerialBus::update(bool is_core1_shutdown)
       Serial.println("Valid MalO filesystem detected. Skipping format.");
     }
 
-    // 2. CONFIGURE THE USB DEVICE APPEARANCE
-    usb_msc.setID("MalO", "Flash Drive", "1.0");
-    usb_msc.setReadWriteCallback(msc_read_cb, msc_write_cb, msc_flush_cb); 
-    usb_msc.setReadyCallback(msc_ready_cb);
-    usb_msc.setCapacity(DISK_SIZE_BYTES / USB_BLOCK_SIZE, USB_BLOCK_SIZE);
-    //usb_msc.setUnitReady(false);
-
     usb_msc.setUnitReady(true);
     usb_msc.begin();
 
@@ -183,7 +186,7 @@ void UniversalSerialBus::set_mounted(){ _is_mount_request=true; }
 bool UniversalSerialBus::get_mounted(){ return _is_mounted; }
 bool UniversalSerialBus::get_mount_request(){ return _is_mount_request; }
 
-void FlashInterface::begin(){
+/*void FlashInterface::begin(){
     // Mount the FAT library safely over your custom driver logic
   Serial.println("Mounting FatVolume library framework layer...");
   if (!fat_fs.begin(&hardware_block_driver, true, 0)) {
@@ -191,6 +194,42 @@ void FlashInterface::begin(){
   } else {
       Serial.println("SdFat File System successfully initialized!");
   }
+}*/
+
+void FlashInterface::begin(){
+  Serial.println("Mounting FatVolume library framework layer...");
+  
+  // 1. Try to mount the existing filesystem
+  // Passing 'false' as the second parameter prevents it from throwing unhandled panics immediately
+  if (!FlashInterface::fat_fs.begin(&FlashInterface::hardware_block_driver)) {
+      Serial.println("MalO Filesystem not found or corrupted. Formatting drive...");
+      
+      FatFormatter formatter;
+      uint8_t formatWorkspace[512]; // Buffer required by the formatter to build sectors
+      
+      // 3. Format the block device directly
+      if (!formatter.format(&FlashInterface::hardware_block_driver, formatWorkspace, &Serial)) {
+          // Formatting failed handling
+          //return;
+      //}
+
+      // Attempt to format the flash memory
+      //if (!FlashInterface::fat_fs.format(&FlashInterface::hardware_block_driver)) {
+        Serial.println("Critical Error: Failed to format MalO flash drive.");
+        // Optional: blink an error LED or handle the hardware failure here
+      } else {
+        Serial.println("MalO Format successful!");
+        
+        // Remount the newly formatted filesystem to ensure it works
+        if (!FlashInterface::fat_fs.begin(&FlashInterface::hardware_block_driver)) {
+          Serial.println("Error: Failed to mount MalO filesystem after formatting.");
+        }
+      }
+    } else {
+      Serial.println("Valid MalO filesystem detected. Skipping format.");
+    }
+  
+  Serial.println("SdFat File System successfully initialized!");
 }
 
 void FlashInterface::ls()
