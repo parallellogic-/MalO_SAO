@@ -763,7 +763,7 @@ void ScreenSaver::begin(bool is_enter_from_above,SensorSuite *sensor_suite)
 
     // 3. Open configuration file path using the parent _title string
     char config_filename[128];
-    Serial.printf("spritnf dur\n");
+    Serial.printf("sprintf dur\n");
     snprintf(config_filename, sizeof(config_filename), "/animations/%s.dur", _title.c_str());
 
     Serial.printf("fat_fs.open\n");

@@ -16,7 +16,7 @@ const uint32_t FLASH_TARGET_OFFSET = 2 * 1024 * 1024;
 const uint32_t DISK_SIZE_BYTES     = 14 * 1024 * 1024; 
 
 int32_t msc_read_cb(uint32_t lba, void* buffer, uint32_t bufsize);
-int32_t msc_write_cb(uint32_t lba, uint8_t* buffer, uint32_t bufsize);
+int32_t __no_inline_not_in_flash_func(msc_write_cb)(uint32_t lba, uint8_t* buffer, uint32_t bufsize);
 void msc_flush_cb(void);
 bool msc_ready_cb(void);
 
@@ -28,7 +28,7 @@ public:
         return msc_read_cb(sector, dst, 512) == 512;
     }
 
-    bool writeSector(uint32_t sector, const uint8_t* src) override {
+    bool __no_inline_not_in_flash_func(writeSector)(uint32_t sector, const uint8_t* src) override {
         return msc_write_cb(sector, (uint8_t*)src, 512) == 512;
     }
 
@@ -36,7 +36,7 @@ public:
         return msc_read_cb(sector, dst, count * 512) == (int32_t)(count * 512);
     }
 
-    bool writeSectors(uint32_t sector, const uint8_t* src, size_t count) override {
+    bool __no_inline_not_in_flash_func(writeSectors)(uint32_t sector, const uint8_t* src, size_t count) override {
         return msc_write_cb(sector, (uint8_t*)src, count * 512) == (int32_t)(count * 512);
     }
 
@@ -137,7 +137,8 @@ struct SaveState {
 
     bool save(const char* filename) {
         crc = calculate_crc();
-        Serial.printf("save 1\n");
+        Serial.printf("save 1 - bypass save to remove file write IO\n");
+        return true;
 
         // 1. Pause Core 1 so it cannot read from XIP Flash during programming
         bool lockout_success = multicore_lockout_start_timeout_us(100000); // 100ms max wait
@@ -229,7 +230,7 @@ struct SaveState {
             file_updated = true;
         }
 
-        if (file_updated) save();
+//        if (file_updated) save(); //avoid file write IO
 
         return true;
     }
@@ -246,7 +247,7 @@ struct SaveState {
 
         // Folder/file missing or corrupt. Ensure directory tree exists
         if (!FlashInterface::fat_fs.exists(folder_path)) { 
-            FlashInterface::fat_fs.mkdir(folder_path);     
+//            FlashInterface::fat_fs.mkdir(folder_path);     //halt any file write IO
         }
 
         // Reset memory back to fresh default values

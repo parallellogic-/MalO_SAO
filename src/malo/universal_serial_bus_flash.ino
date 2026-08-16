@@ -134,7 +134,7 @@ void UniversalSerialBus::update(bool is_core1_shutdown)
 
     // 1. CHECK IF THE DRIVE IS FORMATTED BEFORE INITIALIZING THE USB INTERFACE
     // fatfs.begin returns false if it can't mount a valid FAT partition
-    if (!FlashInterface::fat_fs.begin(&FlashInterface::hardware_block_driver)) {
+    /*if (!FlashInterface::fat_fs.begin(&FlashInterface::hardware_block_driver)) {
       Serial.println("MalO Filesystem not found or corrupted. Formatting drive...");
       
       FatFormatter formatter;
@@ -160,7 +160,7 @@ void UniversalSerialBus::update(bool is_core1_shutdown)
       }
     } else {
       Serial.println("Valid MalO filesystem detected. Skipping format.");
-    }
+    }*/
 
     usb_msc.setUnitReady(true);
     usb_msc.begin();
@@ -198,36 +198,53 @@ bool UniversalSerialBus::get_mount_request(){ return _is_mount_request; }
 
 void FlashInterface::begin(){
   Serial.println("Mounting FatVolume library framework layer...");
-  
+  //usb_msc.setID("MalO", "Flash Drive", "1.0");
+  //USBDevice.setManufacturerDescriptor("ParallelLogic");
+  //USBDevice.setProductDescriptor("MalO SAO");
   // 1. Try to mount the existing filesystem
   // Passing 'false' as the second parameter prevents it from throwing unhandled panics immediately
-  if (!FlashInterface::fat_fs.begin(&FlashInterface::hardware_block_driver)) {
-      Serial.println("MalO Filesystem not found or corrupted. Formatting drive...");
-      
-      FatFormatter formatter;
-      uint8_t formatWorkspace[512]; // Buffer required by the formatter to build sectors
-      
-      // 3. Format the block device directly
-      if (!formatter.format(&FlashInterface::hardware_block_driver, formatWorkspace, &Serial)) {
-          // Formatting failed handling
-          //return;
-      //}
 
-      // Attempt to format the flash memory
-      //if (!FlashInterface::fat_fs.format(&FlashInterface::hardware_block_driver)) {
-        Serial.println("Critical Error: Failed to format MalO flash drive.");
-        // Optional: blink an error LED or handle the hardware failure here
-      } else {
-        Serial.println("MalO Format successful!");
-        
-        // Remount the newly formatted filesystem to ensure it works
-        if (!FlashInterface::fat_fs.begin(&FlashInterface::hardware_block_driver)) {
-          Serial.println("Error: Failed to mount MalO filesystem after formatting.");
-        }
-      }
+  
+  if (!FlashInterface::fat_fs.begin(&FlashInterface::hardware_block_driver)) {
+    Serial.println("MalO Filesystem not found or corrupted. Formatting drive...");
+    
+    FatFormatter formatter;
+    uint8_t formatWorkspace[512]; // Buffer required by the formatter to build sectors
+    
+    //bool lockout_success = multicore_lockout_start_timeout_us(1000000); // 1000ms max wait
+    //if (!lockout_success) {
+    //    Serial.printf("Save Failed: Core 1 did not park - flash format init\n");
+    //}
+
+    // 2. Disable local interrupts on Core 0 to prevent timing disruptions
+    //uint32_t interrupts = save_and_disable_interrupts(); 
+
+    // 3. Format the block device directly
+    if (!formatter.format(&FlashInterface::hardware_block_driver, formatWorkspace, &Serial)) {
+        // Formatting failed handling
+        //return;
+    //}
+
+    // Attempt to format the flash memory
+    //if (!FlashInterface::fat_fs.format(&FlashInterface::hardware_block_driver)) {
+      Serial.println("Critical Error: Failed to format MalO flash drive.");
+      // Optional: blink an error LED or handle the hardware failure here
     } else {
-      Serial.println("Valid MalO filesystem detected. Skipping format.");
+      Serial.println("MalO Format successful!");
+      
+      // Remount the newly formatted filesystem to ensure it works
+      if (!FlashInterface::fat_fs.begin(&FlashInterface::hardware_block_driver)) {
+        Serial.println("Error: Failed to mount MalO filesystem after formatting.");
+      }
+      //delay(3000);//observing some residual Flash activity after format is "done", so pause to allow async process to finish - not async, activity is downstream
     }
+    //restore_interrupts(interrupts);
+    //multicore_lockout_end_blocking(); 
+  } else {
+    Serial.println("Valid MalO filesystem detected. Skipping format.");
+  }
+
+
   
   Serial.println("SdFat File System successfully initialized!");
 }
