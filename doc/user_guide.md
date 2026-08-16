@@ -31,7 +31,7 @@ The following steps will resolve the above issues (the entire process should tak
 1. On the MalO SAO, navigate to "Settings"
 1. Navigate to "Mount USB" and press the "check" key.  The red LED on the rear of the device will begin flashing
 1. A new drive will appear on your computer
-1. Navigate inside the "MALO" drive, you should see no contents
+1. Navigate inside the new drive, you should see no contents
 1. Copy the two folders "animations" and "data" from here into the Flash drive: [flash](/src/malo/flash)
 1. Observe the red LED on the back of the device begins flickering erratically for approximately one minute
 1. There are now two folders "animations" and "data" on the MalO SAO
