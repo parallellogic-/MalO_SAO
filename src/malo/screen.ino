@@ -288,14 +288,15 @@ void MenuScreen::begin(bool is_enter_from_above,SensorSuite *sensor_suite)
     if(_screen_config==ScreenConfig::IR_TXD)
     {
         Serial.println("Opening IR transmission string asset catalog...");
-        File32 msg_file = FlashInterface::fat_fs.open("/data/messages_send.csv", O_RDONLY);
+        File msg_file = FatFS.open("/data/messages_send.csv", "r");
         
         if (msg_file) {
             std::string line_buffer = "";
             char read_char;
             
             // Loop sequentially through file contents byte-by-byte
-            while (msg_file.read(&read_char, 1) == 1) {
+            //while (msg_file.read(&read_char, 1) == 1) {
+            while (msg_file.read(reinterpret_cast<uint8_t*>(&read_char), 1) == 1) {
                 if (read_char == '\n' || read_char == '\r') {
                     // Check if we accumulated a valid string before hitting a line ending
                     if (!line_buffer.empty()) {
@@ -767,7 +768,8 @@ void ScreenSaver::begin(bool is_enter_from_above,SensorSuite *sensor_suite)
     snprintf(config_filename, sizeof(config_filename), "/animations/%s.dur", _title.c_str());
 
     Serial.printf("fat_fs.open\n");
-    File32 duration_file = FlashInterface::fat_fs.open(config_filename, O_RDONLY);
+    //File32 duration_file = FlashInterface::fat_fs.open(config_filename, O_RDONLY);
+    File duration_file = FatFS.open(config_filename, "r");
     if (duration_file) {
         // Fetch raw file size properties to allocate vectors exactly to target specs
         uint32_t file_size = duration_file.size();
@@ -783,7 +785,8 @@ void ScreenSaver::begin(bool is_enter_from_above,SensorSuite *sensor_suite)
 
     snprintf(config_filename, sizeof(config_filename), "/animations/%s.ord", _title.c_str());
 
-    File32 order_file = FlashInterface::fat_fs.open(config_filename, O_RDONLY);
+    //File32 order_file = FlashInterface::fat_fs.open(config_filename, O_RDONLY);
+    File order_file = FatFS.open(config_filename, "r");
     if (order_file) {
         // Fetch raw file size properties to allocate vectors exactly to target specs
         uint32_t file_size = order_file.size();
@@ -850,7 +853,8 @@ ScreenAction ScreenSaver::update()
     char filename_buffer[64];
     snprintf(filename_buffer, sizeof(filename_buffer), "/animations/%s_%03d.cmp", _title.c_str(), current_frame_index);
 
-    File32 local_file = FlashInterface::fat_fs.open(filename_buffer, O_RDONLY);
+    //File32 local_file = FlashInterface::fat_fs.open(filename_buffer, O_RDONLY);
+    File local_file = FatFS.open(filename_buffer, "r");
     if (local_file) {
           /*if (local_file.size() > (SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX)) {
               local_file.seek(12); //skip lvgl header

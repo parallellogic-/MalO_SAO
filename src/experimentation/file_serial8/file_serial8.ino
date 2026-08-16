@@ -7,10 +7,16 @@
 #include <FatFS.h>
 #include <FatFSUSB.h>
 
+// Low-level FatFS definitions header file mapping
+//#include "./ff.h" 
+
+// Disk metadata definitions
 const char* disk_name = "MALO";
-const char* target_file = "/log.txt";
-bool drive_was_connected = false;
+//const char* target_file = "/log.txt";
+
+// Volatile tracker for hardware state callback tracking
 volatile bool pc_has_control = false;
+bool drive_was_connected = false;
 
 // --- DEDICATED FILE READ STREAM ---
 void printFileContents(const char* filepath) {
@@ -28,124 +34,69 @@ void printFileContents(const char* filepath) {
     }
 }
 
-// --- SECURE STORAGE INITIALIZATION & AUTO-FORMAT ---
-/*void verifyAndSetupStorage() {
-    Serial.println("Checking flash partition integrity...");
-
-    // Step 1: Attempt to mount the storage partition
-    if (!FatFS.begin()) {
-        Serial.println("[Warning] Filesystem missing or damaged. Triggering clean format...");
-        
-        // Step 2: Format the partition if mounting fails
-        // FatFS.format() clears the 14MB block allocated in the IDE Tools menu
-        if (FatFS.format()) {
-            Serial.println("Format successful. Mounting newly created drive partition...");
-            
-            // Re-mount following formatting operation
-            if (!FatFS.begin()) {
-                Serial.println("[Fatal Error] Failed to mount partition post-format!");
-                while (1) { delay(1000); }
-            }
-        } else {
-            Serial.println("[Fatal Error] Flash formatting execution failed!");
-            while (1) { delay(1000); }
-        }
-    }
-
-    // Step 3: Enforce the "MALO" volume identity label on the partition
-    //FatFS.setLabel(disk_name);
-    Serial.println("Filesystem verified and mounted safely.");
-}*/
-
-/*void verifyAndSetupStorage() {
-    if (!FatFS.begin()) {
-        Serial.println("FatFS failed to mount inside setup!");
-        while(1);
-    }
-}*/
-
+// --- SECURE & NON-DESTRUCTIVE STORAGE INITIALIZATION ---
 void verifyAndSetupStorage() {
     Serial.println("Checking flash partition integrity...");
 
-    // Step 1: Attempt to mount the storage partition
+    // Mount the storage partition. If it fails, HALT. Never auto-format on a live device.
     if (!FatFS.begin()) {
-        Serial.println("[Warning] Filesystem missing or damaged. Triggering clean FAT format...");
+        Serial.println("[CRITICAL ERROR] Filesystem missing or unreadable on boot!");
+        //Serial.println("If this is the first execution, uncomment the format override blocks below.");
         
-        // Step 2: Format the partition (FatFS.format takes 0 arguments)
+        // --- EMERGENCY MANUAL INITIALIZATION OVERRIDE ---
+        
         if (FatFS.format()) {
-            Serial.println("Format successful. Mounting newly created drive partition...");
-            
-            // Re-mount following formatting operation
-            if (!FatFS.begin()) {
-                Serial.println("[Fatal Error] Failed to mount partition post-format!");
-                while (1) { delay(1000); }
-            }
-            
-            // Step 3: FIXED - Accessing low-level FatFS using the explicit fatfs:: namespace
-            fatfs::FRESULT res = fatfs::f_setlabel(disk_name);
-            if (res == fatfs::FR_OK) {
-                Serial.printf("Partition volume label successfully assigned as '%s'\n", disk_name);
-            } else {
-                Serial.printf("[Warning] Failed to write partition label. Code: %d\n", res);
-            }
-            
-        } else {
-            Serial.println("[Fatal Error] Flash formatting execution failed!");
-            while (1) { delay(1000); }
+            Serial.println("Initial format complete. Remounting...");
+            FatFS.begin();
+            //fatfs::f_setlabel(disk_name);
         }
-    } else {
-        // Partition mounted fine. Enforce or refresh the label string dynamically inside fatfs space
-        fatfs::f_setlabel(disk_name);
+        
+        while (1) { 
+            Serial.println("System Halted: Protecting storage from unintended formatting wipe.");
+            delay(2000); 
+        }
     }
 
+    // Apply the structural volume identification name tag
+    fatfs::f_setlabel(disk_name);
     Serial.println("Filesystem verified and mounted safely.");
 }
 
-
-// 1. Triggered automatically when the PC physically mounts the device
-void onUsbPlug(uint32_t param) {
+// --- NATIVE PICO SDK INTERRUPT HOOKS ---
+void handleUsbPlug(uint32_t param) {
     (void)param;
     pc_has_control = true;
-    
-    // CRITICAL: Close down local execution allocations so the host PC 
-    // can securely manage raw storage sector layouts safely.
-    FatFS.end();
 }
 
-// 2. Triggered automatically when the PC safely ejects/unmounts the drive
-void onUsbUnplug(uint32_t param) {
+void handleUsbUnplug(uint32_t param) {
     (void)param;
-    // Re-mount internal storage layouts for local board write/read calls
-    if (FatFS.begin()) {
-        pc_has_control = false;
-    }
+    pc_has_control = false;
 }
 
 void setup() {
     Serial.begin(115200);
-    delay(2000); // Buffer for Serial terminal setup
+    delay(3000); // Settling buffer delay for host bus allocation operations
 
-    // Run partition validation and formatting check
+    // Run partition validation without any internal erase conditions
     verifyAndSetupStorage();
 
-    // Create a default file if it doesn't exist yet
-    if (!FatFS.exists(target_file)) {
+    // Create a base data file only if it is genuinely missing
+    /*if (!FatFS.exists(target_file)) {
         File test_file = FatFS.open(target_file, "w");
         if (test_file) {
             test_file.println("Drive initialization complete on 'MALO'.");
             test_file.close();
         }
-    }
+    }*/
 
-    // Output sample content to confirm access
-    printFileContents(target_file);
+    // Verify current data profiles
+    //printFileContents(target_file);
 
-    // --- ENFORCE THE "MALO" VOLUME IDENTITY ---
-    // Under Pico SDK, this changes what the host computer reports in the file manager
-    //PicoUSB.setManufacturer("Custom Hardware");
-    //PicoUSB.setProduct(disk_name);
+    // Register callback methods matching the core Pico SDK footprint signature
+    FatFSUSB.onPlug(handleUsbPlug);
+    FatFSUSB.onUnplug(handleUsbUnplug);
 
-    // Initialize the USB Mass Storage Emulation Stack (No callbacks passed)
+    // Initialize the USB stack controller
     if (!FatFSUSB.begin()) {
         Serial.println("[Error] USB Mass Storage emulation initialization failed.");
     } else {
@@ -154,39 +105,42 @@ void setup() {
 }
 
 void loop() {
-    // Poll host connection status strictly without callback overrides
-    //bool pc_has_control = FatFSUSB.driveConnected();
-
+    // Pure cache protection block tracking using the global flag state
     if (pc_has_control) {
         if (!drive_was_connected) {
             Serial.println("[USB Alert] Host PC mounted the partition. Closing local access.");
-            FatFS.end(); // Sever local ties to prevent tables overlapping
+            FatFS.end(); // Sever local system layouts to avoid sector cross-talk corruption
             drive_was_connected = true;
         }
         delay(10);
         return; 
     }
 
-    // If the PC unmounts/ejects, automatically recover local file systems
+    // Handle reclamation routines if the PC unmounts or ejects the block device
     if (drive_was_connected && !pc_has_control) {
         Serial.println("[USB Alert] Host PC disconnected. Remounting storage internally.");
+        delay(500); // Settling gap to allow Ubuntu buffers to finish drops cleanly
         FatFS.begin();
         drive_was_connected = false;
         
-        // Read contents to view host changes
-        printFileContents(target_file);
+        // Stream contents out to confirm changes made by your Ubuntu workstation
+        //printFileContents(target_file);
     }
 
-    // --- MICROCUT EXECUTION SEGMENT (LOCAL STORAGE MODIFICATION) ---
-    static uint32_t last_log_time = 0;
+    // --- LOCAL FIRMWARE DATA LOGGING ---
+    /*static uint32_t last_log_time = 0;
     if (millis() - last_log_time > 5000) {
         last_log_time = millis();
 
         Serial.println("Appending internal system heartbeat...");
         File file = FatFS.open(target_file, "a");
         if (file) {
+            file.seek(file.size()); // Manual check to push cursor tracking pointer to bottom bounds
             file.printf("Active RP2350 tracking timestamp: %lu\n", millis());
             file.close();
+        } else {
+            Serial.println("[Error] Loop failed to open target file for writing.");
         }
-    }
+    }*/
 }
+

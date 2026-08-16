@@ -657,7 +657,7 @@ void AchievementManager::update()
   bool is_hot=_sensor_suite->analog.get_internal_celsius()>=40;
   if(hot.is_sustained(is_hot)) _sensor_suite->save_state.unlock("Heat Wave");
 
-  bool is_cold=_sensor_suite->analog.get_internal_celsius()<=28;
+  bool is_cold=_sensor_suite->analog.get_internal_celsius()<=20;
   if(cold.is_sustained(is_cold)) _sensor_suite->save_state.unlock("Chilly");
 
   uint8_t deg_sec=100;
