@@ -2,31 +2,26 @@
 
 //USB interacts with Flash, so put file system in here too for shared resource
 
-//#include <Adafruit_TinyUSB.h>
-//#include <SdFat.h>
-//#include "hardware/flash.h"
-//#include <string>
-#include <Arduino.h>
-#include <FatFS.h>
-#include <FatFSUSB.h>
+#include <Adafruit_TinyUSB.h>
+#include <SdFat.h>
+#include "hardware/flash.h"
+#include <string>
 #include "pico/multicore.h" // Ensure this is at the top of your file
 
-const char* disk_name = "MALO";
-
 //#define USB_MOUNS_US 34'000 //how long to wait between mount request (and allow all periphreals to safe themselves) vs performing the mounting operation
-//#define USB_BLOCK_SIZE    512
+#define USB_BLOCK_SIZE    512
 //#define FLASH_SECTOR_SIZE 4096
 
-//const uint32_t FLASH_TARGET_OFFSET = 2 * 1024 * 1024; 
-//const uint32_t DISK_SIZE_BYTES     = 14 * 1024 * 1024; 
+const uint32_t FLASH_TARGET_OFFSET = 2 * 1024 * 1024; 
+const uint32_t DISK_SIZE_BYTES     = 14 * 1024 * 1024; 
 
-/*int32_t msc_read_cb(uint32_t lba, void* buffer, uint32_t bufsize);
+int32_t msc_read_cb(uint32_t lba, void* buffer, uint32_t bufsize);
 int32_t msc_write_cb(uint32_t lba, uint8_t* buffer, uint32_t bufsize);
 void msc_flush_cb(void);
-bool msc_ready_cb(void);*/
+bool msc_ready_cb(void);
 
 // Inherit from FsBlockDevice to perfectly match the RP2040/RP2350 core config
-/*class RP2350CustomFlashDriver : public FsBlockDevice {
+class RP2350CustomFlashDriver : public FsBlockDevice {
 public:
     // Core SdFat v2 uses readSector & writeSector with an optional uint32_t count parameter
     bool readSector(uint32_t sector, uint8_t* dst) override {
@@ -53,22 +48,20 @@ public:
     // Required pure virtual functions for FsBlockDevice in this core configuration
     bool isBusy() override { return false; }
     uint32_t sectorCount() override { return DISK_SIZE_BYTES / USB_BLOCK_SIZE; }
-};*/
+};
 
 class FlashInterface{
-  private:
-    //static RP2350CustomFlashDriver hardware_block_driver;
   public:
+    inline static RP2350CustomFlashDriver hardware_block_driver;
     static void begin();
-    //static void ls();
-    static void format_disk();
-    //static FatVolume fat_fs;
+    static void ls();
+    static FatVolume fat_fs;
 };
 
 class UniversalSerialBus{
   private:
-    volatile static bool _is_mount_request;
-    static bool _is_mounted;
+    inline static bool _is_mount_request=false;
+    inline static bool _is_mounted=false;
   public:
     static void begin();
     static void update(bool is_core1_shutdown);
@@ -143,9 +136,7 @@ struct SaveState {
     // =======================================================
 
     bool save(const char* filename) {
-        return true;
-
-        /*crc = calculate_crc();
+        crc = calculate_crc();
         Serial.printf("save 1\n");
 
         // 1. Pause Core 1 so it cannot read from XIP Flash during programming
@@ -175,14 +166,12 @@ struct SaveState {
         multicore_lockout_end_blocking(); 
 
         Serial.printf("save 4\n");
-        return written == sizeof(SaveState);*/
+        return written == sizeof(SaveState);
     }
 
     // Parameterless save wrapper targeting the persistent file pathway
     bool save() {
-        return true;
-
-        /*Serial.printf("save 5\n");
+        Serial.printf("save 5\n");
         const char* folder_path = "data";
         const char* file_path = "data/save.bin";
 
@@ -208,11 +197,11 @@ struct SaveState {
         Serial.printf("save 7\n");
         
         // Calls the updated, safe save(filename) method above
-        return save(file_path); */
+        return save(file_path); 
     }
 
     bool load(const char* filename) {
-        File file = FatFS.open(filename, "r"); 
+        File32 file = FlashInterface::fat_fs.open(filename, O_RDONLY); 
         if (!file) return false;
 
         SaveState temp_state;
@@ -253,10 +242,8 @@ struct SaveState {
             return true;
         }
 
-        return false;
-
         // Folder/file missing or corrupt. Ensure directory tree exists
-        /*if (!FlashInterface::fat_fs.exists(folder_path)) { 
+        if (!FlashInterface::fat_fs.exists(folder_path)) { 
             FlashInterface::fat_fs.mkdir(folder_path);     
         }
 
@@ -271,7 +258,7 @@ struct SaveState {
         // Initialize and lock down the default file context on your disk
         save(file_path);
 
-        return true;*/
+        return true;
     }
 
     // =======================================================

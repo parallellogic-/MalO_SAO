@@ -201,7 +201,7 @@ void __not_in_flash_func(loop1)(){ //core 1
       sensor_suite.microphone.update();
       sensor_suite.motor.update();
       sensor_suite.buzzer.update();
-//      sensor_suite.decoder_ir_rxd.update();
+      sensor_suite.decoder_ir_rxd.update();
       sensor_suite.ir_txd.update(); //status led of txd
 
       //sensor_suite.touch.debug();
