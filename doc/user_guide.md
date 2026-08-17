@@ -8,7 +8,7 @@ This documentation will cover the following topics:
 - Compiling the application software
 - Adding a new LED pattern
 
-# Factory Reset - Friday, August 7
+# Factory Reset
 
 Some users have reported the following issues:
 - Animations are black (except for text along the bottom like "Chilly") or incomplete (only part of the animation frame is visible)
