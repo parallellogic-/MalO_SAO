@@ -107,7 +107,7 @@ void UniversalSerialBus::begin()
 
   Serial.begin(1'000'000);
   long start_tms=millis();
-  while(!Serial && (millis()-start_tms)<7000) delay(1);//wait for terminal to connect or timeout, whichever is first
+  //while(!Serial && (millis()-start_tms)<7000) delay(1);//wait for terminal to connect or timeout, whichever is first
   Serial.println("START");
 
   FlashInterface::begin();
