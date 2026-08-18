@@ -1,17 +1,14 @@
-# Drop details - August 2026
+# News
 
-Thank you all for your support, please note the following details to pick up your order:
+## DEFCON34 Follow-up August 2026
 
-Drop times (two options) and location:
+Some users have reported issues with black animations, a missing IR send file, or getting stuck in demo mode (unresponsive to button pushes).  To resolve any of these issues, please perform a factory reset as detailed [here](https://github.com/parallellogic-/MalO_SAO/blob/main/doc/user_guide.md#factory-reset)
 
-- 10:30-11 AM Friday August 7, Badge Life Village: main convention floor on the first floor, at location 209 in W1, [map](https://imgur.com/a/UpSGXXy)
-- 1:30-2 PM Saturday August 8, same location
+## Ongoing Development
 
-Please bring the QR and alpha-numeric code that was emailed to you by the Uberflux platform as verification of your purchase
+To track the latest ongoing development, please follow the [dev diary blogs](https://hackaday.io/project/205956-malo-sao)
 
-I will be wearing a [bright orange jacket](https://imgur.com/a/K76Ryd8)
-
-I am very interested in your feedback. Please capture questions/comments/thoughts/requests [here](https://github.com/parallellogic-/MalO_SAO/issues)
+I am very interested in your feedback. Please capture questions/comments/thoughts/requests [here](https://github.com/parallellogic-/MalO_SAO/issues).
 
 # Overview
 
