@@ -12,19 +12,20 @@ I am very interested in your feedback. Please capture questions/comments/thought
 
 # Overview
 
-This page contains the code and design files used to create the SCP-1471-A MalO Simple Add-On (SAO).  These units will be sold online and handed out at DEFCON34 in August 2026.
+This page contains the code and design files used to create the SCP-1471-A MalO Simple Add-On (SAO).  These units were sold online and distributed out at DEFCON34 in August 2026, and will be sold at Open Sauce in July 2027.
 
-As part of the standard DEFCON experience, each attendee receives a circuit board they wear around their neck that serves both as a multi-day ticket for the conference and as a platform to show off hardware/software hacks.  These MalO SAOs plug into the expansion port on the official conference badge to allow the user to customize their standard DEFCON badge.
+As part of the standard conference experience, each attendee receives a circuit board they wear around their neck that serves both as a multi-day ticket for the conference and as a platform to show off hardware/software hacks.  These MalO SAOs plug into the expansion port on the official conference badge to allow the user to customize their badge.
 
-Among other things, these MalO units have a screen, LEDs and buttons to allow the user to play games, unlock puzzles, display screen savers, view messages, etc.  The devices can communicate with one another over infrared and Near Field Communication.  The units have a USB port where users can hack them with the Arduino IDE.
+Each MalO SAO has puzzles, games, LEDs, custom animations, capacitive touch buttons, a thermal monitor, a battery monitor, infrared receive and transmit (which is how they exchange chat messages with each other), a light sensor, an accelerometer, a gyroscope, they're hackable over USB-C using the Arduino IDE, and contain a potentiometer, buzzer, microphone, hall effect sensor, vibration motor, SAO header, a switch to reverse the polarity of the header to be compatible with other badges from other years, and a set of stickers.
 
 - SCP-1471-A, MalO v1.0.0, Lore
     - [Video](https://www.youtube.com/watch?v=Qe8of66Nkio)
     - [Wiki](https://scp-wiki.wikidot.com/scp-1471)
 
-[Feature Highlights Video](https://www.youtube.com/watch?v=lrK-HDk0pKE)
+## Feature Highlights Video
+[![Feature Highlights Video](https://img.youtube.com/vi/lrK-HDk0pKE/maxresdefault.jpg)](https://www.youtube.com/watch?v=lrK-HDk0pKE)
 
-Renders
+## Renders
 ![Front](doc/r2/render_front.png)
 ![Back](doc/r2/render_back.png)
 
@@ -102,8 +103,6 @@ Located [here](/doc/user_guide.md)
     - Graphics
 - Core1
     - Low-level sensor interfaces
-
-# Features
 
 # Resources
 
