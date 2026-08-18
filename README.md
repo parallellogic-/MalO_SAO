@@ -2,7 +2,7 @@
 
 ## DEFCON34 Follow-up August 2026
 
-Some users have reported issues with black animations, a missing IR send file, or getting stuck in demo mode (unresponsive to button pushes).  To resolve any of these issues, please perform a factory reset as detailed [here](https://github.com/parallellogic-/MalO_SAO/blob/main/doc/user_guide.md#factory-reset)
+Some users have reported issues (in software version v1.0.0) with black animations, a missing IR send file, or getting stuck in demo mode (unresponsive to button pushes).  To resolve these issues, please perform a factory reset (to software v1.0.1) as detailed [here](https://github.com/parallellogic-/MalO_SAO/blob/main/doc/user_guide.md#factory-reset)
 
 ## Ongoing Development
 
@@ -18,9 +18,19 @@ As part of the standard conference experience, each attendee receives a circuit 
 
 Each MalO SAO has puzzles, games, LEDs, custom animations, capacitive touch buttons, a thermal monitor, a battery monitor, infrared receive and transmit (which is how they exchange chat messages with each other), a light sensor, an accelerometer, a gyroscope, they're hackable over USB-C using the Arduino IDE, and contain a potentiometer, buzzer, microphone, hall effect sensor, vibration motor, SAO header, a switch to reverse the polarity of the header to be compatible with other badges from other years, and a set of stickers.
 
-- SCP-1471-A, MalO v1.0.0, Lore
+## Buy Now
+
+[Pre-order Online](https://uberflux.com/product/PL-1471)
+
+## Lore
+
+- SCP-1471-A, MalO v1.0.0
     - [Video](https://www.youtube.com/watch?v=Qe8of66Nkio)
     - [Wiki](https://scp-wiki.wikidot.com/scp-1471)
+
+## User Guide
+
+Located [here](/doc/user_guide.md)
 
 ## Feature Highlights Video
 [![Feature Highlights Video](https://img.youtube.com/vi/lrK-HDk0pKE/maxresdefault.jpg)](https://www.youtube.com/watch?v=lrK-HDk0pKE)
@@ -28,14 +38,6 @@ Each MalO SAO has puzzles, games, LEDs, custom animations, capacitive touch butt
 ## Renders
 ![Front](doc/r2/render_front.png)
 ![Back](doc/r2/render_back.png)
-
-# Buy Now
-
-[Pre-order Online](https://uberflux.com/product/PL-1471)
-
-# User Guide
-
-Located [here](/doc/user_guide.md)
 
 # Hardware
 
@@ -139,7 +141,6 @@ This work is licensed under a [Creative Commons Attribution-ShareAlike 3.0 Unpor
 
 [cc-by-sa]: http://creativecommons.org
 [cc-by-sa-shield]: https://shields.io
-=======
-- Credits
+
 
 
